@@ -2,6 +2,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import dataclasses
 import shutil
 import tempfile
 import unittest
@@ -11,8 +12,9 @@ from unittest.mock import patch
 from PySide6.QtWidgets import QApplication, QDialog
 
 from saat.config import Config
+from saat.image_import import import_image, thumbnail_path
 from saat.models import Watch
-from saat.storage import create_watch, load_collection
+from saat.storage import create_watch, load_collection, save_watch
 from saat.ui.collection_view import CollectionView
 from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
@@ -23,7 +25,7 @@ from saat.ui.watch_form import WatchForm
 _app = QApplication.instance() or QApplication([])
 
 
-def _accept_with(**field_values):
+def _accept_with(images=None, **field_values):
     """Fake WatchForm.exec(): set fields on the real (unshown) form instance,
     call the real _on_save(), and return Accepted — exercises the actual
     validation/build logic without blocking on the modal event loop."""
@@ -34,6 +36,8 @@ def _accept_with(**field_values):
             self._model.setText(field_values["model"])
         if "nickname" in field_values:
             self._nickname.setText(field_values["nickname"])
+        if images:
+            self.images_tab()._add_sources(images)
         self._on_save()
         return QDialog.DialogCode.Accepted
     return _exec
@@ -70,6 +74,27 @@ class AddFlowTests(UITestCase):
         self.assertIsInstance(view, CollectionView)
         self.assertEqual(len(view.records), 1)
         self.assertEqual(view.records[0].watch.brand, "Seiko")
+
+    def test_add_with_a_staged_image_commits_it_to_the_new_watchs_folder(self) -> None:
+        from PIL import Image
+
+        from saat.image_import import thumbnail_path
+
+        source = self.tmp / "photo.jpg"
+        Image.new("RGB", (800, 1000), (90, 70, 40)).save(source)
+
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        empty_state = window.centralWidget().currentWidget()
+
+        with patch.object(WatchForm, "exec", _accept_with(brand="Seiko", model="SARB033", images=[source])):
+            empty_state.add_watch_requested.emit()
+
+        view = window.centralWidget().currentWidget()
+        [record] = view.records
+        self.assertEqual(record.watch.images, ["photo.jpg"])
+        images_dir = record.path / "images"
+        self.assertTrue((images_dir / "photo.jpg").exists())
+        self.assertTrue(thumbnail_path(images_dir, "photo.jpg").exists())
 
     def test_add_from_collection_top_bar_appends_to_existing_collection(self) -> None:
         create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="F-91W"))
@@ -112,6 +137,37 @@ class EditFlowTests(UITestCase):
         [updated] = load_collection(self.watches_dir)
         self.assertEqual(updated.watch.nickname, "Cocktail Time")
         self.assertEqual(updated.watch.brand, "Seiko")  # untouched fields survive
+
+    def test_edit_of_an_unrelated_field_preserves_existing_images_and_their_order(self) -> None:
+        from PIL import Image
+
+        record = create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        images_dir = record.path / "images"
+        for name, color in [("a.jpg", (90, 70, 40)), ("b.jpg", (60, 60, 65))]:
+            source = self.tmp / name
+            Image.new("RGB", (800, 1000), color).save(source)
+            import_image(source, images_dir, name)
+        record = save_watch(
+            self.backups_dir,
+            dataclasses.replace(record, watch=dataclasses.replace(record.watch, images=["a.jpg", "b.jpg"])),
+        )
+
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        [record] = collection_view.records
+
+        collection_view.record_activated.emit(record)
+        detail_view = window.centralWidget().currentWidget()
+
+        with patch.object(WatchForm, "exec", _accept_with(nickname="Cocktail Time")):
+            detail_view.edit_requested.emit(record)
+
+        [updated] = load_collection(self.watches_dir)
+        self.assertEqual(updated.watch.images, ["a.jpg", "b.jpg"])
+        self.assertTrue((images_dir / "a.jpg").exists())
+        self.assertTrue((images_dir / "b.jpg").exists())
+        self.assertTrue(thumbnail_path(images_dir, "a.jpg").exists())
+        self.assertTrue(thumbnail_path(images_dir, "b.jpg").exists())
 
 
 class DeleteFlowTests(UITestCase):

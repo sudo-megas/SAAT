@@ -108,3 +108,9 @@ class Watch:
     worn: list[date] = field(default_factory=list)
     timing: list[TimingEntry] = field(default_factory=list)
     notes: str | None = None
+
+    # Not in SPEC.md's data model table: the gallery order chosen in the
+    # Images tab (first = primary, per SPEC.md §5.2/§5.6). Filenames only;
+    # list_images() falls back to alphabetical order for any watch.toml
+    # written before this field existed, or for files not listed here.
+    images: list[str] = field(default_factory=list)

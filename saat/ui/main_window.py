@@ -88,7 +88,8 @@ class MainWindow(QMainWindow):
         form = WatchForm(self._current_records(), record=None, parent=self)
         if form.exec() != QDialog.DialogCode.Accepted:
             return
-        create_watch(self._watches_dir, self._backups_dir, form.saved_watch())
+        created = create_watch(self._watches_dir, self._backups_dir, form.saved_watch())
+        form.images_tab().commit(created.path / "images")
         self._load_and_show_collection()
 
     def _show_edit_form(self, record: WatchRecord) -> None:
@@ -97,6 +98,7 @@ class MainWindow(QMainWindow):
             return
         updated_record = dataclasses.replace(record, watch=form.saved_watch())
         save_watch(self._backups_dir, updated_record)
+        form.images_tab().commit(updated_record.path / "images")
         self._load_and_show_collection()
 
         refreshed = self._find_record(record.slug)

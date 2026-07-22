@@ -137,6 +137,7 @@ def _watch_from_document(doc: tomlkit.TOMLDocument) -> Watch:
         worn=list(doc.get("worn", [])),
         timing=[_dataclass_from_table(TimingEntry, entry) for entry in doc.get("timing", [])],
         notes=doc.get("notes"),
+        images=list(doc.get("images", [])),
     )
 
 
@@ -196,6 +197,7 @@ def _apply_watch_to_document(watch: Watch, doc: tomlkit.TOMLDocument) -> None:
     doc["timing"] = _build_aot(watch.timing)
 
     _sync_scalar(doc, "notes", watch.notes)
+    doc["images"] = list(watch.images)
 
 
 def create_watch(watches_dir: Path, backups_dir: Path, watch: Watch) -> WatchRecord:

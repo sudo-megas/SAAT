@@ -46,6 +46,12 @@ QPushButton:focus {
     border-color: @gilt@;
 }
 
+QPushButton:disabled {
+    color: @text-muted@;
+    border-color: @rule@;
+    background: @plate@;
+}
+
 QPushButton[variant="primary"] {
     background: @gilt@;
     color: @plate@;

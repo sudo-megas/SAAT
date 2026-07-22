@@ -42,6 +42,7 @@ from saat.ui.form_fields import (
     set_int_value,
     suggested_combo,
 )
+from saat.ui.images_tab import ImagesTab
 from saat.ui.list_editors import LogEditor, StringListEditor, StrapsEditor, TimingEditor
 
 GROUP_SUGGESTIONS = ["Seiko Group", "Casio", "Swatch Group", "Citizen Group", "Micro Brand", "Independent", "Other"]
@@ -79,6 +80,7 @@ class WatchForm(QDialog):
 
         self._tabs = QTabWidget()
         self._tabs.addTab(self._build_identity_tab(watch), "Identity")
+        self._tabs.addTab(self._build_images_tab(record), "Images")
         self._tabs.addTab(self._build_movement_tab(watch), "Movement")
         self._tabs.addTab(self._build_case_tab(watch), "Case")
         self._tabs.addTab(self._build_dial_tab(watch), "Dial")
@@ -95,6 +97,14 @@ class WatchForm(QDialog):
             lambda: self._straps_editor.set_default_width_mm(int_value(self._lug_width_mm))
         )
 
+        # A strap's image is picked from whatever's currently staged in the
+        # Images tab; removing an image there must null out any strap
+        # referencing it, never leave a dangling filename.
+        self._straps_editor.set_available_images(self._images_tab.filenames())
+        self._images_tab.changed.connect(
+            lambda: self._straps_editor.set_available_images(self._images_tab.filenames())
+        )
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self._on_save)
         buttons.rejected.connect(self.reject)
@@ -107,6 +117,9 @@ class WatchForm(QDialog):
 
     def saved_watch(self) -> Watch | None:
         return self._saved_watch
+
+    def images_tab(self) -> ImagesTab:
+        return self._images_tab
 
     # --- dirty tracking -----------------------------------------------------
 
@@ -188,6 +201,18 @@ class WatchForm(QDialog):
             ("Rating", self._rating),
             ("Tags", self._tags),
         ])
+
+    # --- Images -----------------------------------------------------------
+
+    def _build_images_tab(self, record: WatchRecord | None) -> QWidget:
+        self._images_tab = ImagesTab(record)
+        self._track(self._images_tab)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(self._images_tab)
+        return scroll
 
     # --- Movement -----------------------------------------------------------
 
@@ -450,6 +475,7 @@ class WatchForm(QDialog):
             worn=preserved_worn,  # calendar-driven (milestone 7); this form never touches it
             timing=self._timing_editor.values(),
             notes=self._notes.toPlainText().strip() or None,
+            images=self._images_tab.filenames(),
         )
 
     def _on_save(self) -> None:

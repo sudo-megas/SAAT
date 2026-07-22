@@ -150,6 +150,9 @@ class StrapRow(QFrame):
         self.clasp = suggested_combo(STRAP_CLASP_SUGGESTIONS, [])
         self.fitted = QPushButton("Fitted")
         self.fitted.setCheckable(True)
+        self.image_combo = QComboBox()
+        self.image_combo.addItem("No image", None)
+        self._desired_image: str | None = None
 
         for widget, label in ((self.material, "Material"), (self.colour, None), (self.width_mm, None), (self.clasp, "Clasp")):
             if label:
@@ -157,6 +160,7 @@ class StrapRow(QFrame):
             layout.addWidget(widget)
 
         layout.addWidget(self.fitted)
+        layout.addWidget(self.image_combo)
         remove_button = _remove_button()
         remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
         layout.addWidget(remove_button)
@@ -166,13 +170,32 @@ class StrapRow(QFrame):
         self.width_mm.valueChanged.connect(lambda _: self.changed.emit())
         self.clasp.currentTextChanged.connect(lambda _: self.changed.emit())
         self.fitted.toggled.connect(self._on_fitted_toggled)
-
-        self.image_filename: str | None = None
+        self.image_combo.currentIndexChanged.connect(self._on_image_combo_changed)
 
     def _on_fitted_toggled(self, checked: bool) -> None:
         if checked:
             self.fitted_checked.emit(self)
         self.changed.emit()
+
+    def _on_image_combo_changed(self, _index: int) -> None:
+        self._desired_image = self.image_combo.currentData()
+        self.changed.emit()
+
+    def set_available_images(self, filenames: list[str]) -> None:
+        """Called whenever the Images tab's staged list changes. Re-resolves
+        this row's selection against the new option set — if the filename it
+        was pointing at is no longer available, the reference is nulled out,
+        never left dangling."""
+        self.image_combo.blockSignals(True)
+        self.image_combo.clear()
+        self.image_combo.addItem("No image", None)
+        for name in filenames:
+            self.image_combo.addItem(name, name)
+        index = self.image_combo.findData(self._desired_image) if self._desired_image else 0
+        self.image_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.image_combo.blockSignals(False)
+        if self.image_combo.currentData() != self._desired_image:
+            self._desired_image = self.image_combo.currentData()
 
     def get_value(self) -> Strap:
         return Strap(
@@ -181,7 +204,7 @@ class StrapRow(QFrame):
             width_mm=int_value(self.width_mm),
             clasp=combo_value(self.clasp),
             fitted=self.fitted.isChecked(),
-            image=self.image_filename,
+            image=self._desired_image,
         )
 
     def set_value(self, strap: Strap) -> None:
@@ -191,7 +214,9 @@ class StrapRow(QFrame):
         set_combo_value(self.clasp, strap.clasp)
         self.fitted.setChecked(strap.fitted)
         _repolish(self.fitted)
-        self.image_filename = strap.image
+        self._desired_image = strap.image
+        index = self.image_combo.findData(self._desired_image) if self._desired_image else 0
+        self.image_combo.setCurrentIndex(index if index >= 0 else 0)
 
 
 class StrapsEditor(QWidget):
@@ -204,6 +229,7 @@ class StrapsEditor(QWidget):
         super().__init__(parent)
         self._existing_materials = existing_materials
         self._default_width_mm: int | None = None
+        self._available_images: list[str] = []
         self._rows: list[StrapRow] = []
 
         layout = QVBoxLayout(self)
@@ -223,6 +249,7 @@ class StrapsEditor(QWidget):
         row.remove_requested.connect(self._remove_row)
         row.changed.connect(self.changed.emit)
         row.fitted_checked.connect(self._on_fitted_checked)
+        row.set_available_images(self._available_images)
         if initial is not None:
             row.set_value(initial)
         self._rows.append(row)
@@ -250,10 +277,10 @@ class StrapsEditor(QWidget):
         for strap in straps:
             self.add_row(initial=strap)
 
-    def rename_image_reference(self, old_name: str, new_name: str | None) -> None:
+    def set_available_images(self, filenames: list[str]) -> None:
+        self._available_images = list(filenames)
         for row in self._rows:
-            if row.image_filename == old_name:
-                row.image_filename = new_name
+            row.set_available_images(filenames)
 
 
 class LogRow(QFrame):
