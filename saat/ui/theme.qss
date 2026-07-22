@@ -265,3 +265,96 @@ QMenu::item {
 QMenu::item:selected {
     background: @rule@;
 }
+
+QLabel[class="detail-overline"] {
+    color: @text-muted@;
+    font-family: "@font-sans-condensed@";
+    font-size: @size-sm@px;
+    font-weight: 600;
+}
+
+QLabel[class="detail-title"] {
+    color: @text@;
+    font-size: @size-xl@px;
+    font-weight: 600;
+}
+
+QLabel[class="detail-meta"] {
+    color: @text-muted@;
+    font-family: "@font-sans-condensed@";
+    font-size: @size-sm@px;
+}
+
+QLabel[class="detail-image-placeholder"] {
+    background: @plate-high@;
+    color: @text-muted@;
+    font-family: "@font-mono@";
+    font-size: @size-md@px;
+    border: 1px solid @rule@;
+    border-radius: 4px;
+}
+
+QLabel[class="gallery-thumb"] {
+    background: @plate-high@;
+    border: 1px solid @rule@;
+    border-radius: 3px;
+}
+
+QLabel[class="gallery-thumb"][active="true"] {
+    border: 2px solid @gilt@;
+}
+
+QLabel[class="spec-row-label"] {
+    color: @text-muted@;
+    font-family: "@font-sans-condensed@";
+    font-size: @size-xs@px;
+    font-weight: 600;
+}
+
+QLabel[class="spec-row-value"] {
+    color: @text@;
+    font-size: @size-sm@px;
+}
+
+QLabel[class="spec-row-value-mono"] {
+    color: @text@;
+    font-family: "@font-mono@";
+    font-size: @size-sm@px;
+}
+
+QFrame[class="strap-card"] {
+    background: @plate-high@;
+    border: 1px solid @rule@;
+    border-radius: 4px;
+}
+
+QLabel[class="strap-photo-placeholder"] {
+    background: @plate@;
+    border-radius: 3px;
+}
+
+QLabel[class="strap-title"] {
+    color: @text@;
+    font-weight: 600;
+}
+
+QLabel[class="fitted-badge"] {
+    color: @gilt@;
+    font-family: "@font-sans-condensed@";
+    font-size: @size-xs@px;
+    font-weight: 600;
+    border: 1px solid @gilt@;
+    border-radius: 3px;
+    padding: 2px 8px;
+}
+
+QLabel[class="log-entry-header"] {
+    color: @text@;
+    font-weight: 600;
+}
+
+QLabel[class="timing-row"] {
+    color: @text@;
+    font-family: "@font-mono@";
+    font-size: @size-sm@px;
+}

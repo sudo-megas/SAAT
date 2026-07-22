@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
 
 from saat.storage import WatchRecord
+from saat.ui.images import cropped_pixmap, list_images
 
 # SPEC.md §5.1: four to five cards per row on a 1440p (2560px) display.
 CARD_WIDTH = 480
@@ -12,30 +13,16 @@ IMAGE_HEIGHT = int(CARD_WIDTH * 5 / 4)  # 4:5 portrait crop
 TEXT_BLOCK_HEIGHT = 100
 CARD_CONTENT_PADDING = 16  # SPEC.md §6: card padding 16
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-
 
 def _first_image(record: WatchRecord) -> Path | None:
-    images_dir = record.path / "images"
-    if not images_dir.is_dir():
-        return None
-    candidates = sorted(p for p in images_dir.iterdir() if p.suffix.lower() in IMAGE_EXTENSIONS)
-    return candidates[0] if candidates else None
-
-
-def _cropped_pixmap(path: Path, width: int, height: int) -> QPixmap | None:
-    pixmap = QPixmap(str(path))
-    if pixmap.isNull():
-        return None
-    scaled = pixmap.scaled(width, height, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                            Qt.TransformationMode.SmoothTransformation)
-    x = max(0, (scaled.width() - width) // 2)
-    y = max(0, (scaled.height() - height) // 2)
-    return scaled.copy(x, y, width, height)
+    images = list_images(record)
+    return images[0] if images else None
 
 
 class WatchCard(QFrame):
     """A photo-forward grid card for one watch. See SPEC.md §5.2."""
+
+    activated = Signal(object)  # emits the WatchRecord; only for successfully loaded watches
 
     def __init__(self, record: WatchRecord, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -49,12 +36,20 @@ class WatchCard(QFrame):
         if record.watch is not None:
             layout.addWidget(self._build_image(record))
             layout.addWidget(self._build_info(record))
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+            self._record = record
         else:
             layout.addWidget(self._build_error(record))
+            self._record = None
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._record is not None and event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.pos()):
+            self.activated.emit(self._record)
+        super().mouseReleaseEvent(event)
 
     def _build_image(self, record: WatchRecord) -> QWidget:
         image_path = _first_image(record)
-        pixmap = _cropped_pixmap(image_path, CARD_WIDTH, IMAGE_HEIGHT) if image_path else None
+        pixmap = cropped_pixmap(image_path, CARD_WIDTH, IMAGE_HEIGHT) if image_path else None
 
         label = QLabel()
         label.setFixedSize(CARD_WIDTH, IMAGE_HEIGHT)

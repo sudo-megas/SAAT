@@ -1,3 +1,4 @@
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
 
 from saat.config import Config
@@ -13,6 +14,8 @@ DEFAULT_SORT_KEY = "brand"
 class CollectionView(QWidget):
     """Top bar plus grid/table, switchable. Read-only for now — no search, no
     filter sidebar, no compare selection; those land in later milestones."""
+
+    record_activated = Signal(object)
 
     def __init__(self, records: list[WatchRecord], config: Config, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -37,6 +40,8 @@ class CollectionView(QWidget):
         self._top_bar.view_changed.connect(self._on_view_changed)
         self._top_bar.sort_changed.connect(self._on_sort_changed)
         self._top_bar.preset_changed.connect(self._on_preset_changed)
+        self._grid_view.record_activated.connect(self.record_activated.emit)
+        self._table_view.record_activated.connect(self.record_activated.emit)
 
         self._table_view.set_columns(self._config.column_keys() or DEFAULT_COLUMN_KEYS)
         self._apply_sort_and_render()

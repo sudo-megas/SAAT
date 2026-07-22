@@ -1,64 +1,23 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
 from typing import Any
 
 from saat.models import Strap, Watch
-
-EM_DASH = "—"
+from saat.ui.formatting import (
+    EM_DASH,
+    fmt_accuracy,
+    fmt_bool,
+    fmt_bph,
+    fmt_date,
+    fmt_list,
+    fmt_number,
+    fmt_price,
+    fmt_water_resistance,
+    is_empty,
+    is_numeric_value,
+)
 
 GROUP_ORDER = ["Identity", "Movement", "Case", "Dial", "Straps", "Acquisition"]
-
-
-def _is_empty(value: Any) -> bool:
-    return value is None or value == "" or value == []
-
-
-def is_numeric_value(value: Any) -> bool:
-    """True for values that should render in Plex Mono: diameters, bph, accuracy,
-    prices, dates. False for bool (renders as Yes/No text, not a figure)."""
-    if isinstance(value, bool):
-        return False
-    return isinstance(value, (int, float, date, tuple))
-
-
-def _fmt_number(value: float, unit: str = "") -> str:
-    text = str(int(value)) if float(value).is_integer() else f"{value:g}"
-    return f"{text}{unit}"
-
-
-def _fmt_date(value) -> str:
-    return value.strftime("%d.%m.%Y")
-
-
-def _fmt_list(value: list) -> str:
-    return ", ".join(str(v) for v in value)
-
-
-def _fmt_bool(value: bool) -> str:
-    return "Yes" if value else "No"
-
-
-def _fmt_water_resistance(value: int) -> str:
-    # tomlkit's Integer/Float wrapper types don't collapse round() to a plain
-    # int the way builtin float does, so cast explicitly or "20.0 bar" leaks
-    # into a real table cell for every watch loaded from disk.
-    return f"{value} m ({round(int(value) / 10)} bar)"
-
-
-def _fmt_bph(value: int) -> str:
-    return f"{value} bph ({value / 7200:g} Hz)"
-
-
-def _fmt_price(value: tuple[float, str]) -> str:
-    price, currency = value
-    return f"{price:,.2f} {currency}".strip()
-
-
-def _fmt_accuracy(value: tuple[float | None, float | None, str]) -> str:
-    lo, hi, unit = value
-    signed = lambda n: "?" if n is None else f"{n:+g}"
-    return f"{signed(lo)}/{signed(hi)} {unit}"
 
 
 def _fitted_strap(watch: Watch) -> Strap | None:
@@ -96,7 +55,7 @@ class Column:
 
     def text(self, watch: Watch) -> str:
         value = self.getter(watch)
-        return EM_DASH if _is_empty(value) else self.formatter(value)
+        return EM_DASH if is_empty(value) else self.formatter(value)
 
 
 COLUMNS: list[Column] = [
@@ -110,48 +69,48 @@ COLUMNS: list[Column] = [
     Column("status", "Status", "Identity", lambda w: w.status),
     Column("storage", "Storage", "Identity", lambda w: w.storage),
     Column("rating", "Rating", "Identity", lambda w: w.rating),
-    Column("tags", "Tags", "Identity", lambda w: w.tags, _fmt_list),
+    Column("tags", "Tags", "Identity", lambda w: w.tags, fmt_list),
     # Movement
     Column("caliber", "Caliber", "Movement", lambda w: w.movement.caliber),
     Column("movement_kind", "Movement", "Movement", lambda w: w.movement.kind),
-    Column("power_reserve_hours", "Power Reserve", "Movement", lambda w: w.movement.power_reserve_hours, lambda v: _fmt_number(v, "h")),
-    Column("battery_life_years", "Battery Life", "Movement", lambda w: w.movement.battery_life_years, lambda v: _fmt_number(v, "y")),
-    Column("accuracy", "Accuracy", "Movement", _get_accuracy, _fmt_accuracy),
+    Column("power_reserve_hours", "Power Reserve", "Movement", lambda w: w.movement.power_reserve_hours, lambda v: fmt_number(v, "h")),
+    Column("battery_life_years", "Battery Life", "Movement", lambda w: w.movement.battery_life_years, lambda v: fmt_number(v, "y")),
+    Column("accuracy", "Accuracy", "Movement", _get_accuracy, fmt_accuracy),
     Column("jewels", "Jewels", "Movement", lambda w: w.movement.jewels),
-    Column("bph", "Frequency", "Movement", lambda w: w.movement.bph, _fmt_bph),
-    Column("hacking", "Hacking", "Movement", lambda w: w.movement.hacking, _fmt_bool),
-    Column("handwinding", "Handwinding", "Movement", lambda w: w.movement.handwinding, _fmt_bool),
+    Column("bph", "Frequency", "Movement", lambda w: w.movement.bph, fmt_bph),
+    Column("hacking", "Hacking", "Movement", lambda w: w.movement.hacking, fmt_bool),
+    Column("handwinding", "Handwinding", "Movement", lambda w: w.movement.handwinding, fmt_bool),
     Column("origin", "Origin", "Movement", lambda w: w.movement.origin),
     # Case
-    Column("diameter_mm", "Diameter", "Case", lambda w: w.case.diameter_mm, lambda v: _fmt_number(v, " mm")),
-    Column("lug_to_lug_mm", "Lug-to-Lug", "Case", lambda w: w.case.lug_to_lug_mm, lambda v: _fmt_number(v, " mm")),
-    Column("thickness_mm", "Thickness", "Case", lambda w: w.case.thickness_mm, lambda v: _fmt_number(v, " mm")),
-    Column("lug_width_mm", "Lug Width", "Case", lambda w: w.case.lug_width_mm, lambda v: _fmt_number(v, " mm")),
+    Column("diameter_mm", "Diameter", "Case", lambda w: w.case.diameter_mm, lambda v: fmt_number(v, " mm")),
+    Column("lug_to_lug_mm", "Lug-to-Lug", "Case", lambda w: w.case.lug_to_lug_mm, lambda v: fmt_number(v, " mm")),
+    Column("thickness_mm", "Thickness", "Case", lambda w: w.case.thickness_mm, lambda v: fmt_number(v, " mm")),
+    Column("lug_width_mm", "Lug Width", "Case", lambda w: w.case.lug_width_mm, lambda v: fmt_number(v, " mm")),
     Column("case_material", "Material", "Case", lambda w: w.case.material),
     Column("crystal", "Crystal", "Case", lambda w: w.case.crystal),
     Column("crown", "Crown", "Case", lambda w: w.case.crown),
     Column("bezel", "Bezel", "Case", lambda w: w.case.bezel),
     Column("caseback", "Caseback", "Case", lambda w: w.case.caseback),
-    Column("water_resistance_m", "Water Resistance", "Case", lambda w: w.case.water_resistance_m, _fmt_water_resistance),
-    Column("weight_g", "Weight", "Case", lambda w: w.case.weight_g, lambda v: _fmt_number(v, " g")),
+    Column("water_resistance_m", "Water Resistance", "Case", lambda w: w.case.water_resistance_m, fmt_water_resistance),
+    Column("weight_g", "Weight", "Case", lambda w: w.case.weight_g, lambda v: fmt_number(v, " g")),
     # Dial
     Column("dial_colour", "Colour", "Dial", lambda w: w.dial.colour),
     Column("dial_material", "Material", "Dial", lambda w: w.dial.material),
     Column("indices", "Indices", "Dial", lambda w: w.dial.indices),
     Column("lume", "Lume", "Dial", lambda w: w.dial.lume),
-    Column("complications", "Complications", "Dial", lambda w: w.dial.complications, _fmt_list),
+    Column("complications", "Complications", "Dial", lambda w: w.dial.complications, fmt_list),
     # Straps (the currently fitted one)
     Column("strap_material", "Strap Material", "Straps", lambda w: _fitted_attr(w, "material")),
     Column("strap_colour", "Strap Colour", "Straps", lambda w: _fitted_attr(w, "colour")),
-    Column("strap_width_mm", "Strap Width", "Straps", lambda w: _fitted_attr(w, "width_mm"), lambda v: _fmt_number(v, " mm")),
+    Column("strap_width_mm", "Strap Width", "Straps", lambda w: _fitted_attr(w, "width_mm"), lambda v: fmt_number(v, " mm")),
     Column("strap_clasp", "Clasp", "Straps", lambda w: _fitted_attr(w, "clasp")),
     # Acquisition
-    Column("acquired_date", "Acquired", "Acquisition", lambda w: w.acquisition.date, _fmt_date),
-    Column("price", "Price", "Acquisition", _get_price, _fmt_price),
+    Column("acquired_date", "Acquired", "Acquisition", lambda w: w.acquisition.date, fmt_date),
+    Column("price", "Price", "Acquisition", _get_price, fmt_price),
     Column("seller", "Seller", "Acquisition", lambda w: w.acquisition.seller),
     Column("condition", "Condition", "Acquisition", lambda w: w.acquisition.condition),
-    Column("box_and_papers", "Box & Papers", "Acquisition", lambda w: w.acquisition.box_and_papers, _fmt_bool),
-    Column("warranty_until", "Warranty Until", "Acquisition", lambda w: w.acquisition.warranty_until, _fmt_date),
+    Column("box_and_papers", "Box & Papers", "Acquisition", lambda w: w.acquisition.box_and_papers, fmt_bool),
+    Column("warranty_until", "Warranty Until", "Acquisition", lambda w: w.acquisition.warranty_until, fmt_date),
 ]
 
 COLUMNS_BY_KEY: dict[str, Column] = {c.key: c for c in COLUMNS}

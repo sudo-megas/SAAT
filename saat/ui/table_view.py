@@ -1,11 +1,12 @@
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QMenu, QTableWidget, QTableWidgetItem
 
 from saat.storage import WatchRecord
-from saat.ui.columns import COLUMNS, COLUMNS_BY_KEY, EM_DASH, GROUP_ORDER, is_numeric_value
+from saat.ui.columns import COLUMNS, COLUMNS_BY_KEY, GROUP_ORDER
+from saat.ui.formatting import EM_DASH, is_numeric_value
 from saat.ui.theme import SIZE_SM, resolve_fonts
 
 
@@ -31,6 +32,8 @@ class _SortableItem(QTableWidgetItem):
 class TableView(QTableWidget):
     """Dense, sortable table with configurable columns. See SPEC.md §5.3."""
 
+    record_activated = Signal(object)
+
     def __init__(self, on_columns_changed: Callable[[list[str]], None], parent=None) -> None:
         super().__init__(parent)
         self._on_columns_changed = on_columns_changed
@@ -47,6 +50,7 @@ class TableView(QTableWidget):
         self.horizontalHeader().setSectionsMovable(True)
         self.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.horizontalHeader().customContextMenuRequested.connect(self._show_header_menu)
+        self.cellDoubleClicked.connect(self._on_cell_double_clicked)
 
     def set_columns(self, column_keys: list[str]) -> None:
         self._column_keys = list(column_keys)
@@ -73,6 +77,9 @@ class TableView(QTableWidget):
                     if is_numeric_value(value):
                         item.setFont(self._mono_font)
                     self.setItem(row, col, item)
+                # Sorting reorders rows, so the record for a visual row can only
+                # be recovered by data attached to its items, not by row index.
+                self.item(row, 0).setData(Qt.ItemDataRole.UserRole, record)
 
         # Qt's generic default column width truncates longer headers/values
         # ("Water Resistance", full DD.MM.YYYY dates) instead of sizing to
@@ -83,9 +90,15 @@ class TableView(QTableWidget):
     def _render_error_row(self, row: int, record: WatchRecord) -> None:
         item = _SortableItem(f"⚠ Couldn't load {record.slug}", record.slug)
         item.setToolTip(record.load_error or "")
+        item.setData(Qt.ItemDataRole.UserRole, record)
         self.setItem(row, 0, item)
         for col in range(1, len(self._column_keys)):
             self.setItem(row, col, _SortableItem(EM_DASH, None))
+
+    def _on_cell_double_clicked(self, row: int, column: int) -> None:
+        record = self.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        if record is not None and record.watch is not None:
+            self.record_activated.emit(record)
 
     def _show_header_menu(self, pos) -> None:
         menu = QMenu(self)

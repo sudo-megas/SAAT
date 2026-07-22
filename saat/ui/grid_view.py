@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
 from saat.storage import WatchRecord
@@ -9,6 +9,8 @@ from saat.ui.theme import CARD_PADDING, PAGE_MARGIN
 class GridView(QScrollArea):
     """Reflowing card grid. See SPEC.md §5.2 — four to five cards per row on a
     1440p display, not capped to a fixed content width."""
+
+    record_activated = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -30,6 +32,8 @@ class GridView(QScrollArea):
             self._layout.removeWidget(card)
             card.deleteLater()
         self._cards = [WatchCard(record) for record in records]
+        for card in self._cards:
+            card.activated.connect(self.record_activated.emit)
         self._relayout()
 
     def resizeEvent(self, event) -> None:
