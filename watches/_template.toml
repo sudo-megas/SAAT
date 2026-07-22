@@ -1,0 +1,97 @@
+# Template for a watch record. Copy this file into its own folder under watches/
+# (e.g. watches/seiko-sarb033/watch.toml) and fill in what you know.
+#
+# Every field is optional except brand and model. Leave the rest commented out or
+# delete lines outright — an absent field just shows as a muted dash in the app.
+# Fields noted "suggestion" render as an editable dropdown in the app but accept any
+# free text; the values listed are just what's offered by default.
+#
+# This file is skipped by the loader because its name starts with "_". Do not remove
+# the underscore from a real watch.toml.
+
+# brand = "Seiko"
+# model = "SARB033"
+
+# reference = "SARB033"                # manufacturer reference code, separate from model
+# nickname = ""                        # named edition
+# serial = ""                          # case-back serial — what an insurance claim needs
+# group = "Seiko Group"                # suggestion: Seiko Group, Casio, Swatch Group, Citizen Group, Micro Brand, Independent, Other
+# style = "Dress"                      # suggestion: Field, Pilot, Diver, Dress, Sport, Chronograph, GMT, Racing, Skeleton, Digital, Other
+# status = "Owned"                     # Owned, Incoming, Wishlist, Sold, Gifted — default Owned
+# storage = ""                         # where it physically lives — box slot, winder, drawer
+# rating = 0                           # personal, 0-5, not a review score
+# tags = []
+
+# [movement]
+# caliber = ""
+# kind = "Automatic"                   # suggestion: Automatic, Manual, Automatic + Handwinding, Quartz, Solar, Mecha-quartz, Kinetic
+# power_reserve_hours = 0              # mechanical — shown when kind is not Quartz/Solar
+# battery_life_years = 0               # quartz/solar — shown instead of power_reserve_hours
+# accuracy_min = 0                     # signed, e.g. -20
+# accuracy_max = 0                     # signed, e.g. +40
+# accuracy_unit = "sec/day"            # sec/day, sec/month
+# jewels = 0
+# bph = 21600                          # frequency in Hz is derived: bph / 7200
+# hacking = false
+# handwinding = false
+# origin = ""                          # Japan, Switzerland, China, Germany...
+
+# [case]
+# diameter_mm = 0.0                    # excluding crown
+# lug_to_lug_mm = 0.0
+# thickness_mm = 0.0
+# lug_width_mm = 0                     # drives strap compatibility
+# material = "Stainless Steel"         # suggestion: Stainless Steel, Titanium, Bronze, Ceramic, Resin, Silicone, Gold-plated
+# crystal = "Sapphire"                 # suggestion: Sapphire, Mineral, Hardlex, Acrylic, Sapphire-coated
+# crown = "Screw-down"                 # suggestion: Screw-down, Push-pull, Screw-down + guards
+# bezel = "Fixed"                      # suggestion: Fixed, Unidirectional, Bidirectional, Tachymeter, GMT, None
+# caseback = "Solid"                   # suggestion: Solid, Exhibition, Engraved
+# water_resistance_m = 0               # always metres — the form converts bar/atm on entry
+# weight_g = 0.0
+
+# [dial]
+# colour = ""
+# material = ""                        # sunburst brass, enamel, meteorite...
+# indices = "Applied"                  # suggestion: Applied, Printed, Arabic, Roman, Mixed, Inverted, None
+# lume = ""                            # compound name, or leave blank for none
+# complications = []                   # suggestion values: Date, Day-Date, GMT, Chronograph, Power Reserve, Moonphase, Open-Heart, Small Seconds, Alarm
+
+# One [[straps]] block per strap. At most one may have fitted = true.
+# [[straps]]
+# material = "Leather"                 # suggestion: Leather, Calf Leather, Nylon, NATO, Silicone, Rubber, FKM, Canvas, Steel Bracelet, Mesh
+# colour = ""
+# width_mm = 0                         # defaults to case.lug_width_mm
+# clasp = "Pin Buckle"                 # suggestion: Pin Buckle, Deployant, Butterfly, Ratcheting
+# fitted = true
+# image = ""                           # filename in this watch's images/ folder
+
+# [acquisition]
+# date = 2024-01-01                    # TOML native date
+# price = 0.0
+# currency = "TRY"
+# seller = ""
+# url = ""                             # opens in the system browser on click
+# condition = "New"                    # New, Pre-owned
+# box_and_papers = false
+# warranty_until = 2024-01-01
+
+# [maintenance]
+# service_interval_years = 0           # typical mechanical interval is 5-8; leave blank to not track
+# battery_due = 2024-01-01             # quartz only
+
+# One [[log]] block per service/battery/regulation/note entry, newest first in the UI.
+# [[log]]
+# date = 2024-01-01
+# kind = "Service"                     # Service, Battery, Regulation, Strap Swap, Note
+# note = ""
+
+# Dates this watch was worn. Nothing but dates — one entry per day.
+# worn = [2024-01-01, 2024-01-02]
+
+# One [[timing]] block per timing reading. Rendered as a sparkline once there are three or more.
+# [[timing]]
+# date = 2024-01-01
+# deviation_sec = 0
+# position = "Dial Up"                 # Dial Up, Dial Down, Crown Up, Crown Down, Crown Left, Worn
+
+# notes = ""

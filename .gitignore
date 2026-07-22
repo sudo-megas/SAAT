@@ -1,0 +1,9 @@
+watches/*
+!watches/_template.toml
+!watches/.gitkeep
+config.toml
+backups/
+.venv/
+build/
+dist/
+__pycache__/
