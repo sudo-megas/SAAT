@@ -132,3 +132,136 @@ QScrollBar::handle:horizontal:hover {
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0;
 }
+
+QWidget[class="top-bar"] {
+    background: @plate-high@;
+    border-bottom: 1px solid @rule@;
+}
+
+QPushButton:checkable {
+    font-weight: 400;
+}
+
+QPushButton:checkable:checked {
+    color: @gilt@;
+    border-color: @gilt@;
+    background: @plate@;
+}
+
+QComboBox {
+    background: @plate-high@;
+    color: @text@;
+    border: 1px solid @rule@;
+    border-radius: 3px;
+    padding: 6px 10px;
+}
+
+QComboBox:hover {
+    border-color: @gilt@;
+}
+
+QComboBox:disabled {
+    color: @text-muted@;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QComboBox QAbstractItemView {
+    background: @plate-high@;
+    color: @text@;
+    border: 1px solid @rule@;
+    selection-background-color: @rule@;
+    selection-color: @text@;
+    outline: none;
+}
+
+QFrame[class="watch-card"] {
+    background: @plate-high@;
+    border: 1px solid @rule@;
+    border-radius: 4px;
+}
+
+QFrame[class="watch-card"]:hover {
+    border-color: @gilt@;
+}
+
+QLabel[class="card-placeholder"] {
+    background: @plate@;
+    color: @text-muted@;
+    font-family: "@font-mono@";
+    font-size: @size-md@px;
+}
+
+QLabel[class="card-overline"] {
+    color: @text-muted@;
+    font-family: "@font-sans-condensed@";
+    font-size: @size-xs@px;
+    font-weight: 600;
+}
+
+QLabel[class="card-title"] {
+    color: @text@;
+    font-size: @size-lg@px;
+    font-weight: 600;
+}
+
+QLabel[class="card-meta"] {
+    font-family: "@font-sans-condensed@";
+    font-size: @size-xs@px;
+    color: @text-muted@;
+}
+
+QLabel[class="card-error-badge"] {
+    color: @text@;
+    font-weight: 600;
+}
+
+QTableWidget {
+    background: @plate@;
+    color: @text@;
+    gridline-color: @rule@;
+    border: none;
+}
+
+QTableWidget::item {
+    padding: 0 8px;
+    border-bottom: 1px solid @rule@;
+}
+
+QTableWidget::item:selected {
+    background: @plate-high@;
+    color: @text@;
+}
+
+QHeaderView::section {
+    background: @plate-high@;
+    color: @text-muted@;
+    font-family: "@font-sans-condensed@";
+    font-size: @size-xs@px;
+    font-weight: 600;
+    padding: 8px;
+    border: none;
+    border-bottom: 1px solid @rule@;
+    border-right: 1px solid @rule@;
+}
+
+QHeaderView::section:hover {
+    color: @text@;
+}
+
+QMenu {
+    background: @plate-high@;
+    color: @text@;
+    border: 1px solid @rule@;
+}
+
+QMenu::item {
+    padding: 6px 24px 6px 12px;
+}
+
+QMenu::item:selected {
+    background: @rule@;
+}

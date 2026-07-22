@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6.QtCore import QUrl, Qt
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
@@ -8,8 +10,9 @@ from saat.paths import app_dir
 class EmptyStateView(QWidget):
     """The first screen the owner ever sees: no collection, no illustration, no noise."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, watches_dir: Path | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._watches_dir = watches_dir if watches_dir is not None else app_dir() / "watches"
 
         heading = QLabel("Your collection is empty.")
         heading.setProperty("role", "empty-heading")
@@ -37,6 +40,5 @@ class EmptyStateView(QWidget):
             layout.addWidget(widget, alignment=Qt.AlignmentFlag.AlignHCenter)
 
     def _open_watches_folder(self) -> None:
-        watches_dir = app_dir() / "watches"
-        watches_dir.mkdir(exist_ok=True)
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(watches_dir)))
+        self._watches_dir.mkdir(exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._watches_dir)))

@@ -1,8 +1,13 @@
+from pathlib import Path
+
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QMainWindow
 
 from saat.config import Config
+from saat.paths import app_dir
+from saat.storage import load_collection
+from saat.ui.collection_view import CollectionView
 from saat.ui.empty_state import EmptyStateView
 
 MIN_SIZE = QSize(1100, 700)
@@ -10,16 +15,29 @@ DEFAULT_SIZE = QSize(1600, 1000)
 
 
 class MainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        watches_dir: Path | None = None,
+        backups_dir: Path | None = None,
+        config: Config | None = None,
+    ) -> None:
         super().__init__()
         self.setWindowTitle("SAAT")
         self.setMinimumSize(MIN_SIZE)
 
-        self._config = Config()
+        self._watches_dir = watches_dir if watches_dir is not None else app_dir() / "watches"
+        self._backups_dir = backups_dir if backups_dir is not None else app_dir() / "backups"
+        self._config = config if config is not None else Config()
         self._restore_geometry()
 
-        # No data layer yet — the empty state is the only screen milestone 1 renders.
-        self.setCentralWidget(EmptyStateView(self))
+        self._load_and_show_collection()
+
+    def _load_and_show_collection(self) -> None:
+        records = load_collection(self._watches_dir)
+        if records:
+            self.setCentralWidget(CollectionView(records, self._config, self))
+        else:
+            self.setCentralWidget(EmptyStateView(self._watches_dir, self))
 
     def _restore_geometry(self) -> None:
         geometry = self._config.window_geometry()

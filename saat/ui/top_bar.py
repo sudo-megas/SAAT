@@ -1,0 +1,69 @@
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
+
+from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS
+
+VIEW_GRID = "grid"
+VIEW_TABLE = "table"
+PRESET_DEFAULT = "Default"
+
+
+class TopBar(QWidget):
+    """Search, view toggle, sort, column presets, and the one primary-weight
+    control in the app. See SPEC.md §5.1. Search and filters land in a later
+    milestone — this is the read-only-view slice."""
+
+    view_changed = Signal(str)
+    sort_changed = Signal(str)
+    preset_changed = Signal(str)
+    add_watch_requested = Signal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setProperty("class", "top-bar")
+
+        self._grid_button = QPushButton("Grid")
+        self._grid_button.setCheckable(True)
+        self._table_button = QPushButton("Table")
+        self._table_button.setCheckable(True)
+        self._grid_button.clicked.connect(lambda: self._set_view(VIEW_GRID))
+        self._table_button.clicked.connect(lambda: self._set_view(VIEW_TABLE))
+
+        self._sort_combo = QComboBox()
+        for key in SORT_OPTIONS:
+            self._sort_combo.addItem(f"Sort: {COLUMNS_BY_KEY[key].label}", key)
+        self._sort_combo.currentIndexChanged.connect(
+            lambda i: self.sort_changed.emit(self._sort_combo.itemData(i))
+        )
+
+        self._preset_combo = QComboBox()
+        self._preset_combo.addItem(PRESET_DEFAULT)
+        for group in GROUP_ORDER:
+            self._preset_combo.addItem(group)
+        self._preset_combo.currentTextChanged.connect(self.preset_changed.emit)
+
+        add_button = QPushButton("Add watch")
+        add_button.setProperty("variant", "primary")
+        add_button.clicked.connect(self.add_watch_requested.emit)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(24, 12, 24, 12)
+        layout.setSpacing(12)
+        layout.addWidget(self._grid_button)
+        layout.addWidget(self._table_button)
+        layout.addSpacing(12)
+        layout.addWidget(self._sort_combo)
+        layout.addWidget(self._preset_combo)
+        layout.addStretch()
+        layout.addWidget(add_button)
+
+        self._set_view(VIEW_GRID)
+
+    def set_view(self, view: str) -> None:
+        self._set_view(view)
+
+    def _set_view(self, view: str) -> None:
+        self._grid_button.setChecked(view == VIEW_GRID)
+        self._table_button.setChecked(view == VIEW_TABLE)
+        self._preset_combo.setEnabled(view == VIEW_TABLE)
+        self.view_changed.emit(view)

@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import tomlkit
 
@@ -9,8 +10,8 @@ from saat.paths import app_dir
 class Config:
     """Reads and writes config.toml: window geometry, last view, column choices."""
 
-    def __init__(self) -> None:
-        self.path = app_dir() / "config.toml"
+    def __init__(self, path: Path | None = None) -> None:
+        self.path = path if path is not None else app_dir() / "config.toml"
         self.data = self._load()
 
     def _load(self) -> tomlkit.TOMLDocument:
@@ -30,3 +31,18 @@ class Config:
 
     def set_window_geometry(self, geometry: dict) -> None:
         self.data["window"] = geometry
+
+    def last_view(self) -> str | None:
+        view = self.data.get("view")
+        return view.get("last") if view else None
+
+    def set_last_view(self, view: str) -> None:
+        self.data.setdefault("view", tomlkit.table())["last"] = view
+
+    def column_keys(self) -> list[str] | None:
+        columns = self.data.get("columns")
+        keys = columns.get("keys") if columns else None
+        return list(keys) if keys else None
+
+    def set_column_keys(self, keys: list[str]) -> None:
+        self.data.setdefault("columns", tomlkit.table())["keys"] = list(keys)
