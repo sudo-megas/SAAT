@@ -1,0 +1,160 @@
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from PySide6.QtWidgets import QApplication, QDialog
+
+from saat.config import Config
+from saat.models import Watch
+from saat.storage import create_watch, load_collection
+from saat.ui.collection_view import CollectionView
+from saat.ui.detail_view import DetailView
+from saat.ui.dialogs import DeleteConfirmDialog
+from saat.ui.empty_state import EmptyStateView
+from saat.ui.main_window import MainWindow
+from saat.ui.watch_form import WatchForm
+
+_app = QApplication.instance() or QApplication([])
+
+
+def _accept_with(**field_values):
+    """Fake WatchForm.exec(): set fields on the real (unshown) form instance,
+    call the real _on_save(), and return Accepted — exercises the actual
+    validation/build logic without blocking on the modal event loop."""
+    def _exec(self):
+        if "brand" in field_values:
+            self._brand.setText(field_values["brand"])
+        if "model" in field_values:
+            self._model.setText(field_values["model"])
+        if "nickname" in field_values:
+            self._nickname.setText(field_values["nickname"])
+        self._on_save()
+        return QDialog.DialogCode.Accepted
+    return _exec
+
+
+def _reject_exec(self):
+    return QDialog.DialogCode.Rejected
+
+
+class UITestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-crud-test-"))
+        self.watches_dir = self.tmp / "watches"
+        self.backups_dir = self.tmp / "backups"
+        self.watches_dir.mkdir()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _config(self) -> Config:
+        return Config(self.tmp / "config.toml")
+
+
+class AddFlowTests(UITestCase):
+    def test_add_from_empty_state_creates_watch_and_shows_collection(self) -> None:
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        empty_state = window.centralWidget().currentWidget()
+        self.assertIsInstance(empty_state, EmptyStateView)
+
+        with patch.object(WatchForm, "exec", _accept_with(brand="Seiko", model="SARB033")):
+            empty_state.add_watch_requested.emit()
+
+        view = window.centralWidget().currentWidget()
+        self.assertIsInstance(view, CollectionView)
+        self.assertEqual(len(view.records), 1)
+        self.assertEqual(view.records[0].watch.brand, "Seiko")
+
+    def test_add_from_collection_top_bar_appends_to_existing_collection(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="F-91W"))
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+
+        with patch.object(WatchForm, "exec", _accept_with(brand="Seiko", model="SARB033")):
+            collection_view.add_watch_requested.emit()
+
+        view = window.centralWidget().currentWidget()
+        self.assertEqual(len(view.records), 2)
+
+    def test_cancelling_add_form_creates_nothing(self) -> None:
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        empty_state = window.centralWidget().currentWidget()
+
+        with patch.object(WatchForm, "exec", _reject_exec):
+            empty_state.add_watch_requested.emit()
+
+        self.assertIsInstance(window.centralWidget().currentWidget(), EmptyStateView)
+        self.assertEqual(load_collection(self.watches_dir), [])
+
+
+class EditFlowTests(UITestCase):
+    def test_edit_updates_watch_and_returns_to_its_detail_page(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        [record] = collection_view.records
+
+        collection_view.record_activated.emit(record)
+        detail_view = window.centralWidget().currentWidget()
+        self.assertIsInstance(detail_view, DetailView)
+
+        with patch.object(WatchForm, "exec", _accept_with(nickname="Cocktail Time")):
+            detail_view.edit_requested.emit(record)
+
+        current = window.centralWidget().currentWidget()
+        self.assertIsInstance(current, DetailView)
+        [updated] = load_collection(self.watches_dir)
+        self.assertEqual(updated.watch.nickname, "Cocktail Time")
+        self.assertEqual(updated.watch.brand, "Seiko")  # untouched fields survive
+
+
+class DeleteFlowTests(UITestCase):
+    def test_confirmed_delete_moves_folder_and_shows_empty_state(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        [record] = collection_view.records
+        collection_view.record_activated.emit(record)
+        detail_view = window.centralWidget().currentWidget()
+
+        with patch.object(DeleteConfirmDialog, "exec", return_value=QDialog.DialogCode.Accepted):
+            detail_view.delete_requested.emit(record)
+
+        self.assertIsInstance(window.centralWidget().currentWidget(), EmptyStateView)
+        self.assertEqual(load_collection(self.watches_dir), [])
+        self.assertTrue((self.backups_dir / "deleted" / record.slug).exists())
+
+    def test_cancelled_delete_keeps_the_watch(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        [record] = collection_view.records
+        collection_view.record_activated.emit(record)
+        detail_view = window.centralWidget().currentWidget()
+
+        with patch.object(DeleteConfirmDialog, "exec", return_value=QDialog.DialogCode.Rejected):
+            detail_view.delete_requested.emit(record)
+
+        self.assertEqual(len(load_collection(self.watches_dir)), 1)
+
+
+class DeleteConfirmDialogTests(UITestCase):
+    def test_delete_button_enabled_only_when_typed_text_matches_model(self) -> None:
+        dialog = DeleteConfirmDialog(Watch(brand="Seiko", model="SARB033"))
+        self.assertFalse(dialog._delete_button.isEnabled())
+
+        dialog._input.setText("SARB03")
+        self.assertFalse(dialog._delete_button.isEnabled())
+
+        dialog._input.setText("SARB033")
+        self.assertTrue(dialog._delete_button.isEnabled())
+
+
+if __name__ == "__main__":
+    unittest.main()

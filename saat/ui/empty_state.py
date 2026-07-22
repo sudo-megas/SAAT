@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, Qt
+from PySide6.QtCore import QUrl, Qt, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
@@ -9,6 +9,8 @@ from saat.paths import app_dir
 
 class EmptyStateView(QWidget):
     """The first screen the owner ever sees: no collection, no illustration, no noise."""
+
+    add_watch_requested = Signal()
 
     def __init__(self, watches_dir: Path | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -27,6 +29,7 @@ class EmptyStateView(QWidget):
 
         add_button = QPushButton("Add watch")
         add_button.setProperty("variant", "primary")
+        add_button.clicked.connect(self.add_watch_requested.emit)
 
         open_folder = QPushButton("Open watches/ folder")
         open_folder.setProperty("variant", "link")

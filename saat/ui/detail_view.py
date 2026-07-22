@@ -442,10 +442,12 @@ def _build_header(watch: Watch) -> QWidget:
 
 class DetailView(QScrollArea):
     """A watch's detail page: opens in the main area with a back affordance,
-    not a modal. See SPEC.md §5.6. Wear stats, the wore-today button, edit and
-    delete land in later milestones (7, 5)."""
+    not a modal. See SPEC.md §5.6. Wear stats and the wore-today button land
+    in milestone 7."""
 
     back_requested = Signal()
+    edit_requested = Signal(object)
+    delete_requested = Signal(object)
 
     def __init__(self, record: WatchRecord, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -474,8 +476,27 @@ class DetailView(QScrollArea):
         groups_container.set_groups(self._build_spec_groups(record))
         layout.addWidget(groups_container)
 
+        layout.addWidget(self._build_edit_delete_row(record))
+
         layout.addStretch()
         self.setWidget(content)
+
+    def _build_edit_delete_row(self, record: WatchRecord) -> QWidget:
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addStretch()
+
+        edit_button = QPushButton("Edit")
+        edit_button.clicked.connect(lambda: self.edit_requested.emit(record))
+        row_layout.addWidget(edit_button)
+
+        delete_button = QPushButton("Delete")
+        delete_button.setProperty("variant", "destructive")
+        delete_button.clicked.connect(lambda: self.delete_requested.emit(record))
+        row_layout.addWidget(delete_button)
+
+        return row
 
     def _build_spec_groups(self, record: WatchRecord) -> list[QWidget]:
         watch = record.watch

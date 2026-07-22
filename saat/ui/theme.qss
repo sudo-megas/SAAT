@@ -79,6 +79,23 @@ QPushButton[variant="link"]:focus {
     color: @gilt@;
 }
 
+QPushButton[variant="destructive"] {
+    background: @ruby@;
+    color: @text@;
+    border: 1px solid @ruby@;
+}
+
+QPushButton[variant="destructive"]:hover {
+    background: @ruby@;
+    border-color: @text@;
+}
+
+QPushButton[variant="destructive"]:disabled {
+    background: @plate-high@;
+    color: @text-muted@;
+    border-color: @rule@;
+}
+
 QLineEdit {
     background: @plate-high@;
     color: @text@;
@@ -142,10 +159,11 @@ QPushButton:checkable {
     font-weight: 400;
 }
 
-QPushButton:checkable:checked {
+QPushButton:checked {
     color: @gilt@;
-    border-color: @gilt@;
+    border: 2px solid @gilt@;
     background: @plate@;
+    padding: 7px 15px;
 }
 
 QComboBox {
@@ -167,6 +185,20 @@ QComboBox:disabled {
 QComboBox::drop-down {
     border: none;
     width: 20px;
+}
+
+QComboBox::down-arrow {
+    image: none;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid @text-muted@;
+    margin-right: 8px;
+}
+
+QComboBox::down-arrow:hover {
+    border-top-color: @text@;
 }
 
 QComboBox QAbstractItemView {
@@ -357,4 +389,86 @@ QLabel[class="timing-row"] {
     color: @text@;
     font-family: "@font-mono@";
     font-size: @size-sm@px;
+}
+
+QTabWidget::pane {
+    border: 1px solid @rule@;
+    border-radius: 4px;
+    background: @plate@;
+}
+
+QTabBar::tab {
+    background: @plate@;
+    color: @text-muted@;
+    font-family: "@font-sans-condensed@";
+    font-size: @size-sm@px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-bottom: none;
+}
+
+QTabBar::tab:selected {
+    color: @gilt@;
+    border: 1px solid @rule@;
+    border-bottom: none;
+    background: @plate-high@;
+}
+
+QTabBar::tab:hover:!selected {
+    color: @text@;
+}
+
+QFrame[class="form-list-row"] {
+    background: @plate-high@;
+    border: 1px solid @rule@;
+    border-radius: 4px;
+}
+
+QDoubleSpinBox, QSpinBox, QDateEdit {
+    background: @plate-high@;
+    color: @text@;
+    border: 1px solid @rule@;
+    border-radius: 3px;
+    padding: 4px 6px;
+}
+
+QDoubleSpinBox:focus, QSpinBox:focus, QDateEdit:focus {
+    border-color: @gilt@;
+}
+
+QDoubleSpinBox:disabled, QSpinBox:disabled, QDateEdit:disabled {
+    color: @text-muted@;
+}
+
+QPlainTextEdit {
+    background: @plate-high@;
+    color: @text@;
+    border: 1px solid @rule@;
+    border-radius: 3px;
+    padding: 6px 8px;
+    selection-background-color: @gilt@;
+    selection-color: @plate@;
+}
+
+QPlainTextEdit:focus {
+    border-color: @gilt@;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid @rule@;
+    border-radius: 3px;
+    background: @plate-high@;
+}
+
+QCheckBox::indicator:checked {
+    background: @gilt@;
+    border-color: @gilt@;
+}
+
+QCheckBox::indicator:indeterminate {
+    background: @plate-high@;
+    border-color: @text-muted@;
 }

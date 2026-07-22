@@ -12,10 +12,11 @@ DEFAULT_SORT_KEY = "brand"
 
 
 class CollectionView(QWidget):
-    """Top bar plus grid/table, switchable. Read-only for now — no search, no
-    filter sidebar, no compare selection; those land in later milestones."""
+    """Top bar plus grid/table, switchable. Search and the filter sidebar
+    land in a later milestone."""
 
     record_activated = Signal(object)
+    add_watch_requested = Signal()
 
     def __init__(self, records: list[WatchRecord], config: Config, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -42,12 +43,17 @@ class CollectionView(QWidget):
         self._top_bar.preset_changed.connect(self._on_preset_changed)
         self._grid_view.record_activated.connect(self.record_activated.emit)
         self._table_view.record_activated.connect(self.record_activated.emit)
+        self._top_bar.add_watch_requested.connect(self.add_watch_requested.emit)
 
         self._table_view.set_columns(self._config.column_keys() or DEFAULT_COLUMN_KEYS)
         self._apply_sort_and_render()
 
         last_view = self._config.last_view()
         self._top_bar.set_view(last_view if last_view in (VIEW_GRID, VIEW_TABLE) else VIEW_GRID)
+
+    @property
+    def records(self) -> list[WatchRecord]:
+        return self._records
 
     def _apply_sort_and_render(self) -> None:
         valid = sorted(
