@@ -1,22 +1,15 @@
-from pathlib import Path
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
 
 from saat.storage import WatchRecord
-from saat.ui.images import cropped_pixmap, list_images
+from saat.ui.images import cropped_pixmap, first_image
 
 # SPEC.md §5.1: four to five cards per row on a 1440p (2560px) display.
 CARD_WIDTH = 480
 IMAGE_HEIGHT = int(CARD_WIDTH * 5 / 4)  # 4:5 portrait crop
 TEXT_BLOCK_HEIGHT = 100
 CARD_CONTENT_PADDING = 16  # SPEC.md §6: card padding 16
-
-
-def _first_image(record: WatchRecord) -> Path | None:
-    images = list_images(record)
-    return images[0] if images else None
 
 
 class WatchCard(QFrame):
@@ -48,7 +41,7 @@ class WatchCard(QFrame):
         super().mouseReleaseEvent(event)
 
     def _build_image(self, record: WatchRecord) -> QWidget:
-        image_path = _first_image(record)
+        image_path = first_image(record)
         pixmap = cropped_pixmap(image_path, CARD_WIDTH, IMAGE_HEIGHT) if image_path else None
 
         label = QLabel()

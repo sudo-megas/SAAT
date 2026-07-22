@@ -26,6 +26,14 @@ def list_images(record: WatchRecord) -> list[Path]:
     return ordered + remaining
 
 
+def first_image(record: WatchRecord) -> Path | None:
+    """The primary photo (SPEC.md §5.2/§5.6) — first in gallery order, or
+    None. Shared by grid cards, the calendar's day cells, and the detail
+    page's twelve-month wear strip, so "primary photo" means one thing."""
+    images = list_images(record)
+    return images[0] if images else None
+
+
 def cropped_pixmap(path: Path, width: int, height: int) -> QPixmap | None:
     """Scaled to fill width x height exactly, centre-cropping the excess.
     Prefers the cached thumbnail derivative when one exists — grid cards and

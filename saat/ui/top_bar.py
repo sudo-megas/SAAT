@@ -5,6 +5,7 @@ from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS
 
 VIEW_GRID = "grid"
 VIEW_TABLE = "table"
+VIEW_CALENDAR = "calendar"
 PRESET_DEFAULT = "Default"
 
 
@@ -32,8 +33,11 @@ class TopBar(QWidget):
         self._grid_button.setCheckable(True)
         self._table_button = QPushButton("Table")
         self._table_button.setCheckable(True)
+        self._calendar_button = QPushButton("Calendar")
+        self._calendar_button.setCheckable(True)
         self._grid_button.clicked.connect(lambda: self._set_view(VIEW_GRID))
         self._table_button.clicked.connect(lambda: self._set_view(VIEW_TABLE))
+        self._calendar_button.clicked.connect(lambda: self._set_view(VIEW_CALENDAR))
 
         self._sort_combo = QComboBox()
         for key in SORT_OPTIONS:
@@ -59,6 +63,7 @@ class TopBar(QWidget):
         layout.addSpacing(12)
         layout.addWidget(self._grid_button)
         layout.addWidget(self._table_button)
+        layout.addWidget(self._calendar_button)
         layout.addSpacing(12)
         layout.addWidget(self._sort_combo)
         layout.addWidget(self._preset_combo)
@@ -76,5 +81,10 @@ class TopBar(QWidget):
     def _set_view(self, view: str) -> None:
         self._grid_button.setChecked(view == VIEW_GRID)
         self._table_button.setChecked(view == VIEW_TABLE)
+        self._calendar_button.setChecked(view == VIEW_CALENDAR)
         self._preset_combo.setEnabled(view == VIEW_TABLE)
+        # Sort and search are meaningless against a date-indexed view — the
+        # calendar always shows the whole collection's wear history.
+        self._sort_combo.setEnabled(view != VIEW_CALENDAR)
+        self._search_field.setEnabled(view != VIEW_CALENDAR)
         self.view_changed.emit(view)

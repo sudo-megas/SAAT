@@ -1,4 +1,5 @@
 import dataclasses
+from datetime import date
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
@@ -13,6 +14,7 @@ from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
 from saat.ui.watch_form import WatchForm
+from saat.wear import assign_worn, clear_worn, mark_worn_today
 
 MIN_SIZE = QSize(1100, 700)
 DEFAULT_SIZE = QSize(1600, 1000)
@@ -54,6 +56,8 @@ class MainWindow(QMainWindow):
             self._collection_view = CollectionView(records, self._config, self)
             self._collection_view.record_activated.connect(self._show_detail)
             self._collection_view.add_watch_requested.connect(self._show_add_form)
+            self._collection_view.assign_worn_requested.connect(self._on_assign_worn)
+            self._collection_view.clear_worn_requested.connect(self._on_clear_worn)
             self._stack.addWidget(self._collection_view)
             self._stack.setCurrentWidget(self._collection_view)
         else:
@@ -71,6 +75,7 @@ class MainWindow(QMainWindow):
         self._detail_view.back_requested.connect(self._show_collection)
         self._detail_view.edit_requested.connect(self._show_edit_form)
         self._detail_view.delete_requested.connect(self._show_delete_confirm)
+        self._detail_view.wore_today_requested.connect(self._on_wore_today)
         self._stack.addWidget(self._detail_view)
         self._stack.setCurrentWidget(self._detail_view)
 
@@ -83,6 +88,26 @@ class MainWindow(QMainWindow):
 
     def _find_record(self, slug: str) -> WatchRecord | None:
         return next((r for r in self._current_records() if r.slug == slug), None)
+
+    def _on_assign_worn(self, dates: list[date], target: WatchRecord) -> None:
+        self._apply_worn_update(assign_worn(self._backups_dir, self._current_records(), dates, target))
+
+    def _on_clear_worn(self, dates: list[date]) -> None:
+        self._apply_worn_update(clear_worn(self._backups_dir, self._current_records(), dates))
+
+    def _on_wore_today(self, target: WatchRecord) -> None:
+        self._apply_worn_update(mark_worn_today(self._backups_dir, self._current_records(), target))
+
+    def _apply_worn_update(self, records: list[WatchRecord]) -> None:
+        """Wear edits use the light set_records() path — unlike add/edit/
+        delete, this must not reset sort, search, facets, or which calendar
+        month is on screen (see CollectionView.set_records)."""
+        if self._collection_view is not None:
+            self._collection_view.set_records(records)
+        if self._detail_view is not None:
+            refreshed = next((r for r in records if r.slug == self._detail_view.record.slug), None)
+            if refreshed is not None:
+                self._show_detail(refreshed)
 
     def _show_add_form(self) -> None:
         form = WatchForm(self._current_records(), record=None, parent=self)

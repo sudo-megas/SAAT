@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from saat.models import Strap, Watch
-from saat.ui.facets import days_since_worn
 from saat.ui.formatting import (
     EM_DASH,
     fmt_accuracy,
@@ -17,6 +16,7 @@ from saat.ui.formatting import (
     is_empty,
     is_numeric_value,
 )
+from saat.ui.wear_stats import days_since_worn
 
 GROUP_ORDER = ["Identity", "Movement", "Case", "Dial", "Straps", "Acquisition"]
 

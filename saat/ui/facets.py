@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from saat.models import Watch
+from saat.ui.wear_stats import days_since_worn
 
 NOT_WORN_DAYS_THRESHOLD = 90
 
@@ -35,14 +36,6 @@ VALUE_FACETS: list[Facet] = [
 ]
 
 VALUE_FACETS_BY_KEY: dict[str, Facet] = {f.key: f for f in VALUE_FACETS}
-
-
-def days_since_worn(watch: Watch, today: date | None = None) -> int | None:
-    """None means never worn — distinct from 0 (worn today). See SPEC.md §4."""
-    if not watch.worn:
-        return None
-    reference = today if today is not None else date.today()
-    return (reference - max(watch.worn)).days
 
 
 def is_not_worn_90d(watch: Watch, today: date | None = None) -> bool:

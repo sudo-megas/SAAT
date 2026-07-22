@@ -207,14 +207,20 @@ def create_watch(watches_dir: Path, backups_dir: Path, watch: Watch) -> WatchRec
     return save_watch(backups_dir, record)
 
 
-def save_watch(backups_dir: Path, record: WatchRecord) -> WatchRecord:
+def save_watch(backups_dir: Path, record: WatchRecord, backup: bool = True) -> WatchRecord:
+    """`backup=False` skips the pre-write snapshot — for saves that aren't a
+    "destructive operation" in SPEC.md §3's sense, e.g. a wear-date toggle
+    from the calendar. That path can touch many watches in one gesture, and
+    backups/ is pruned to a shared 20 slots; every caller that edits
+    hand-typed fields must keep the default so evictable wear-toggle
+    snapshots never crowd out a real one."""
     assert record.watch is not None
     folder = record.path
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "images").mkdir(exist_ok=True)
 
     toml_path = folder / WATCH_FILENAME
-    if toml_path.exists():
+    if backup and toml_path.exists():
         backup_watch_toml(backups_dir, record.slug, toml_path)
 
     document = record.document if record.document is not None else tomlkit.document()

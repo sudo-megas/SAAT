@@ -1,7 +1,8 @@
-from datetime import date
+import calendar as cal
+from datetime import date, timedelta
 
-from PySide6.QtCore import QUrl, Qt, Signal
-from PySide6.QtGui import QDesktopServices, QMouseEvent
+from PySide6.QtCore import QRect, QUrl, Qt, Signal
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -19,11 +20,14 @@ from saat.ui.formatting import EM_DASH, fmt_accuracy, fmt_bool, fmt_bph, fmt_dat
 from saat.ui.images import cropped_pixmap, fit_pixmap, list_images
 from saat.ui.minute_track import MinuteTrackHeader
 from saat.ui.spec_group import SpecRow, build_spec_group, spec_row
-from saat.ui.theme import GROUP_SPACING, PAGE_MARGIN
+from saat.ui.theme import GILT, GROUP_SPACING, PAGE_MARGIN, RULE, SIZE_XS, TEXT_MUTED, resolve_fonts
+from saat.ui.wear_stats import days_since_worn, last_worn, longest_streak, times_worn_this_year
 
 PRIMARY_IMAGE_MAX = (480, 600)
 THUMB_SIZE = 72
 STRAP_PHOTO_SIZE = 56
+MONTH_BLOCK_WIDTH = 56
+MONTH_BLOCK_HEIGHT = 20
 
 
 # --- Movement -----------------------------------------------------------
@@ -391,6 +395,92 @@ class SpecGroupsContainer(QWidget):
 
 # --- Header: identity fields not covered by a spec group --------------------
 
+# --- Wear -----------------------------------------------------------
+
+def _wear_stats_text(watch: Watch) -> str:
+    last = last_worn(watch)
+    days = days_since_worn(watch)
+    times = times_worn_this_year(watch)
+    streak = longest_streak(watch)
+    return (
+        f"Last worn {fmt_date(last)}  ·  {days} day{'s' if days != 1 else ''} ago  ·  "
+        f"Worn {times} time{'s' if times != 1 else ''} this year  ·  "
+        f"Longest streak {streak} day{'s' if streak != 1 else ''}"
+    )
+
+
+class _TwelveMonthStrip(QWidget):
+    """This watch's worn days over the trailing twelve months, one compact
+    block per month — a density strip, not a navigable calendar. Only built
+    when there's at least one worn date; see build_wear_section(). See
+    SPEC.md §5.6."""
+
+    def __init__(self, worn: list[date], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._worn = set(worn)
+
+        months = []
+        year, month = date.today().year, date.today().month
+        for _ in range(12):
+            months.append((year, month))
+            month -= 1
+            if month == 0:
+                month, year = 12, year - 1
+        self._months = list(reversed(months))
+
+        self._label_font = QFont(resolve_fonts()["sans_condensed"])
+        self._label_font.setPixelSize(SIZE_XS)
+        self.setFixedHeight(MONTH_BLOCK_HEIGHT + 16)
+        self.setMinimumWidth(MONTH_BLOCK_WIDTH * 12 + 4 * 11)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setFont(self._label_font)
+
+        x = 0
+        for year, month in self._months:
+            days_in_month = cal.monthrange(year, month)[1]
+            block = QRect(x, 0, MONTH_BLOCK_WIDTH, MONTH_BLOCK_HEIGHT)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(RULE))
+            painter.drawRect(block)
+
+            painter.setPen(QColor(GILT))
+            for day in range(1, days_in_month + 1):
+                if date(year, month, day) in self._worn:
+                    tick_x = x + round((day - 0.5) / days_in_month * MONTH_BLOCK_WIDTH)
+                    painter.drawLine(tick_x, 2, tick_x, MONTH_BLOCK_HEIGHT - 2)
+
+            painter.setPen(QColor(TEXT_MUTED))
+            painter.drawText(QRect(x, MONTH_BLOCK_HEIGHT, MONTH_BLOCK_WIDTH, 16),
+                              Qt.AlignmentFlag.AlignHCenter, date(year, month, 1).strftime("%b"))
+            x += MONTH_BLOCK_WIDTH + 4
+
+        painter.end()
+
+
+def build_wear_section(watch: Watch) -> QWidget | None:
+    """None hides the whole stats-line-plus-strip section for a never-worn
+    watch — SPEC.md §5.6 says the strip is "hidden when it has never been
+    worn," and a stats line of all-absent figures would be exactly the noise
+    the rest of the app goes out of its way to stay silent about."""
+    if not watch.worn:
+        return None
+
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
+
+    stats = QLabel(_wear_stats_text(watch))
+    stats.setProperty("muted", True)
+    layout.addWidget(stats)
+    layout.addWidget(_TwelveMonthStrip(watch.worn))
+
+    return container
+
+
 def _build_header(watch: Watch) -> QWidget:
     container = QWidget()
     layout = QVBoxLayout(container)
@@ -442,12 +532,12 @@ def _build_header(watch: Watch) -> QWidget:
 
 class DetailView(QScrollArea):
     """A watch's detail page: opens in the main area with a back affordance,
-    not a modal. See SPEC.md §5.6. Wear stats and the wore-today button land
-    in milestone 7."""
+    not a modal. See SPEC.md §5.6."""
 
     back_requested = Signal()
     edit_requested = Signal(object)
     delete_requested = Signal(object)
+    wore_today_requested = Signal(object)
 
     def __init__(self, record: WatchRecord, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -455,6 +545,7 @@ class DetailView(QScrollArea):
         self.setFrameShape(QScrollArea.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
+        self._record = record
         watch = record.watch
 
         content = QWidget()
@@ -472,6 +563,14 @@ class DetailView(QScrollArea):
         layout.addWidget(_build_header(watch))
         layout.addWidget(ImageGallery(record))
 
+        wear_section = build_wear_section(watch)
+        if wear_section is not None:
+            layout.addWidget(wear_section)
+
+        wore_today_button = QPushButton("Wore this today")
+        wore_today_button.clicked.connect(lambda: self.wore_today_requested.emit(record))
+        layout.addWidget(wore_today_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
         groups_container = SpecGroupsContainer()
         groups_container.set_groups(self._build_spec_groups(record))
         layout.addWidget(groups_container)
@@ -480,6 +579,10 @@ class DetailView(QScrollArea):
 
         layout.addStretch()
         self.setWidget(content)
+
+    @property
+    def record(self) -> WatchRecord:
+        return self._record
 
     def _build_edit_delete_row(self, record: WatchRecord) -> QWidget:
         row = QWidget()
