@@ -46,3 +46,10 @@ class Config:
 
     def set_column_keys(self, keys: list[str]) -> None:
         self.data.setdefault("columns", tomlkit.table())["keys"] = list(keys)
+
+    def theme_mode(self) -> str | None:
+        theme = self.data.get("theme")
+        return theme.get("mode") if theme else None
+
+    def set_theme_mode(self, mode: str) -> None:
+        self.data.setdefault("theme", tomlkit.table())["mode"] = mode

@@ -17,7 +17,8 @@ from PySide6.QtWidgets import (
 from saat.storage import WatchRecord
 from saat.ui.images import cropped_pixmap, first_image
 from saat.ui.month_grid import GridDay, month_grid_days
-from saat.ui.theme import GILT, PLATE, PLATE_HIGH, RULE, SIZE_SM, SIZE_XS, TEXT, TEXT_MUTED, resolve_fonts
+from saat.ui import theme
+from saat.ui.theme import SIZE_SM, SIZE_XS, resolve_fonts
 from saat.ui.watch_picker import WatchPicker
 from saat.ui.year_view import YearView
 from saat.wear import build_worn_index
@@ -57,41 +58,51 @@ class _DayCell(QFrame):
             self.highlighted = value
             self.update()
 
+    def _number_color(self, palette: "theme.Palette") -> QColor:
+        if self._pixmap is not None:
+            return QColor("#E8E4DC")  # fixed warm off-white: sits on the fixed black scrim over the photo, not a themed surface
+        if self.record is not None:
+            return QColor(palette.text)
+        return QColor(palette.text_muted)
+
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = self.rect()
         assigned_without_photo = self.grid_day.in_month and self.record is not None and self._pixmap is None
 
+        palette = theme.colors()
         if not self.grid_day.in_month:
-            painter.fillRect(rect, QColor(PLATE))
+            painter.fillRect(rect, QColor(palette.plate))
         elif self._pixmap is not None:
             painter.drawPixmap(rect, self._pixmap, QRect(0, 0, self._pixmap.width(), self._pixmap.height()))
-            painter.fillRect(QRect(0, 0, rect.width(), SCRIM_HEIGHT), QColor(0, 0, 0, 130))
+            painter.fillRect(QRect(0, 0, rect.width(), SCRIM_HEIGHT), QColor(0, 0, 0, 130))  # fixed scrim over a photo, not a theme color
         elif assigned_without_photo:
-            painter.fillRect(rect, QColor(PLATE_HIGH))  # a watch with no photo yet — SPEC.md §5.2's card placeholder, calendar-sized
+            painter.fillRect(rect, QColor(palette.plate_high))  # a watch with no photo yet — SPEC.md §5.2's card placeholder, calendar-sized
         else:
-            painter.fillRect(rect, QColor(PLATE))  # truly empty — nothing recorded
+            painter.fillRect(rect, QColor(palette.plate))  # truly empty — nothing recorded
 
         painter.setFont(self._number_font)
-        painter.setPen(QColor(TEXT) if self.record is not None else QColor(TEXT_MUTED))
+        painter.setPen(self._number_color(palette))
         painter.drawText(QRect(6, 4, rect.width() - 12, SCRIM_HEIGHT), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                           str(self.grid_day.day.day))
 
         if assigned_without_photo:
             painter.setFont(self._info_font)
-            painter.setPen(QColor(TEXT_MUTED))
+            painter.setPen(QColor(palette.text_muted))
             info_rect = QRect(6, SCRIM_HEIGHT, rect.width() - 12, rect.height() - SCRIM_HEIGHT - 4)
             painter.drawText(info_rect, Qt.AlignmentFlag.AlignLeft | Qt.TextFlag.TextWordWrap, self.record.watch.brand)
 
         if self.highlighted:
-            painter.fillRect(rect, QColor(201, 162, 39, 60))
+            highlight = QColor(palette.gilt)
+            highlight.setAlpha(60)
+            painter.fillRect(rect, highlight)
 
         if self.is_today:
-            painter.setPen(QPen(QColor(GILT), 2))
+            painter.setPen(QPen(QColor(palette.gilt), 2))
             painter.drawRect(rect.adjusted(1, 1, -2, -2))
         else:
-            painter.setPen(QPen(QColor(RULE), 1))
+            painter.setPen(QPen(QColor(palette.rule), 1))
             painter.drawRect(rect.adjusted(0, 0, -1, -1))
 
         painter.end()

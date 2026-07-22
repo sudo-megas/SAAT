@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QCloseEvent
-from PySide6.QtWidgets import QDialog, QMainWindow, QStackedWidget
+from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QStackedWidget
 
 from saat.config import Config
 from saat.paths import app_dir
@@ -13,6 +13,7 @@ from saat.ui.collection_view import CollectionView
 from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
+from saat.ui import theme
 from saat.ui.watch_form import WatchForm
 from saat.wear import assign_worn, clear_worn, mark_worn_today
 
@@ -58,6 +59,7 @@ class MainWindow(QMainWindow):
             self._collection_view.add_watch_requested.connect(self._show_add_form)
             self._collection_view.assign_worn_requested.connect(self._on_assign_worn)
             self._collection_view.clear_worn_requested.connect(self._on_clear_worn)
+            self._collection_view.theme_toggle_requested.connect(self._on_theme_toggle)
             self._stack.addWidget(self._collection_view)
             self._stack.setCurrentWidget(self._collection_view)
         else:
@@ -108,6 +110,12 @@ class MainWindow(QMainWindow):
             refreshed = next((r for r in records if r.slug == self._detail_view.record.slug), None)
             if refreshed is not None:
                 self._show_detail(refreshed)
+
+    def _on_theme_toggle(self) -> None:
+        new_mode = theme.MODE_LIGHT if theme.current_mode() == theme.MODE_DARK else theme.MODE_DARK
+        theme.apply_theme(QApplication.instance(), new_mode)
+        self._config.set_theme_mode(new_mode)
+        self._config.save()
 
     def _show_add_form(self) -> None:
         form = WatchForm(self._current_records(), record=None, parent=self)

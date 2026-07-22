@@ -1,16 +1,67 @@
+from dataclasses import dataclass
+
 from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 from saat.paths import resource_dir
 
-# Palette — a movement plate, not a generic dark-mode app. See SPEC.md §6.
-PLATE = "#1C1B19"
-PLATE_HIGH = "#262421"
-RULE = "#38352F"
-TEXT = "#E8E4DC"
-TEXT_MUTED = "#8E877C"
-GILT = "#C9A227"
-RUBY = "#9E2B25"
+MODE_DARK = "dark"
+MODE_LIGHT = "light"
+
+
+@dataclass(frozen=True)
+class Palette:
+    plate: str
+    plate_high: str
+    rule: str
+    text: str
+    text_muted: str
+    gilt: str
+    ruby: str
+
+
+# Two movement plates, not a generic dark-mode app. See SPEC.md §6. Light is
+# the same plate under daylight, not an inverted dark mode — same hue
+# relationships, lightness re-tuned, gilt/ruby deepened for AA contrast.
+_DARK = Palette(
+    plate="#1C1B19",
+    plate_high="#262421",
+    rule="#38352F",
+    text="#E8E4DC",
+    text_muted="#938C81",  # nudged from spec's #8E877C: measured 4.35:1 on plate-high, below the 4.5:1 bar
+    gilt="#C9A227",
+    ruby="#CF3931",  # nudged from spec's #9E2B25: measured 2.08:1 on plate-high, below the 3:1 bar
+)
+_LIGHT = Palette(
+    plate="#F1EEE6",
+    plate_high="#FFFFFF",
+    rule="#DAD4C5",
+    text="#2B2822",
+    text_muted="#70695E",  # nudged from spec's #7C7568: measured 3.94:1 on plate, below the 4.5:1 bar
+    gilt="#8A6A16",
+    ruby="#A82F24",
+)
+_PALETTES = {MODE_DARK: _DARK, MODE_LIGHT: _LIGHT}
+
+_current_mode = MODE_DARK
+
+
+def current_mode() -> str:
+    return _current_mode
+
+
+def set_mode(mode: str) -> None:
+    global _current_mode
+    if mode not in _PALETTES:
+        raise ValueError(f"unknown theme mode: {mode!r}")
+    _current_mode = mode
+
+
+def colors() -> Palette:
+    """The active palette. Read this at paint time, not import time — a
+    `from saat.ui.theme import GILT`-style import binds the string once and
+    never sees a later toggle. See SPEC.md §6's toggle requirement."""
+    return _PALETTES[_current_mode]
 
 # Type scale. Weights 400 and 600 only.
 SIZE_XS = 11
@@ -51,14 +102,15 @@ def resolve_fonts() -> dict[str, str]:
 def _load_stylesheet(fonts: dict[str, str]) -> str:
     qss_path = resource_dir() / "ui" / "theme.qss"
     text = qss_path.read_text(encoding="utf-8")
+    palette = colors()
     tokens = {
-        "@plate@": PLATE,
-        "@plate-high@": PLATE_HIGH,
-        "@rule@": RULE,
-        "@text@": TEXT,
-        "@text-muted@": TEXT_MUTED,
-        "@gilt@": GILT,
-        "@ruby@": RUBY,
+        "@plate@": palette.plate,
+        "@plate-high@": palette.plate_high,
+        "@rule@": palette.rule,
+        "@text@": palette.text,
+        "@text-muted@": palette.text_muted,
+        "@gilt@": palette.gilt,
+        "@ruby@": palette.ruby,
         "@font-sans@": fonts["sans"],
         "@font-sans-condensed@": fonts["sans_condensed"],
         "@font-mono@": fonts["mono"],
@@ -73,7 +125,14 @@ def _load_stylesheet(fonts: dict[str, str]) -> str:
     return text
 
 
-def apply_theme(app: QApplication) -> None:
+def apply_theme(app: QApplication, mode: str | None = None) -> None:
+    if mode is not None:
+        set_mode(mode)
     fonts = resolve_fonts()
     app.setFont(QFont(fonts["sans"], SIZE_SM))
     app.setStyleSheet(_load_stylesheet(fonts))
+    # QSS reapplication alone doesn't invalidate a custom paintEvent's pixel
+    # content — Qt has no way to know it depends on theme.colors(). Force
+    # every widget to redraw so the hand-painted ones pick up the new palette.
+    for widget in QApplication.allWidgets():
+        widget.update()

@@ -20,7 +20,8 @@ from saat.ui.formatting import EM_DASH, fmt_accuracy, fmt_bool, fmt_bph, fmt_dat
 from saat.ui.images import cropped_pixmap, fit_pixmap, list_images
 from saat.ui.minute_track import MinuteTrackHeader
 from saat.ui.spec_group import SpecRow, build_spec_group, spec_row
-from saat.ui.theme import GILT, GROUP_SPACING, PAGE_MARGIN, RULE, SIZE_XS, TEXT_MUTED, resolve_fonts
+from saat.ui import theme
+from saat.ui.theme import GROUP_SPACING, PAGE_MARGIN, SIZE_XS, resolve_fonts
 from saat.ui.wear_stats import days_since_worn, last_worn, longest_streak, times_worn_this_year
 
 PRIMARY_IMAGE_MAX = (480, 600)
@@ -443,16 +444,16 @@ class _TwelveMonthStrip(QWidget):
             days_in_month = cal.monthrange(year, month)[1]
             block = QRect(x, 0, MONTH_BLOCK_WIDTH, MONTH_BLOCK_HEIGHT)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(RULE))
+            painter.setBrush(QColor(theme.colors().rule))
             painter.drawRect(block)
 
-            painter.setPen(QColor(GILT))
+            painter.setPen(QColor(theme.colors().gilt))
             for day in range(1, days_in_month + 1):
                 if date(year, month, day) in self._worn:
                     tick_x = x + round((day - 0.5) / days_in_month * MONTH_BLOCK_WIDTH)
                     painter.drawLine(tick_x, 2, tick_x, MONTH_BLOCK_HEIGHT - 2)
 
-            painter.setPen(QColor(TEXT_MUTED))
+            painter.setPen(QColor(theme.colors().text_muted))
             painter.drawText(QRect(x, MONTH_BLOCK_HEIGHT, MONTH_BLOCK_WIDTH, 16),
                               Qt.AlignmentFlag.AlignHCenter, date(year, month, 1).strftime("%b"))
             x += MONTH_BLOCK_WIDTH + 4

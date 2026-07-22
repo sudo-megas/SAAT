@@ -20,6 +20,7 @@ class CollectionView(QWidget):
 
     record_activated = Signal(object)
     add_watch_requested = Signal()
+    theme_toggle_requested = Signal()
     assign_worn_requested = Signal(list, object)  # list[date], WatchRecord
     clear_worn_requested = Signal(list)  # list[date]
 
@@ -60,6 +61,7 @@ class CollectionView(QWidget):
         self._grid_view.record_activated.connect(self.record_activated.emit)
         self._table_view.record_activated.connect(self.record_activated.emit)
         self._top_bar.add_watch_requested.connect(self.add_watch_requested.emit)
+        self._top_bar.theme_toggle_requested.connect(self.theme_toggle_requested.emit)
         self._calendar_view.assign_requested.connect(self.assign_worn_requested.emit)
         self._calendar_view.clear_requested.connect(self.clear_worn_requested.emit)
 

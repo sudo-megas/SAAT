@@ -8,12 +8,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog
 
 from saat.models import Watch
 from saat.storage import WatchRecord
-from saat.ui.calendar_view import CalendarView
+from saat.ui import theme
+from saat.ui.calendar_view import CalendarView, _DayCell
+from saat.ui.month_grid import GridDay
 from saat.ui.watch_picker import WatchPicker
 
 _app = QApplication.instance() or QApplication([])
@@ -70,6 +73,40 @@ class CalendarViewRenderingTests(unittest.TestCase):
         view._render()
         view._go_previous()
         self.assertEqual((view._year, view._month), (2025, 12))
+
+
+class DayCellNumberColorTests(unittest.TestCase):
+    """Regression: the day number over a photo sits on a fixed black scrim
+    (see the scrim's own fixed QColor(0,0,0,130) a few lines above it in
+    calendar_view.py), not a themed surface. Using theme.colors().text there
+    made light mode draw near-black ink on that same near-black scrim —
+    measured at 1.5:1, effectively invisible. See SPEC.md §6's contrast pass."""
+
+    def tearDown(self) -> None:
+        theme.set_mode(theme.MODE_DARK)
+
+    def test_number_colour_over_a_photo_is_fixed_regardless_of_theme_mode(self) -> None:
+        record = _record("seiko-sarb033", "Seiko", "SARB033")
+        cell = _DayCell(GridDay(day=date.today(), in_month=True), record, is_today=False)
+        cell._pixmap = QPixmap(10, 10)
+
+        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
+            theme.set_mode(mode)
+            with self.subTest(mode=mode):
+                self.assertEqual(cell._number_color(theme.colors()).name(), "#e8e4dc")
+
+    def test_number_colour_without_a_photo_still_follows_the_active_palette(self) -> None:
+        assigned = _record("seiko-sarb033", "Seiko", "SARB033")
+        cell_assigned = _DayCell(GridDay(day=date.today(), in_month=True), assigned, is_today=False)
+        cell_empty = _DayCell(GridDay(day=date.today(), in_month=True), None, is_today=False)
+        self.assertIsNone(cell_assigned._pixmap)
+
+        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
+            theme.set_mode(mode)
+            palette = theme.colors()
+            with self.subTest(mode=mode):
+                self.assertEqual(cell_assigned._number_color(palette).name(), QColor(palette.text).name())
+                self.assertEqual(cell_empty._number_color(palette).name(), QColor(palette.text_muted).name())
 
 
 class CalendarViewAssignFlowTests(unittest.TestCase):

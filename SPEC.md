@@ -382,21 +382,47 @@ watch, `Escape` back or close, `Ctrl+Q` quit. Arrow keys navigate the grid and c
 
 The reference is a **movement plate**, not a generic dark-mode app. Watch movements are
 grey nickel and warm brass, punctuated by red ruby jewels and the deep indigo of blued
-steel. That is the palette. Do not reach for near-black with a bright acid accent — that
-is the default look of every dark app and says nothing about watches.
+steel. That is the palette in both modes. Do not reach for near-black with a bright acid
+accent, and do not reach for stark white with a saturated accent — both are the default
+look of every app in their category and say nothing about watches.
+
+**Dark (default).** The plate as seen with the case back off, under a loupe.
 
 ```
 --plate       #1C1B19   base background: warm-shifted charcoal, not blue-black
 --plate-high  #262421   elevated surfaces: cards, sidebar, dialogs
 --rule        #38352F   hairlines, borders, dividers
 --text        #E8E4DC   primary text, warm off-white
---text-muted  #8E877C   labels, units, absent values
+--text-muted  #938C81   labels, units, absent values
 --gilt        #C9A227   accent: primary buttons, active filters, focus rings, today
---ruby        #9E2B25   destructive only: delete, unsaved-changes warning
+--ruby        #CF3931   destructive only: delete, unsaved-changes warning
 ```
 
-Gilt appears only on things that are interactive or currently active. Ruby appears in
-exactly two places in the whole app.
+**Light.** The same plate, brushed nickel in daylight — not an inverted dark mode.
+Same hue relationships, lightness re-tuned for a light background.
+
+```
+--plate       #F1EEE6   warm platinum, not stark white
+--plate-high  #FFFFFF   elevated surfaces — lifts off the platinum base
+--rule        #DAD4C5   hairlines, borders, dividers
+--text        #2B2822   primary text, warm near-black, not pure black
+--text-muted  #70695E   labels, units, absent values
+--gilt        #8A6A16   accent — same hue as dark mode, deepened for AA contrast on light
+--ruby        #A82F24   destructive — same hue as dark mode, deepened for AA contrast on light
+```
+
+Verify actual contrast once rendered (4.5:1 for body text, 3:1 for large text and UI
+components against its own background) and nudge lightness if Qt's rendering falls short
+of these values — they are a starting point, not measured output.
+
+In both modes, gilt appears only on things that are interactive or currently active.
+Ruby appears in exactly two places in the whole app.
+
+**Toggle.** A single icon-button in the top bar — sun/moon glyph, drawn to match the
+line weight used elsewhere, not a font icon. This is a toggle, not a settings page: no
+font-size options, no per-section colors, no theme file to import. Toggling re-applies
+`theme.qss` and repaints immediately; it must not require a restart. The active mode
+persists in `config.toml` alongside window geometry. Default on first launch: dark.
 
 **Type.** IBM Plex — Arch package `otf-ibm-plex`, with a detected fallback so the app
 does not break without it. Plex Sans Condensed for labels and column headers, Plex Sans
@@ -407,17 +433,19 @@ table readable at a glance. Scale: 11 / 13 / 15 / 20 / 28. Weights 400 and 600 o
 **Signature element.** One, in one place: spec group headers in the detail view sit on a
 **minute track** — a hairline rule bearing fine ticks, longer every fifth, the way a
 dial's chapter ring is printed. Draw it with `QPainter` in `--rule`, running to the edge
-of the column. That is the app's only flourish. Everything else stays plain: no
-gradients, no glows, no escalating corner radii, no drop shadows beyond a 1 px hairline
-border.
+of the column, so it adapts automatically to whichever mode is active. That is the app's
+only flourish. Everything else stays plain: no gradients, no glows, no escalating corner
+radii, no drop shadows beyond a 1 px hairline border.
 
 **Spacing.** 8 px base unit. Card padding 16, group spacing 32, page margin 24. Table
 rows get 12 px vertical padding — a spec table crammed to 6 px is unreadable, and this
 one is meant to be studied.
 
-Implement all of it in one `saat/ui/theme.qss` loaded at startup, with the palette as
-named constants in a `theme.py` that also exposes them to `QPainter` code. No inline
-stylesheets scattered through widget constructors.
+Implement both palettes in `saat/ui/theme.qss` (templated, not duplicated) with values
+as named constants in a `theme.py` that also exposes them to `QPainter` code, plus a
+function that swaps the active palette and reapplies. No inline stylesheets scattered
+through widget constructors — this is what makes the toggle a small feature instead of a
+find-and-replace across every view.
 
 ---
 
@@ -440,9 +468,11 @@ milestone *n+1* before *n* runs.
    model, reference, caliber and tags.
 7. **Calendar and wear tracking.** Month grid, picker, drag-range assignment, the
    one-watch-per-day rule, wear stats, year view, per-watch strip, "Wore this today".
-8. **Compare view and extras.** Comparison table, timing sparkline, maintenance-due
+8. **Light and dark theme.** Second palette, the top-bar toggle, `config.toml`
+   persistence, a contrast pass over both modes across every view built so far.
+9. **Compare view and extras.** Comparison table, timing sparkline, maintenance-due
    indicator, strap compatibility, collection summary, keyboard shortcuts.
-9. **Packaging.** Per §8.
+10. **Packaging.** Per §8.
 
 ---
 
@@ -514,7 +544,9 @@ and document it.
 
 ## 9. Do not
 
-- Add a database, a settings GUI for the settings file, a plugin system, or a theme editor.
+- Add a database, a settings GUI for the settings file, a plugin system, or a theme
+  editor. The two fixed palettes in §6 and their single toggle are not a theme editor:
+  no arbitrary colors, no user-saved palettes, no theme file import or export.
 - Add cloud sync, sharing, export, or a showcase mode.
 - Fetch watch data, images or prices from anywhere.
 - Write files outside the application directory.

@@ -2,7 +2,8 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
-from saat.ui.theme import RULE, SIZE_XS, TEXT_MUTED, resolve_fonts
+from saat.ui import theme
+from saat.ui.theme import SIZE_XS, resolve_fonts
 
 LABEL_HEIGHT = 20
 TRACK_HEIGHT = 10
@@ -30,10 +31,10 @@ class MinuteTrackHeader(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         painter.setFont(self._font)
-        painter.setPen(QColor(TEXT_MUTED))
+        painter.setPen(QColor(theme.colors().text_muted))
         painter.drawText(0, 0, self.width(), LABEL_HEIGHT, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self._title)
 
-        rule_color = QColor(RULE)
+        rule_color = QColor(theme.colors().rule)
         track_y = LABEL_HEIGHT + TRACK_HEIGHT - 1
         painter.setPen(QPen(rule_color, 1))
         painter.drawLine(0, track_y, self.width(), track_y)

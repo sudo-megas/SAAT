@@ -1,12 +1,68 @@
-from PySide6.QtCore import Qt, Signal
+import math
+
+from PySide6.QtCore import QPointF, Qt, Signal
+from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPainterPath, QPen
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
+from saat.ui import theme
 from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS
 
 VIEW_GRID = "grid"
 VIEW_TABLE = "table"
 VIEW_CALENDAR = "calendar"
 PRESET_DEFAULT = "Default"
+
+_TOGGLE_SIZE = 28
+
+
+class _ThemeToggle(QWidget):
+    """Sun/moon glyph, hand-drawn to match the app's line weight rather than a
+    font icon — SPEC.md §6 is explicit on that point. Shows the mode a click
+    switches *to*: a sun while dark is active, a moon while light is active.
+    Reads theme.colors()/current_mode() fresh every paint, so it's always
+    correct after a toggle or after TopBar gets rebuilt from scratch."""
+
+    clicked = Signal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(_TOGGLE_SIZE, _TOGGLE_SIZE)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.pos()):
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = QColor(theme.colors().text_muted)
+        cx, cy = self.width() / 2, self.height() / 2
+
+        if theme.current_mode() == theme.MODE_DARK:
+            r = 5.0
+            painter.setPen(QPen(color, 1.5))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(QPointF(cx, cy), r, r)
+            for i in range(8):
+                angle = i * math.pi / 4
+                inner, outer = r + 3, r + 7
+                painter.drawLine(
+                    QPointF(cx + math.cos(angle) * inner, cy + math.sin(angle) * inner),
+                    QPointF(cx + math.cos(angle) * outer, cy + math.sin(angle) * outer),
+                )
+        else:
+            r = 7.0
+            full = QPainterPath()
+            full.addEllipse(QPointF(cx, cy), r, r)
+            bite = QPainterPath()
+            bite.addEllipse(QPointF(cx + r * 0.6, cy - r * 0.3), r, r)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(color)
+            painter.drawPath(full.subtracted(bite))
+
+        painter.end()
 
 
 class TopBar(QWidget):
@@ -18,6 +74,7 @@ class TopBar(QWidget):
     preset_changed = Signal(str)
     search_changed = Signal(str)
     add_watch_requested = Signal()
+    theme_toggle_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -56,6 +113,9 @@ class TopBar(QWidget):
         add_button.setProperty("variant", "primary")
         add_button.clicked.connect(self.add_watch_requested.emit)
 
+        self._theme_toggle = _ThemeToggle()
+        self._theme_toggle.clicked.connect(self.theme_toggle_requested.emit)
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(24, 12, 24, 12)
         layout.setSpacing(12)
@@ -69,6 +129,7 @@ class TopBar(QWidget):
         layout.addWidget(self._preset_combo)
         layout.addStretch()
         layout.addWidget(add_button)
+        layout.addWidget(self._theme_toggle)
 
         self._set_view(VIEW_GRID)
 
