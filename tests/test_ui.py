@@ -176,5 +176,19 @@ class TableFormatterTests(UITestCase):
         self.assertEqual(cell("acquired_date"), "15.06.2023")
 
 
+class TopBarStyledBackgroundTests(unittest.TestCase):
+    """A plain QWidget subclass silently ignores QSS `border-*` (though not
+    `background`) unless WA_StyledBackground is set — TopBar's border-bottom
+    was invisible for all of milestone 3 without anyone noticing, since only
+    a pixel-level check (not a widget-tree check) catches a border that never
+    painted. See also SidebarStyledBackgroundTests in test_sidebar.py."""
+
+    def test_top_bar_has_styled_background_enabled(self) -> None:
+        from saat.ui.top_bar import TopBar
+
+        top_bar = TopBar()
+        self.assertTrue(top_bar.testAttribute(Qt.WidgetAttribute.WA_StyledBackground))
+
+
 if __name__ == "__main__":
     unittest.main()

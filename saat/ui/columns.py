@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from saat.models import Strap, Watch
+from saat.ui.facets import days_since_worn
 from saat.ui.formatting import (
     EM_DASH,
     fmt_accuracy,
@@ -33,6 +34,14 @@ def _get_price(watch: Watch):
     if watch.acquisition.price is None:
         return None
     return (watch.acquisition.price, watch.acquisition.currency or "")
+
+
+_NEVER_WORN_SORT_DAYS = 10**6  # sorts ahead of any real day count — "least worn" ever
+
+
+def _least_worn_key(watch: Watch) -> int:
+    days = days_since_worn(watch)
+    return -(days if days is not None else _NEVER_WORN_SORT_DAYS)
 
 
 def _get_accuracy(watch: Watch):
@@ -111,6 +120,9 @@ COLUMNS: list[Column] = [
     Column("condition", "Condition", "Acquisition", lambda w: w.acquisition.condition),
     Column("box_and_papers", "Box & Papers", "Acquisition", lambda w: w.acquisition.box_and_papers, fmt_bool),
     Column("warranty_until", "Warranty Until", "Acquisition", lambda w: w.acquisition.warranty_until, fmt_date),
+    # "Derived" is deliberately not in GROUP_ORDER: sort-only, never a table
+    # column or preset. SPEC.md §4's "Least worn" sort option.
+    Column("least_worn", "Least Worn", "Derived", _least_worn_key),
 ]
 
 COLUMNS_BY_KEY: dict[str, Column] = {c.key: c for c in COLUMNS}
@@ -124,7 +136,7 @@ COLUMN_PRESETS: dict[str, list[str]] = {
     group: [c.key for c in COLUMNS if c.group == group] for group in GROUP_ORDER
 }
 
-SORT_OPTIONS = ["brand", "model", "rating", "acquired_date"]
+SORT_OPTIONS = ["brand", "model", "rating", "acquired_date", "least_worn"]
 
 
 def sort_key(key: str) -> Callable[[Watch], tuple]:

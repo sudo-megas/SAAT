@@ -1,5 +1,5 @@
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
 from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS
 
@@ -10,17 +10,23 @@ PRESET_DEFAULT = "Default"
 
 class TopBar(QWidget):
     """Search, view toggle, sort, column presets, and the one primary-weight
-    control in the app. See SPEC.md §5.1. Search and filters land in a later
-    milestone — this is the read-only-view slice."""
+    control in the app. See SPEC.md §5.1."""
 
     view_changed = Signal(str)
     sort_changed = Signal(str)
     preset_changed = Signal(str)
+    search_changed = Signal(str)
     add_watch_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("class", "top-bar")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+        self._search_field = QLineEdit()
+        self._search_field.setPlaceholderText("Search brand, model, reference, caliber, tags…")
+        self._search_field.setMinimumWidth(240)
+        self._search_field.textChanged.connect(self.search_changed.emit)
 
         self._grid_button = QPushButton("Grid")
         self._grid_button.setCheckable(True)
@@ -49,6 +55,8 @@ class TopBar(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(24, 12, 24, 12)
         layout.setSpacing(12)
+        layout.addWidget(self._search_field)
+        layout.addSpacing(12)
         layout.addWidget(self._grid_button)
         layout.addWidget(self._table_button)
         layout.addSpacing(12)
@@ -61,6 +69,9 @@ class TopBar(QWidget):
 
     def set_view(self, view: str) -> None:
         self._set_view(view)
+
+    def search_text(self) -> str:
+        return self._search_field.text()
 
     def _set_view(self, view: str) -> None:
         self._grid_button.setChecked(view == VIEW_GRID)

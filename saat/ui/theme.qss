@@ -161,6 +161,11 @@ QWidget[class="top-bar"] {
     border-bottom: 1px solid @rule@;
 }
 
+QWidget[class="sidebar"] {
+    background: @plate-high@;
+    border-right: 1px solid @rule@;
+}
+
 QPushButton:checkable {
     font-weight: 400;
 }

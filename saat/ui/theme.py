@@ -26,6 +26,10 @@ GROUP_SPACING = 32
 PAGE_MARGIN = 24
 TABLE_ROW_PADDING = 12
 
+# SPEC.md §5.1 — left sidebar, ~260px, collapsible.
+SIDEBAR_WIDTH = 260
+SIDEBAR_COLLAPSED_WIDTH = 130
+
 FONT_SANS = "IBM Plex Sans"
 FONT_SANS_CONDENSED = "IBM Plex Sans Condensed"
 FONT_MONO = "IBM Plex Mono"
