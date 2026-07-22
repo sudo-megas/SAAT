@@ -1,8 +1,8 @@
-import os
 import sys
 
 import tomlkit
 
+from saat.atomic import write_atomic
 from saat.paths import app_dir
 
 
@@ -23,12 +23,7 @@ class Config:
             return tomlkit.document()
 
     def save(self) -> None:
-        tmp_path = self.path.with_name(self.path.name + ".tmp")
-        with open(tmp_path, "w", encoding="utf-8") as handle:
-            handle.write(tomlkit.dumps(self.data))
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_path, self.path)
+        write_atomic(self.path, tomlkit.dumps(self.data))
 
     def window_geometry(self) -> dict | None:
         return self.data.get("window")
