@@ -4,7 +4,7 @@ from PySide6.QtCore import QUrl, Qt, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
-from saat.paths import app_dir
+from saat.paths import data_dir
 
 
 class EmptyStateView(QWidget):
@@ -14,7 +14,7 @@ class EmptyStateView(QWidget):
 
     def __init__(self, watches_dir: Path | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._watches_dir = watches_dir if watches_dir is not None else app_dir() / "watches"
+        self._watches_dir = watches_dir if watches_dir is not None else data_dir() / "watches"
 
         heading = QLabel("Your collection is empty.")
         heading.setProperty("role", "empty-heading")

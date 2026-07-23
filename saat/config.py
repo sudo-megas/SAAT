@@ -4,14 +4,14 @@ from pathlib import Path
 import tomlkit
 
 from saat.atomic import write_atomic
-from saat.paths import app_dir
+from saat.paths import config_dir
 
 
 class Config:
     """Reads and writes config.toml: window geometry, last view, column choices."""
 
     def __init__(self, path: Path | None = None) -> None:
-        self.path = path if path is not None else app_dir() / "config.toml"
+        self.path = path if path is not None else config_dir() / "config.toml"
         self.data = self._load()
 
     def _load(self) -> tomlkit.TOMLDocument:

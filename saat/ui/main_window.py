@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QStackedWidget
 
 from saat import __version__
 from saat.config import Config
-from saat.paths import app_dir
+from saat.paths import data_dir
 from saat.storage import WatchRecord, create_watch, delete_watch, load_collection, save_watch
 from saat.ui.collection_view import CollectionView
 from saat.ui.compare_view import CompareView
@@ -34,8 +34,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"SAAT v{__version__}")
         self.setMinimumSize(MIN_SIZE)
 
-        self._watches_dir = watches_dir if watches_dir is not None else app_dir() / "watches"
-        self._backups_dir = backups_dir if backups_dir is not None else app_dir() / "backups"
+        self._watches_dir = watches_dir if watches_dir is not None else data_dir() / "watches"
+        self._backups_dir = backups_dir if backups_dir is not None else data_dir() / "backups"
         self._config = config if config is not None else Config()
         self._restore_geometry()
 

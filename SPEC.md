@@ -28,10 +28,19 @@ Non-negotiable. Do not improve past them.
    catalogue. Do not invent watches to demonstrate the UI — not in the repo, not in
    tests, not in screenshots. Tests build fixtures in a temp directory at runtime and
    delete them.
-2. **Portable.** Every path resolves relative to the application directory. Never write
-   to `~/.config`, `~/.local/share`, `~/.cache`, `/tmp`, or any absolute path outside the
-   app folder. Copying the folder to a USB stick and running it elsewhere must work with
-   all data intact.
+2. **Portable by default, installed by explicit opt-in.** All paths resolve through
+   `data_dir()`, `config_dir()` or `resource_dir()` — never a bare `~/.config`,
+   `~/.local/share`, `~/.cache`, `/tmp`, or hardcoded absolute path. In portable mode
+   (the default), `data_dir()` and `config_dir()` both resolve beside the executable:
+   copying the folder to a USB stick and running it elsewhere must work with all data
+   intact. Installed mode redirects both to the OS's standard per-user locations, and
+   only activates when the executable is frozen *and* a `.installed` marker file sits
+   beside it, written by `install.sh` or a future `.deb` postinst — never inferred from
+   XDG variables alone. The marker opts IN; portable never opts OUT. A missing marker
+   must never silently relocate a portable user's collection into their home directory,
+   so a mispackaged installer should fail loudly (a permissions error writing beside a
+   read-only system executable) rather than silently splitting a collection across two
+   locations.
 3. **No database.** No SQLite, no ORM, no embedded server. Storage is plain files.
 4. **No network.** No API calls, no image fetching, no update checks, no telemetry. The
    app never opens a socket. The single exception is handing a URL to the system browser
@@ -480,11 +489,11 @@ milestone *n+1* before *n* runs.
 
 ## 8. Packaging and paths
 
-Two ways to run, both supported, both documented in the README.
+Three ways to run, all supported, all documented in the README.
 
 **Development:** `run.sh` — creates `.venv` if absent, installs the three dependencies,
 sets `QT_QPA_PLATFORM=wayland`, runs `main.py`. Works from a fresh clone with no
-arguments.
+arguments. Always portable mode (never frozen, so a `.installed` marker is moot).
 
 **Portable build:** PyInstaller in **one-folder mode** (`--onedir`), committed as a
 `SAAT.spec` file rather than a pile of command-line flags:
@@ -499,40 +508,88 @@ SAAT/
 ```
 
 `watches/`, `config.toml` and `backups/` sit beside the executable, never inside
-`_internal/`.
+`_internal/`. This is the default the moment the folder is copied anywhere — no marker
+file, no setup step.
+
+**Installed build:** `install.sh` copies the portable build to `/opt/saat`, writes a
+`.installed` marker beside the executable, symlinks `/usr/local/bin/saat`, and adds an
+application-launcher entry. The marker is what switches the app to installed mode:
+
+```
+/opt/saat/                    ~/.local/share/saat/    ~/.config/saat/
+├── SAAT        executable    ├── watches/             └── config.toml
+└── _internal/                └── backups/
+```
+
+`uninstall.sh` reverses everything `install.sh` did and never touches
+`~/.local/share/saat` or `~/.config/saat`. Both scripts are the reference a future
+`.deb`'s postinst/prerm will follow — same steps, just invoked by dpkg instead of by
+hand.
 
 Do **not** use `--onefile`: it extracts to a temp directory on every launch, which is
-slow with Qt bundled and puts application files outside the app directory.
+slow with Qt bundled and puts application files outside the data directory.
 
 Do **not** build an AppImage: they are mounted read-only, so the data directory cannot
 live inside one, and they need FUSE 2, which Arch does not install by default.
 
-### Path resolution — implement in milestone 1
+### Path resolution — implement in milestone 1, split in milestone 12
 
-Every path derives from one helper. A frozen executable resolves `__file__` differently
-than a script, and PyInstaller's `sys._MEIPASS` points at bundled resources, never at
-writable data. Getting this wrong breaks portability silently.
+Every path derives from one of three helpers — never a bare `~/.config`,
+`~/.local/share`, or hardcoded absolute path. A frozen executable resolves `__file__`
+differently than a script, and PyInstaller's `sys._MEIPASS` points at bundled
+resources, never at writable data. Getting this wrong breaks portability silently.
 
 ```python
 import os, sys
 from pathlib import Path
 
-def app_dir() -> Path:
-    """The directory the app and its data live in. Never a temp dir."""
+INSTALLED_MARKER = ".installed"
+
+def _installed_mode() -> bool:
+    # Opt-in only: frozen AND the marker install.sh writes is present beside
+    # the executable. A missing marker must always mean portable.
+    if not getattr(sys, "frozen", False):
+        return False
+    return (Path(sys.executable).resolve().parent / INSTALLED_MARKER).exists()
+
+def _portable_dir() -> Path:
     if os.environ.get("APPIMAGE"):            # AppImage: the .AppImage file's folder
         return Path(os.environ["APPIMAGE"]).resolve().parent
     if getattr(sys, "frozen", False):         # PyInstaller: the executable's folder
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent    # source checkout
+
+def _resolve(xdg_env: str, xdg_default_subpath: tuple[str, ...]) -> Path:
+    # Precedence: SAAT_DATA_DIR env var > installed mode (XDG) > portable.
+    if "SAAT_DATA_DIR" in os.environ:
+        path = Path(os.environ["SAAT_DATA_DIR"])
+    elif _installed_mode():
+        base = os.environ.get(xdg_env) or str(Path.home().joinpath(*xdg_default_subpath))
+        path = Path(base) / "saat"
+    else:
+        path = _portable_dir()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def data_dir() -> Path:
+    return _resolve("XDG_DATA_HOME", (".local", "share"))
+
+def config_dir() -> Path:
+    return _resolve("XDG_CONFIG_HOME", (".config",))
 ```
 
-`watches/`, `config.toml` and `backups/` all resolve from `app_dir()`. Bundled read-only
-resources — the QSS theme, fonts, icons — resolve from `sys._MEIPASS` when frozen and
-from the package directory otherwise, via a separate `resource_dir()`. The two must never
-be confused.
+`watches/` and `backups/` resolve from `data_dir()`; `config.toml` from `config_dir()`.
+`SAAT_DATA_DIR`, when set, collapses both to the same directory regardless of mode — an
+escape hatch for testing and for a power user who wants one folder either way. Bundled
+read-only resources — the QSS theme, fonts, icons — resolve from `sys._MEIPASS` when
+frozen and from the package directory otherwise, via a separate `resource_dir()`, wholly
+unaffected by portable vs. installed. The three must never be confused.
 
-Verify before calling the build done: copy the built folder to a different path, run it,
-add a watch, confirm the file lands in the copied folder.
+Verify before calling either build done: copy the portable build to a different path,
+run it, add a watch, confirm the file lands in the copied folder. Then `install.sh`,
+launch via the launcher entry, add a watch, confirm it lands under `~/.local/share/saat`
+and that `/opt/saat` stays untouched. Then `uninstall.sh` and confirm the collection
+survives.
 
 ### Environment note
 

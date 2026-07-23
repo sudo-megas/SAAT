@@ -91,12 +91,12 @@ FALLBACK_MONO = "Monospace"
 
 def load_bundled_fonts() -> list[str]:
     """Register the vendored Ubuntu statics from resource_dir() — never
-    app_dir(), these are read-only bundled assets, not user data. Returns the
-    family names actually registered so resolve_fonts() (and tests) can tell
-    a real load from a fallback. addApplicationFont() returns -1 on failure
-    rather than raising, so a missing/corrupt file just fails to register —
-    resolve_fonts()'s existing fallback-to-system-font chain already handles
-    that, no try/except needed here."""
+    data_dir()/config_dir(), these are read-only bundled assets, not user
+    data. Returns the family names actually registered so resolve_fonts()
+    (and tests) can tell a real load from a fallback. addApplicationFont()
+    returns -1 on failure rather than raising, so a missing/corrupt file
+    just fails to register — resolve_fonts()'s existing fallback-to-system-
+    font chain already handles that, no try/except needed here."""
     fonts_dir = resource_dir() / "resources" / "fonts"
     families: list[str] = []
     for path in sorted(fonts_dir.glob("*.ttf")):

@@ -60,7 +60,43 @@ your data outside the app folder. AppImage is not used either (mounted read-only
 the data directory can't live inside it, and it needs FUSE 2). See `SAAT.spec` for
 the specifics.
 
+## Install it (Linux, system-wide)
+
+Build the portable folder first (previous section), then:
+
+```sh
+sudo ./install.sh
+```
+
+This copies `dist/SAAT` to `/opt/saat`, marks it as an installed build (which
+switches it to the standard per-user data locations — see below), symlinks `saat`
+onto your `PATH` at `/usr/local/bin/saat`, and adds a launcher entry so SAAT appears
+in your application menu.
+
+```sh
+sudo ./uninstall.sh
+```
+
+removes everything `install.sh` created. It never touches your collection —
+`~/.local/share/saat` and `~/.config/saat` are left exactly as they are.
+
 ## Where your data lives
+
+SAAT runs in one of two modes:
+
+- **Portable** (default — a plain copy of `dist/SAAT`, or running from source).
+  `watches/`, `config.toml` and `backups/` live beside the executable (or beside
+  `main.py` when run from source): copy the whole folder anywhere and the collection
+  travels with it.
+- **Installed** (via `install.sh`, or a future `.deb`). The executable lives in a
+  read-only system location (`/opt/saat`), so data moves to the standard per-user
+  locations instead: `watches/` and `backups/` under `$XDG_DATA_HOME/saat` (default
+  `~/.local/share/saat`), and `config.toml` under `$XDG_CONFIG_HOME/saat` (default
+  `~/.config/saat`). This only activates when the build is both frozen *and* carries
+  the `.installed` marker `install.sh` writes — a bare copy of `dist/SAAT` always
+  stays portable.
+
+`SAAT_DATA_DIR` overrides both locations at once, useful for testing.
 
 Each watch is its own folder under `watches/`, containing a `watch.toml` and an
 `images/` subfolder. [`watches/_template.toml`](watches/_template.toml) documents

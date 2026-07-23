@@ -19,12 +19,12 @@
 #     from setWindowIcon() reading resources/icon/saat.png at runtime, not
 #     from the binary itself). Harmless to set now, saves a step later.
 #   * watches/, config.toml and backups/ are deliberately NOT bundled: they
-#     are writable user data that app_dir() resolves beside the executable
-#     (never sys._MEIPASS). Bundling them would put user data inside the
-#     read-only _internal/ tree — exactly what §8 forbids.
+#     are writable user data that data_dir()/config_dir() resolve beside the
+#     executable in portable mode (never sys._MEIPASS) — or under the OS's
+#     standard per-user locations in installed mode; see SPEC.md §8.
 #   * exclude_binaries=True on EXE + a COLLECT block is what makes this
 #     one-folder rather than one-file. §8 forbids --onefile (slow Qt
-#     extraction on every launch, and it scatters files outside app_dir()).
+#     extraction on every launch, and it scatters files outside data_dir()).
 #   * upx=False: UPX-compressing Qt's shared libraries is a known cause of
 #     load-time crashes, and leaving it on would make the build depend on
 #     whether UPX is installed. Off is deterministic and safe.
