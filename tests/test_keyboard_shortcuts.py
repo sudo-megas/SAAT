@@ -167,6 +167,23 @@ class EscapeShortcutTests(UITestCase):
 
         self.assertIs(window.centralWidget().currentWidget(), collection_view)
 
+    def test_escape_clears_calendar_rotation_emphasis_without_changing_the_current_view(self) -> None:
+        """SPEC.md §5.5: the Rotation click-through's emphasis clears on
+        Escape. Driven through the real MainWindow, not the calendar widget
+        directly, since the whole point is that _on_escape's single global
+        dispatch point is what has to route this."""
+        window = self._window()
+        collection_view = window.centralWidget().currentWidget()
+        [record] = load_collection(self.watches_dir)
+        calendar_view = collection_view._calendar_view
+        calendar_view._on_rotation_clicked(record.slug)
+        self.assertEqual(calendar_view._emphasized_slug, record.slug)
+
+        window._on_escape()
+
+        self.assertIsNone(calendar_view._emphasized_slug)
+        self.assertIs(window.centralWidget().currentWidget(), collection_view)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] - 2026-07-24
+
+### Added
+
+- Calendar Stats mode: rotation ranked by days worn with an even-split reference tick,
+  a not-worn list, coverage and period-over-period deltas, a weekday-most-worn strip, and
+  longest-run/longest-gap streaks, over three fixed periods (This month / This year / All
+  time). Every section hides itself when it has nothing to say rather than rendering
+  zeroed-out figures. Clicking a watch in the Rotation list switches to Month mode with
+  that watch's days emphasised and the rest dimmed, until mode change or Escape.
+- Calendar navigation: a Today button, and an inline month/year jump beside the prev/next
+  arrows, in Month and Year mode.
+- SPEC.md §6 gains a Data visualisation subsection formalising the hairline-bar/tick/
+  colour-chip/monospace vocabulary Stats mode uses, and re-banning pie charts, gauges,
+  progress rings and any charting dependency app-wide.
+
 ## [1.1.0] - 2026-07-23
 
 ### Added

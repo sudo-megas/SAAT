@@ -2,6 +2,8 @@ import calendar as cal
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
 
 @dataclass(frozen=True)
 class GridDay:

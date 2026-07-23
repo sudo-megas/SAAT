@@ -1,29 +1,32 @@
+import calendar as cal
 from datetime import date, timedelta
 
 from PySide6.QtCore import QRect, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSpinBox,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from saat.storage import WatchRecord
+from saat.ui.calendar_stats import StatsView
 from saat.ui.images import cropped_pixmap, first_image
-from saat.ui.month_grid import GridDay, month_grid_days
+from saat.ui.month_grid import GridDay, WEEKDAY_LABELS, month_grid_days
 from saat.ui import theme
 from saat.ui.theme import SIZE_SM, SIZE_XS, resolve_fonts
 from saat.ui.watch_picker import WatchPicker
 from saat.ui.year_view import YearView
 from saat.wear import build_worn_index
 
-WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 SCRIM_HEIGHT = 22
 MIN_CELL_SIZE = 72
 
@@ -40,6 +43,7 @@ class _DayCell(QFrame):
         self.is_today = is_today
         self.highlighted = False
         self.focused = False
+        self.dimmed = False
         self.setMinimumSize(MIN_CELL_SIZE, MIN_CELL_SIZE)
 
         self._pixmap = None
@@ -62,6 +66,11 @@ class _DayCell(QFrame):
     def set_focused(self, value: bool) -> None:
         if value != self.focused:
             self.focused = value
+            self.update()
+
+    def set_dimmed(self, value: bool) -> None:
+        if value != self.dimmed:
+            self.dimmed = value
             self.update()
 
     def _number_color(self, palette: "theme.Palette") -> QColor:
@@ -87,6 +96,17 @@ class _DayCell(QFrame):
             painter.fillRect(rect, QColor(palette.plate_high))  # a watch with no photo yet — SPEC.md §5.2's card placeholder, calendar-sized
         else:
             painter.fillRect(rect, QColor(palette.plate))  # truly empty — nothing recorded
+
+        if self.dimmed:
+            # Rotation click-through emphasis (SPEC.md §5.5): washes this
+            # cell's photo/colour content toward the plate so the emphasised
+            # watch's days read as the only "live" ones. Drawn before the day
+            # number so it stays fully legible — dimming is about the
+            # content, not the navigation — and before the drag-highlight/
+            # today/focus strokes below so those never look muted.
+            dim = QColor(palette.plate)
+            dim.setAlpha(170)
+            painter.fillRect(rect, dim)
 
         painter.setFont(self._number_font)
         painter.setPen(self._number_color(palette))
@@ -145,7 +165,9 @@ class _MonthGrid(QWidget):
         self._drag_anchor: date | None = None
         self._focused_day: date | None = None
 
-    def render(self, year: int, month: int, worn_index: dict[date, WatchRecord]) -> None:
+    def render(
+        self, year: int, month: int, worn_index: dict[date, WatchRecord], emphasized_slug: str | None = None
+    ) -> None:
         while self._layout.count():
             item = self._layout.takeAt(0)
             if item.widget():
@@ -181,6 +203,16 @@ class _MonthGrid(QWidget):
             in_month_days = sorted(d for d, cell in self._cells.items() if cell.grid_day.in_month)
             self._focused_day = in_month_days[0] if in_month_days else None
         self._apply_focus()
+        self.apply_emphasis(emphasized_slug)
+
+    def apply_emphasis(self, emphasized_slug: str | None) -> None:
+        """Click-through from Stats mode's Rotation list (SPEC.md §5.5): the
+        emphasised watch's cells render at full strength, everything else
+        dims — including cells with no watch at all. A post-render pass, the
+        same shape as _apply_focus(), so it survives cell rebuilds without
+        CalendarView having to thread it through every render() call site."""
+        for cell in self._cells.values():
+            cell.set_dimmed(emphasized_slug is not None and (cell.record is None or cell.record.slug != emphasized_slug))
 
     def _day_at(self, pos) -> date | None:
         child = self.childAt(pos)
@@ -251,9 +283,15 @@ class _MonthGrid(QWidget):
             cell.set_highlighted(False)
 
 
+_MODE_MONTH = "month"
+_MODE_YEAR = "year"
+_MODE_STATS = "stats"
+
+
 class CalendarView(QWidget):
-    """Month grid with drag-range assignment. See SPEC.md §5.5. Year view and
-    the detail-page wear strip reuse month_grid_days()/build_worn_index()."""
+    """Month, Year and Stats modes over one collection's wear history. See
+    SPEC.md §5.5. Year view and the detail-page wear strip reuse
+    month_grid_days()/build_worn_index()."""
 
     assign_requested = Signal(list, object)  # list[date], WatchRecord
     clear_requested = Signal(list)  # list[date]
@@ -265,24 +303,44 @@ class CalendarView(QWidget):
         self._month = today.month
         self._records = records
         self._worn_index = build_worn_index(records)
-        self._year_view_active = False
+        self._mode = _MODE_MONTH
+        self._emphasized_slug: str | None = None
 
-        self._month_label = QLabel()
-        self._month_label.setProperty("class", "detail-title")
-        prev_button = QPushButton("‹")
-        prev_button.clicked.connect(self._go_previous)
-        next_button = QPushButton("›")
-        next_button.clicked.connect(self._go_next)
-        self._year_view_button = QPushButton("Year view")
-        self._year_view_button.setCheckable(True)
-        self._year_view_button.clicked.connect(self._toggle_year_view)
+        self._prev_button = QPushButton("‹")
+        self._prev_button.clicked.connect(self._go_previous)
+        self._next_button = QPushButton("›")
+        self._next_button.clicked.connect(self._go_next)
+        self._today_button = QPushButton("Today")
+        self._today_button.clicked.connect(self._go_today)
+
+        self._month_combo = QComboBox()
+        self._month_combo.addItems(cal.month_name[1:])
+        self._month_combo.currentIndexChanged.connect(self._on_month_combo_changed)
+        self._year_spinbox = QSpinBox()
+        self._year_spinbox.setRange(1900, 2100)
+        self._year_spinbox.valueChanged.connect(self._on_year_spinbox_changed)
+
+        self._month_button = QPushButton("Month")
+        self._year_button = QPushButton("Year")
+        self._stats_button = QPushButton("Stats")
+        for button, mode in (
+            (self._month_button, _MODE_MONTH),
+            (self._year_button, _MODE_YEAR),
+            (self._stats_button, _MODE_STATS),
+        ):
+            button.setCheckable(True)
+            button.clicked.connect(lambda _checked, m=mode: self._set_mode(m))
 
         header = QHBoxLayout()
-        header.addWidget(prev_button)
-        header.addWidget(self._month_label)
-        header.addWidget(next_button)
+        header.addWidget(self._prev_button)
+        header.addWidget(self._month_combo)
+        header.addWidget(self._year_spinbox)
+        header.addWidget(self._next_button)
+        header.addWidget(self._today_button)
         header.addStretch()
-        header.addWidget(self._year_view_button)
+        header.addWidget(self._month_button)
+        header.addWidget(self._year_button)
+        header.addWidget(self._stats_button)
 
         self._grid = _MonthGrid()
         self._grid.range_chosen.connect(self._on_range_chosen)
@@ -300,9 +358,13 @@ class CalendarView(QWidget):
         self._year_view = YearView()
         self._year_view.month_clicked.connect(self._jump_to_month)
 
+        self._stats_view = StatsView()
+        self._stats_view.watch_clicked.connect(self._on_rotation_clicked)
+
         self._content_stack = QStackedWidget()
         self._content_stack.addWidget(month_content)
         self._content_stack.addWidget(self._year_view)
+        self._content_stack.addWidget(self._stats_view)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
@@ -310,6 +372,7 @@ class CalendarView(QWidget):
         layout.addLayout(header)
         layout.addWidget(self._content_stack, stretch=1)
 
+        self._update_mode_buttons()
         self._render()
 
     def set_records(self, records: list[WatchRecord]) -> None:
@@ -322,8 +385,17 @@ class CalendarView(QWidget):
     def focus_grid(self) -> None:
         self._grid.setFocus(Qt.FocusReason.OtherFocusReason)
 
+    def clear_emphasis(self) -> None:
+        """Escape, routed through CollectionView/MainWindow — a no-op if
+        nothing is currently emphasised. SPEC.md §5.5's click-through clears
+        on mode change (see _set_mode) or Escape; this is the Escape half."""
+        if self._emphasized_slug is None:
+            return
+        self._emphasized_slug = None
+        self._render()
+
     def _go_previous(self) -> None:
-        if self._year_view_active:
+        if self._mode == _MODE_YEAR:
             self._year -= 1
         else:
             self._month -= 1
@@ -333,7 +405,7 @@ class CalendarView(QWidget):
         self._render()
 
     def _go_next(self) -> None:
-        if self._year_view_active:
+        if self._mode == _MODE_YEAR:
             self._year += 1
         else:
             self._month += 1
@@ -342,25 +414,74 @@ class CalendarView(QWidget):
                 self._year += 1
         self._render()
 
-    def _toggle_year_view(self) -> None:
-        self._year_view_active = self._year_view_button.isChecked()
-        self._content_stack.setCurrentWidget(self._year_view if self._year_view_active else self._content_stack.widget(0))
+    def _go_today(self) -> None:
+        today = date.today()
+        self._year = today.year
+        if self._mode == _MODE_MONTH:
+            self._month = today.month
         self._render()
+
+    def _on_month_combo_changed(self, index: int) -> None:
+        month = index + 1
+        if index >= 0 and month != self._month:
+            self._month = month
+            self._render()
+
+    def _on_year_spinbox_changed(self, value: int) -> None:
+        if value != self._year:
+            self._year = value
+            self._render()
+
+    def _set_mode(self, mode: str) -> None:
+        self._emphasized_slug = None  # SPEC.md §5.5: any mode change clears click-through emphasis
+        self._mode = mode
+        self._update_mode_buttons()
+        self._content_stack.setCurrentIndex({_MODE_MONTH: 0, _MODE_YEAR: 1, _MODE_STATS: 2}[mode])
+        self._render()
+
+    def _update_mode_buttons(self) -> None:
+        self._month_button.setChecked(self._mode == _MODE_MONTH)
+        self._year_button.setChecked(self._mode == _MODE_YEAR)
+        self._stats_button.setChecked(self._mode == _MODE_STATS)
 
     def _jump_to_month(self, month: int) -> None:
         self._month = month
-        self._year_view_active = False
-        self._year_view_button.setChecked(False)
-        self._content_stack.setCurrentIndex(0)
+        self._set_mode(_MODE_MONTH)
+
+    def _on_rotation_clicked(self, slug: str) -> None:
+        """Stats mode's Rotation click-through (SPEC.md §5.5): switch to
+        Month mode, then emphasise — in that order, since _set_mode() itself
+        unconditionally clears any emphasis as part of "mode change clears
+        it", and this mode change is the one time that must not erase the
+        emphasis it's meant to establish."""
+        self._set_mode(_MODE_MONTH)
+        self._emphasized_slug = slug
         self._render()
 
+    def _update_header_visibility(self) -> None:
+        is_stats = self._mode == _MODE_STATS
+        for widget in (self._prev_button, self._next_button, self._today_button, self._year_spinbox):
+            widget.setVisible(not is_stats)
+        self._month_combo.setVisible(self._mode == _MODE_MONTH)
+
     def _render(self) -> None:
-        if self._year_view_active:
-            self._month_label.setText(str(self._year))
+        self._update_header_visibility()
+        if self._mode == _MODE_STATS:
+            self._stats_view.render(self._records, date.today())
+            return
+
+        self._year_spinbox.blockSignals(True)
+        self._year_spinbox.setValue(self._year)
+        self._year_spinbox.blockSignals(False)
+
+        if self._mode == _MODE_YEAR:
             self._year_view.render(self._year, self._worn_index)
         else:
-            self._month_label.setText(date(self._year, self._month, 1).strftime("%B %Y"))
-            self._grid.render(self._year, self._month, self._worn_index)
+            self._month_combo.blockSignals(True)
+            self._month_combo.setCurrentIndex(self._month - 1)
+            self._month_combo.blockSignals(False)
+
+            self._grid.render(self._year, self._month, self._worn_index, self._emphasized_slug)
             self._footer_label.setText(self._footer_text())
 
     def _footer_text(self) -> str:

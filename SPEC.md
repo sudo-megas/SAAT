@@ -331,6 +331,42 @@ to colour chips instead of photos, one hue per watch derived deterministically f
 slug. Reveals rotation at a glance — which watch owned the summer, which one you stopped
 reaching for in March.
 
+**Navigation.** A Today button returns Month mode to the current month and Year mode to
+the current year. A compact month (dropdown) and year (spinbox) jump sits inline in the
+header beside the prev/next arrows — inline controls, not a dialog, and not a separate
+"jump to date" screen.
+
+**Stats mode**, the third choice in the same header toggle as Month and Year. A period
+selector — This month / This year / All time, three fixed choices, not a date-range
+picker (§9 still bans settings GUIs) — drives every section below it. This month and This
+year are the full calendar unit containing today, not "elapsed so far"; All time runs
+from the earliest date any watch was ever worn through today. Sections, in this order:
+
+- **Rotation** — every watch worn at least once this period, ranked by days worn
+  descending, each a hairline bar with a tick at the even-split mark (period days ÷ watch
+  count) and a monospace day count plus its share of days recorded. The even-split tick
+  is omitted below two watches — meaningless with one, and it would land at the same
+  spot as a full bar.
+- **Not worn in this period** — the complementary list, plain, no bars.
+- **Coverage and the period-over-period deltas** — monospace figures; the deltas compare
+  against the previous equivalent month or year and use explicit `+`/`-` signs. All time
+  has no previous equivalent, so it shows coverage alone.
+- **Weekday strip** — seven cells, each carrying the colour chip of the watch worn most
+  often on that weekday this period, reusing Year view's slug colour.
+- **Streaks** — the longest run of consecutive days on one watch this period, and the
+  longest run of consecutive days with nothing recorded.
+
+Every section hides itself when it has nothing to say — Rotation and the weekday strip
+disappear when nothing was worn this period, but Not worn still lists the whole
+collection and Coverage still prints a plain 0%, rather than the page going blank. Only a
+genuinely empty collection (no watches at all) replaces the sections with the same quiet
+tone the app uses elsewhere, not a page of zeroed-out figures.
+
+Clicking a watch in Rotation switches to Month mode with that watch's days at full
+strength and every other day — including empty ones — dimmed toward the plate. This is
+what makes the stats actionable rather than decorative: keep navigating months and the
+emphasis follows. It clears on Escape or on switching mode again, never on its own.
+
 ### 5.6 Detail view
 Opens in the main area with a back affordance — not a modal. This is where the owner
 spends time.
@@ -447,6 +483,15 @@ dial's chapter ring is printed. Draw it with `QPainter` in `--rule`, running to 
 of the column, so it adapts automatically to whichever mode is active. That is the app's
 only flourish. Everything else stays plain: no gradients, no glows, no escalating corner
 radii, no drop shadows beyond a 1 px hairline border.
+
+**Data visualisation.** The calendar's Stats mode (§5.5) is the only other place the app
+draws anything resembling a chart, and it stays inside a narrow, plain vocabulary: hairline
+bars, a tick mark referencing the even-split value, colour chips reusing Year view's
+per-slug hue, and monospace figures for every count, percentage and delta. All of it
+`QPainter` in the active palette, the same discipline as the minute track — nothing
+rasterised, nothing imported. Pie charts, gauges, progress rings and any charting
+dependency stay out of bounds everywhere in the app, the collection summary included
+(§5.10, unchanged: plain figures there too).
 
 **Spacing.** 8 px base unit. Card padding 16, group spacing 32, page margin 24. Table
 rows get 12 px vertical padding — a spec table crammed to 6 px is unreadable, and this

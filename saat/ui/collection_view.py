@@ -90,6 +90,12 @@ class CollectionView(QWidget):
     def focus_search(self) -> None:
         self._top_bar.focus_search()
 
+    def clear_calendar_emphasis(self) -> None:
+        """Escape, routed from MainWindow._on_escape — a no-op unless the
+        calendar's Rotation click-through (SPEC.md §5.5) currently has a
+        watch emphasised."""
+        self._calendar_view.clear_emphasis()
+
     def set_records(self, records: list[WatchRecord]) -> None:
         """For a worn-date change: refreshes grid/table/sidebar/calendar from
         the updated records without touching sort, search, facet selections,

@@ -80,6 +80,8 @@ class MainWindow(QMainWindow):
         current = self._stack.currentWidget()
         if current is self._detail_view or current is self._compare_view:
             self._show_collection()
+        elif current is self._collection_view and self._collection_view is not None:
+            self._collection_view.clear_calendar_emphasis()
 
     def _load_and_show_collection(self) -> None:
         while self._stack.count():

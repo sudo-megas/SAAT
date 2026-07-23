@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication, QDialog
 from saat.models import Watch
 from saat.storage import WatchRecord
 from saat.ui import theme
-from saat.ui.calendar_view import CalendarView, _DayCell
+from saat.ui.calendar_view import CalendarView, _DayCell, _MODE_MONTH, _MODE_STATS, _MODE_YEAR
 from saat.ui.month_grid import GridDay
 from saat.ui.watch_picker import WatchPicker
 
@@ -61,11 +61,12 @@ class CalendarViewRenderingTests(unittest.TestCase):
         cell = next(iter(view._grid._cells.values()))
         self.assertIsNone(cell.record)
 
-    def test_navigating_months_updates_the_label(self) -> None:
+    def test_navigating_months_updates_the_month_combo_and_year_spinbox(self) -> None:
         view = CalendarView([])
-        label_before = view._month_label.text()
+        year_before, month_index_before = view._year_spinbox.value(), view._month_combo.currentIndex()
         view._go_next()
-        self.assertNotEqual(view._month_label.text(), label_before)
+        self.assertEqual((view._year_spinbox.value(), view._month_combo.currentIndex()), (view._year, view._month - 1))
+        self.assertNotEqual((view._year_spinbox.value(), view._month_combo.currentIndex()), (year_before, month_index_before))
 
     def test_navigating_backward_from_january_wraps_to_december_of_the_prior_year(self) -> None:
         view = CalendarView([])
@@ -368,6 +369,183 @@ class CalendarFooterTests(unittest.TestCase):
         self.assertIn("1 days recorded", text)
         self.assertIn("1 watches worn", text)
         self.assertIn("1 not worn this month", text)
+
+
+class TodayButtonTests(unittest.TestCase):
+    def test_returns_to_the_current_month_from_month_mode(self) -> None:
+        view = CalendarView([])
+        view._go_next()
+        view._go_next()
+        view._go_next()
+        today = date.today()
+        self.assertNotEqual((view._year, view._month), (today.year, today.month))
+
+        view._go_today()
+
+        self.assertEqual((view._year, view._month), (today.year, today.month))
+
+    def test_returns_to_the_current_year_from_year_mode_without_touching_month(self) -> None:
+        view = CalendarView([])
+        view._set_mode(_MODE_YEAR)
+        view._year += 5
+        view._month = 3  # deliberately not today's month, to prove Year mode's Today leaves it alone
+        view._render()
+
+        view._go_today()
+
+        self.assertEqual(view._year, date.today().year)
+        self.assertEqual(view._month, 3)
+
+    def test_hidden_in_stats_mode(self) -> None:
+        view = CalendarView([])
+        view.show()
+        QApplication.processEvents()
+
+        view._set_mode(_MODE_STATS)
+        QApplication.processEvents()
+
+        self.assertFalse(view._today_button.isVisible())
+        view.close()
+
+
+class MonthYearJumpControlsTests(unittest.TestCase):
+    def test_changing_the_month_combo_navigates(self) -> None:
+        view = CalendarView([])
+        view._year, view._month = 2026, 1
+        view._render()
+
+        view._month_combo.setCurrentIndex(5)  # June
+
+        self.assertEqual(view._month, 6)
+
+    def test_changing_the_year_spinbox_navigates(self) -> None:
+        view = CalendarView([])
+        view._year_spinbox.setValue(2030)
+        self.assertEqual(view._year, 2030)
+
+    def test_switching_to_year_mode_hides_the_month_combo_but_not_the_year_spinbox(self) -> None:
+        view = CalendarView([])
+        view.show()
+        QApplication.processEvents()
+
+        view._set_mode(_MODE_YEAR)
+        QApplication.processEvents()
+
+        self.assertFalse(view._month_combo.isVisible())
+        self.assertTrue(view._year_spinbox.isVisible())
+        view.close()
+
+    def test_switching_to_stats_mode_hides_both_jump_controls(self) -> None:
+        view = CalendarView([])
+        view.show()
+        QApplication.processEvents()
+
+        view._set_mode(_MODE_STATS)
+        QApplication.processEvents()
+
+        self.assertFalse(view._month_combo.isVisible())
+        self.assertFalse(view._year_spinbox.isVisible())
+        view.close()
+
+    def test_render_syncing_the_spinbox_across_a_year_wrap_does_not_fire_valuechanged(self) -> None:
+        """The spinbox/combo are updated with signals blocked during
+        _render() — this is what stops that sync from re-entering
+        _on_year_spinbox_changed and turning one navigation into two."""
+        view = CalendarView([])
+        view._year, view._month = 2026, 12
+        view._render()
+        fired = []
+        view._year_spinbox.valueChanged.connect(fired.append)
+
+        view._go_next()  # December -> January: the year actually changes
+
+        self.assertEqual(view._year, 2027)
+        self.assertEqual(view._year_spinbox.value(), 2027)
+        self.assertEqual(fired, [])
+
+
+class RotationEmphasisTests(unittest.TestCase):
+    """Click-through from Stats mode's Rotation list. See SPEC.md §5.5."""
+
+    def tearDown(self) -> None:
+        theme.set_mode(theme.MODE_DARK)
+
+    def test_persists_across_month_navigation(self) -> None:
+        record = _record("seiko-sarb033", "Seiko", "SARB033")
+        view = CalendarView([record])
+        view._on_rotation_clicked("seiko-sarb033")
+
+        view._go_next()
+
+        self.assertEqual(view._emphasized_slug, "seiko-sarb033")
+        self.assertEqual(view._mode, _MODE_MONTH)
+
+    def test_clears_on_mode_change(self) -> None:
+        record = _record("seiko-sarb033", "Seiko", "SARB033")
+        view = CalendarView([record])
+        view._on_rotation_clicked("seiko-sarb033")
+
+        view._set_mode(_MODE_YEAR)
+
+        self.assertIsNone(view._emphasized_slug)
+
+    def test_rotation_click_switches_to_month_mode_without_losing_the_emphasis_it_sets(self) -> None:
+        """_set_mode() unconditionally clears emphasis — that's the "mode
+        change clears it" rule — so the rotation-click handler must apply
+        that clearing before it sets the new emphasis, not after."""
+        view = CalendarView([])
+        view._set_mode(_MODE_STATS)
+
+        view._on_rotation_clicked("seiko-sarb033")
+
+        self.assertEqual(view._mode, _MODE_MONTH)
+        self.assertEqual(view._emphasized_slug, "seiko-sarb033")
+
+    def test_clear_emphasis_is_a_no_op_when_nothing_is_emphasized(self) -> None:
+        view = CalendarView([])
+        view.clear_emphasis()  # must not raise
+        self.assertIsNone(view._emphasized_slug)
+
+    def test_clear_emphasis_clears_an_active_emphasis(self) -> None:
+        record = _record("seiko-sarb033", "Seiko", "SARB033")
+        view = CalendarView([record])
+        view._on_rotation_clicked("seiko-sarb033")
+
+        view.clear_emphasis()
+
+        self.assertIsNone(view._emphasized_slug)
+
+    def test_dimmed_cell_is_visibly_different_from_an_emphasized_cell_in_both_themes(self) -> None:
+        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
+            theme.set_mode(mode)
+            with self.subTest(mode=mode):
+                today = date.today()
+                other_day = today + timedelta(days=1) if today.day < 27 else today - timedelta(days=1)
+                emphasized = _record("seiko-sarb033", "Seiko", "SARB033", worn=[today])
+                other = _record("omega-speedmaster", "Omega", "Speedmaster", worn=[other_day])
+                view = CalendarView([emphasized, other])
+                view.resize(1200, 900)
+                view.show()
+                QApplication.processEvents()
+
+                view._on_rotation_clicked("seiko-sarb033")
+                QApplication.processEvents()
+
+                emphasized_cell = view._grid._cells[today]
+                dimmed_cell = view._grid._cells[other_day]
+                self.assertFalse(emphasized_cell.dimmed)
+                self.assertTrue(dimmed_cell.dimmed)
+                for cell in (emphasized_cell, dimmed_cell):
+                    cell.resize(72, 72)
+
+                # Bottom-right corner: away from the day number and the
+                # brand label, both left-aligned near the top — pure fill
+                # colour, same spot the existing assigned-vs-empty pixel
+                # test already samples.
+                emphasized_pixel = emphasized_cell.grab().toImage().pixelColor(64, 64)
+                dimmed_pixel = dimmed_cell.grab().toImage().pixelColor(64, 64)
+                self.assertNotEqual(emphasized_pixel.name(), dimmed_pixel.name())
+                view.close()
 
 
 if __name__ == "__main__":
