@@ -77,3 +77,16 @@ into `backups/` (pruned to the newest 20) before overwriting.
   `pip install` into it is refused. The `run.sh` venv route sidesteps this and is
   self-contained; alternatively `sudo pacman -S pyside6 python-pillow` installs the
   Qt and imaging pieces system-wide if you prefer.
+
+## Licence
+
+SAAT is free software, licensed under the [GNU General Public License v3.0](LICENSE)
+or later.
+
+It's built on [PySide6](https://pypi.org/project/PySide6/), which is licensed under
+the LGPL-3.0. The portable build keeps Qt as separate shared libraries under
+`_internal/` rather than statically linking them, which is what the LGPL's
+dynamic-linking terms call for.
+
+The bundled Ubuntu Sans, Ubuntu Sans Condensed and Ubuntu Mono fonts are licensed
+under the [Ubuntu Font Licence 1.0](saat/resources/fonts/LICENCE.txt).

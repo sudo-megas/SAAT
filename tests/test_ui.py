@@ -11,6 +11,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
+from saat import __version__
 from saat.config import Config
 from saat.models import Acquisition, Case, Movement, Watch
 from saat.storage import create_watch, load_collection
@@ -47,6 +48,10 @@ class MainWindowEntryPointTests(UITestCase):
     def test_empty_collection_shows_empty_state(self) -> None:
         window = MainWindow(self.watches_dir, self.backups_dir, self._config())
         self.assertIsInstance(window.centralWidget().currentWidget(), EmptyStateView)
+
+    def test_window_title_shows_the_single_source_of_truth_version(self) -> None:
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        self.assertIn(__version__, window.windowTitle())
 
     def test_populated_collection_shows_collection_view(self) -> None:
         create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))

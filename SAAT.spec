@@ -9,11 +9,15 @@
 #         runtime, never inside _internal/.
 #
 # Why this shape:
-#   * datas ships exactly one read-only resource — saat/ui/theme.qss — to
-#     `ui/` inside the bundle. When frozen, resource_dir() returns
-#     sys._MEIPASS and theme.py reads `_MEIPASS/ui/theme.qss`, so the dest
-#     MUST be "ui". Fonts are system-with-fallback (resolve_fonts()) and
-#     there are no icons, so this is the whole resource surface.
+#   * datas ships the read-only resources theme.py and main.py resolve
+#     through resource_dir(): the QSS theme at `ui/`, the vendored Ubuntu
+#     fonts at `resources/fonts/`, and the app icon at `resources/icon/`.
+#     When frozen, resource_dir() returns sys._MEIPASS, so these dest paths
+#     must match exactly what theme.py / main.py join onto resource_dir().
+#   * icon= on EXE sets the executable's own icon — meaningful on
+#     Windows/macOS, a no-op on Linux (where the running window's icon comes
+#     from setWindowIcon() reading resources/icon/saat.png at runtime, not
+#     from the binary itself). Harmless to set now, saves a step later.
 #   * watches/, config.toml and backups/ are deliberately NOT bundled: they
 #     are writable user data that app_dir() resolves beside the executable
 #     (never sys._MEIPASS). Bundling them would put user data inside the
@@ -29,7 +33,11 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('saat/ui/theme.qss', 'ui')],
+    datas=[
+        ('saat/ui/theme.qss', 'ui'),
+        ('saat/resources/fonts', 'resources/fonts'),
+        ('saat/resources/icon', 'resources/icon'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -56,6 +64,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='saat/resources/icon/saat.ico',
 )
 coll = COLLECT(
     exe,

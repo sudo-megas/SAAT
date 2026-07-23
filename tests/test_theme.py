@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QFontInfo
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
@@ -181,6 +182,50 @@ class EndToEndThemeToggleTests(ThemeModeResetMixin, unittest.TestCase):
         MainWindow(self.watches_dir, self.backups_dir, fresh_config)
 
         self.assertEqual(theme.current_mode(), MODE_LIGHT)
+
+
+class BundledFontLoadingTests(unittest.TestCase):
+    """Guards the exact failure mode SPEC.md's font swap called out: a font
+    that fails to load (or loads but doesn't provide the weight requested)
+    falls back silently and looks almost right. QFontInfo reports what Qt
+    actually matched, not what was requested, so it catches both a missing
+    family and a family present but missing the SemiBold instance."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        theme.load_bundled_fonts()
+
+    def test_load_bundled_fonts_registers_all_three_families(self) -> None:
+        families = set(theme.load_bundled_fonts())
+        self.assertIn(theme.FONT_SANS, families)
+        self.assertIn(theme.FONT_SANS_CONDENSED, families)
+        self.assertIn(theme.FONT_MONO, families)
+
+    def test_resolve_fonts_picks_the_bundled_families_not_the_fallback(self) -> None:
+        resolved = theme.resolve_fonts()
+        self.assertEqual(resolved["sans"], theme.FONT_SANS)
+        self.assertEqual(resolved["sans_condensed"], theme.FONT_SANS_CONDENSED)
+        self.assertEqual(resolved["mono"], theme.FONT_MONO)
+
+    def test_sans_condensed_at_weight_600_resolves_to_the_semibold_instance(self) -> None:
+        font = QFont(theme.FONT_SANS_CONDENSED)
+        font.setWeight(QFont.Weight(600))
+        info = QFontInfo(font)
+        self.assertEqual(info.family(), theme.FONT_SANS_CONDENSED)
+        self.assertEqual(info.styleName(), "SemiBold")
+
+    def test_sans_condensed_at_weight_400_resolves_to_the_regular_instance(self) -> None:
+        font = QFont(theme.FONT_SANS_CONDENSED)
+        font.setWeight(QFont.Weight(400))
+        info = QFontInfo(font)
+        self.assertEqual(info.styleName(), "Regular")
+
+    def test_sans_at_weight_600_resolves_to_the_semibold_instance(self) -> None:
+        font = QFont(theme.FONT_SANS)
+        font.setWeight(QFont.Weight(600))
+        info = QFontInfo(font)
+        self.assertEqual(info.family(), theme.FONT_SANS)
+        self.assertEqual(info.styleName(), "SemiBold")
 
 
 if __name__ == "__main__":

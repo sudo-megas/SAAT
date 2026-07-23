@@ -81,16 +81,34 @@ TABLE_ROW_PADDING = 12
 SIDEBAR_WIDTH = 260
 SIDEBAR_COLLAPSED_WIDTH = 130
 
-FONT_SANS = "IBM Plex Sans"
-FONT_SANS_CONDENSED = "IBM Plex Sans Condensed"
-FONT_MONO = "IBM Plex Mono"
+FONT_SANS = "Ubuntu Sans"
+FONT_SANS_CONDENSED = "Ubuntu Sans Condensed"
+FONT_MONO = "Ubuntu Mono"
 
 FALLBACK_SANS = "Sans Serif"
 FALLBACK_MONO = "Monospace"
 
 
+def load_bundled_fonts() -> list[str]:
+    """Register the vendored Ubuntu statics from resource_dir() — never
+    app_dir(), these are read-only bundled assets, not user data. Returns the
+    family names actually registered so resolve_fonts() (and tests) can tell
+    a real load from a fallback. addApplicationFont() returns -1 on failure
+    rather than raising, so a missing/corrupt file just fails to register —
+    resolve_fonts()'s existing fallback-to-system-font chain already handles
+    that, no try/except needed here."""
+    fonts_dir = resource_dir() / "resources" / "fonts"
+    families: list[str] = []
+    for path in sorted(fonts_dir.glob("*.ttf")):
+        font_id = QFontDatabase.addApplicationFont(str(path))
+        families.extend(QFontDatabase.applicationFontFamilies(font_id))
+    return families
+
+
 def resolve_fonts() -> dict[str, str]:
-    """Detect IBM Plex; fall back cleanly so the app never breaks without it."""
+    """Detect the bundled Ubuntu fonts; fall back cleanly so the app never
+    breaks without them (e.g. a build where load_bundled_fonts() found
+    nothing to load)."""
     families = set(QFontDatabase.families())
     return {
         "sans": FONT_SANS if FONT_SANS in families else FALLBACK_SANS,

@@ -424,11 +424,13 @@ font-size options, no per-section colors, no theme file to import. Toggling re-a
 `theme.qss` and repaints immediately; it must not require a restart. The active mode
 persists in `config.toml` alongside window geometry. Default on first launch: dark.
 
-**Type.** IBM Plex — Arch package `otf-ibm-plex`, with a detected fallback so the app
-does not break without it. Plex Sans Condensed for labels and column headers, Plex Sans
-for body and titles, **Plex Mono for every number**: diameters, bph, accuracy, prices,
-dates. Measurements in monospace with tabular figures is not decoration, it makes a spec
-table readable at a glance. Scale: 11 / 13 / 15 / 20 / 28. Weights 400 and 600 only.
+**Type.** Ubuntu — bundled in `saat/resources/fonts/` (Ubuntu Font Licence 1.0) rather
+than relying on a system package, with a detected fallback so the app does not break
+if loading fails. Ubuntu Sans Condensed for labels and column headers, Ubuntu Sans
+for body and titles, **Ubuntu Mono for every number**: diameters, bph, accuracy,
+prices, dates. Measurements in monospace with tabular figures is not decoration, it
+makes a spec table readable at a glance. Scale: 11 / 13 / 15 / 20 / 28. Weights 400
+and 600 only.
 
 **Signature element.** One, in one place: spec group headers in the detail view sit on a
 **minute track** — a hairline rule bearing fine ticks, longer every fifth, the way a

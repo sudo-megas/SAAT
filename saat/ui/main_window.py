@@ -6,6 +6,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QStackedWidget
 
+from saat import __version__
 from saat.config import Config
 from saat.paths import app_dir
 from saat.storage import WatchRecord, create_watch, delete_watch, load_collection, save_watch
@@ -30,7 +31,7 @@ class MainWindow(QMainWindow):
         config: Config | None = None,
     ) -> None:
         super().__init__()
-        self.setWindowTitle("SAAT")
+        self.setWindowTitle(f"SAAT v{__version__}")
         self.setMinimumSize(MIN_SIZE)
 
         self._watches_dir = watches_dir if watches_dir is not None else app_dir() / "watches"
