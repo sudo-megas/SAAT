@@ -166,6 +166,19 @@ QWidget[class="sidebar"] {
     border-right: 1px solid @rule@;
 }
 
+QWidget[class="sidebar-summary-rule"] {
+    background: @rule@;
+}
+
+QWidget[class="maintenance-due-dot"] {
+    background: @gilt@;
+    border-radius: 5px;
+}
+
+QLabel[class="maintenance-due-line"] {
+    color: @gilt@;
+}
+
 QPushButton:checkable {
     font-weight: 400;
 }
@@ -186,6 +199,10 @@ QComboBox {
 }
 
 QComboBox:hover {
+    border-color: @gilt@;
+}
+
+QComboBox:focus {
     border-color: @gilt@;
 }
 
@@ -231,6 +248,10 @@ QFrame[class="watch-card"]:hover {
     border-color: @gilt@;
 }
 
+QFrame[class="watch-card"][cursor-focused="true"] {
+    border: 2px solid @gilt@;
+}
+
 QLabel[class="card-placeholder"] {
     background: @plate@;
     color: @text-muted@;
@@ -260,6 +281,27 @@ QLabel[class="card-meta"] {
 QLabel[class="card-error-badge"] {
     color: @text@;
     font-weight: 600;
+}
+
+/* Hover-revealed card overlays sit on an arbitrary photo, not the app's own
+   plate — fixed dark scrim and light text regardless of mode, the same
+   reasoning as the calendar's photo scrim (see calendar_view.py). */
+QCheckBox[class="card-compare-checkbox"] {
+    background: rgba(20, 18, 16, 184);
+    color: #E8E4DC;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+QPushButton[class="card-wore-today-bar"] {
+    background: rgba(20, 18, 16, 184);
+    color: #E8E4DC;
+    border: none;
+    text-align: center;
+}
+
+QPushButton[class="card-wore-today-bar"]:hover {
+    background: rgba(20, 18, 16, 220);
 }
 
 QTableWidget {
@@ -363,6 +405,15 @@ QLabel[class="spec-row-value-mono"] {
     color: @text@;
     font-family: "@font-mono@";
     font-size: @size-sm@px;
+}
+
+/* Compare view's equal-and-uninteresting rows (saat/ui/compare_view.py) set
+   both class and muted on the same label — a plain [muted="true"] rule would
+   tie in specificity with the rules above and lose to whichever is declared
+   later, so this needs the compound selector to reliably win. */
+QLabel[class="spec-row-value"][muted="true"],
+QLabel[class="spec-row-value-mono"][muted="true"] {
+    color: @text-muted@;
 }
 
 QFrame[class="strap-card"] {
@@ -482,4 +533,17 @@ QCheckBox::indicator:checked {
 QCheckBox::indicator:indeterminate {
     background: @plate-high@;
     border-color: @text-muted@;
+}
+
+/* Qt QSS does not match ::indicator:focus (a sub-control + pseudo-state
+   combo) — confirmed empirically, not merely undocumented — so the ring has
+   to go on the widget box itself. Transparent at rest so this is a no-op for
+   every already-shipped checkbox until it's actually focused. */
+QCheckBox {
+    border: 1px solid transparent;
+    border-radius: 3px;
+}
+
+QCheckBox:focus {
+    border-color: @gilt@;
 }

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QW
 
 from saat.ui import theme
 from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS
+from saat.ui.compare import MIN_COMPARE
 
 VIEW_GRID = "grid"
 VIEW_TABLE = "table"
@@ -75,6 +76,7 @@ class TopBar(QWidget):
     search_changed = Signal(str)
     add_watch_requested = Signal()
     theme_toggle_requested = Signal()
+    compare_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -113,6 +115,10 @@ class TopBar(QWidget):
         add_button.setProperty("variant", "primary")
         add_button.clicked.connect(self.add_watch_requested.emit)
 
+        self._compare_button = QPushButton()
+        self._compare_button.clicked.connect(self.compare_requested.emit)
+        self._compare_button.setVisible(False)
+
         self._theme_toggle = _ThemeToggle()
         self._theme_toggle.clicked.connect(self.theme_toggle_requested.emit)
 
@@ -128,16 +134,28 @@ class TopBar(QWidget):
         layout.addWidget(self._sort_combo)
         layout.addWidget(self._preset_combo)
         layout.addStretch()
+        layout.addWidget(self._compare_button)
         layout.addWidget(add_button)
         layout.addWidget(self._theme_toggle)
 
         self._set_view(VIEW_GRID)
+
+    def set_compare_count(self, count: int) -> None:
+        """SPEC.md §5.4: 'Select two to four watches.' Hidden below the
+        minimum rather than shown disabled — a conditional action, not a
+        permanent control."""
+        self._compare_button.setText(f"Compare ({count})")
+        self._compare_button.setVisible(count >= MIN_COMPARE)
 
     def set_view(self, view: str) -> None:
         self._set_view(view)
 
     def search_text(self) -> str:
         return self._search_field.text()
+
+    def focus_search(self) -> None:
+        self._search_field.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self._search_field.selectAll()
 
     def _set_view(self, view: str) -> None:
         self._grid_button.setChecked(view == VIEW_GRID)

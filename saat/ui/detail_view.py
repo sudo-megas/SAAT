@@ -1,8 +1,8 @@
 import calendar as cal
 from datetime import date, timedelta
 
-from PySide6.QtCore import QRect, QUrl, Qt, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QFont, QMouseEvent, QPainter, QPaintEvent
+from PySide6.QtCore import QPointF, QRect, QUrl, Qt, Signal
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QMouseEvent, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -18,8 +18,10 @@ from saat.models import LogEntry, Movement, Strap, TimingEntry, Watch
 from saat.storage import WatchRecord
 from saat.ui.formatting import EM_DASH, fmt_accuracy, fmt_bool, fmt_bph, fmt_date, fmt_list, fmt_number, fmt_price, fmt_water_resistance, is_empty
 from saat.ui.images import cropped_pixmap, fit_pixmap, list_images
+from saat.ui.maintenance import maintenance_due_text
 from saat.ui.minute_track import MinuteTrackHeader
 from saat.ui.spec_group import SpecRow, build_spec_group, spec_row
+from saat.ui.strap_compat import CompatibleStrap, compatible_straps
 from saat.ui import theme
 from saat.ui.theme import GROUP_SPACING, PAGE_MARGIN, SIZE_XS, resolve_fonts
 from saat.ui.wear_stats import days_since_worn, last_worn, longest_streak, times_worn_this_year
@@ -29,6 +31,8 @@ THUMB_SIZE = 72
 STRAP_PHOTO_SIZE = 56
 MONTH_BLOCK_WIDTH = 56
 MONTH_BLOCK_HEIGHT = 20
+SPARKLINE_HEIGHT = 48
+MIN_SPARKLINE_READINGS = 3
 
 
 # --- Movement -----------------------------------------------------------
@@ -191,6 +195,35 @@ def _build_straps_group(record: WatchRecord) -> QWidget | None:
     return container
 
 
+def _build_strap_compat_entry(match: CompatibleStrap) -> QWidget:
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(4)
+
+    owner = QLabel(f"{match.record.watch.brand} {match.record.watch.model}")
+    owner.setProperty("muted", True)
+    layout.addWidget(owner)
+    layout.addWidget(_build_strap_card(match.record, match.strap))
+    return container
+
+
+def _build_strap_compat_group(record: WatchRecord, all_records: list[WatchRecord]) -> QWidget | None:
+    """SPEC.md §5.9: straps belonging to other watches that physically fit
+    this one. Hidden when there are no matches."""
+    matches = compatible_straps(record, all_records)
+    if not matches:
+        return None
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
+    layout.addWidget(MinuteTrackHeader("Compatible Straps"))
+    for match in matches:
+        layout.addWidget(_build_strap_compat_entry(match))
+    return container
+
+
 # --- Log: chronological, newest first --------------------------------------
 
 def _build_log_row(entry: LogEntry) -> QWidget:
@@ -227,7 +260,52 @@ def _build_log_group(watch: Watch) -> QWidget | None:
     return container
 
 
-# --- Timing: sparkline lands in milestone 8; plain readings for now --------
+# --- Timing: a small sparkline once there are 3+ readings, plain rows always
+
+class _TimingSparkline(QWidget):
+    """Deviation_sec over time, oldest to newest, with a zero-reference line
+    — how a mechanical owner sees at a glance whether a watch runs fast, slow,
+    or drifted after a service. Only built with >=3 dated+valued readings;
+    see _build_timing_group(). SPEC.md §4."""
+
+    def __init__(self, entries: list[TimingEntry], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        dated = [e for e in entries if e.date is not None and e.deviation_sec is not None]
+        self._values = [e.deviation_sec for e in sorted(dated, key=lambda e: e.date)]
+        self.setFixedHeight(SPARKLINE_HEIGHT)
+        self.setMinimumWidth(160)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        if len(self._values) < 2:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        palette = theme.colors()
+
+        span_values = self._values + [0.0]  # zero is always in range so the reference line stays on-widget
+        low, high = min(span_values), max(span_values)
+        span = (high - low) or 1.0
+
+        w, h = self.width(), self.height()
+        pad = 4
+
+        def y_for(value: float) -> float:
+            return (h - pad) - ((value - low) / span) * (h - 2 * pad)
+
+        zero_y = y_for(0.0)
+        painter.setPen(QPen(QColor(palette.rule), 1))
+        painter.drawLine(QPointF(0, zero_y), QPointF(w, zero_y))
+
+        points = [
+            QPointF(i / (len(self._values) - 1) * w, y_for(value))
+            for i, value in enumerate(self._values)
+        ]
+        painter.setPen(QPen(QColor(palette.gilt), 1.5))
+        for start, end in zip(points, points[1:]):
+            painter.drawLine(start, end)
+
+        painter.end()
+
 
 def _build_timing_row(entry: TimingEntry) -> QWidget:
     parts = [p for p in (
@@ -248,6 +326,11 @@ def _build_timing_group(watch: Watch) -> QWidget | None:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(6)
     layout.addWidget(MinuteTrackHeader("Timing"))
+
+    valid_readings = [e for e in watch.timing if e.date is not None and e.deviation_sec is not None]
+    if len(valid_readings) >= MIN_SPARKLINE_READINGS:
+        layout.addWidget(_TimingSparkline(watch.timing))
+
     entries = sorted(watch.timing, key=lambda e: e.date or date.min, reverse=True)
     for entry in entries:
         layout.addWidget(_build_timing_row(entry))
@@ -540,13 +623,14 @@ class DetailView(QScrollArea):
     delete_requested = Signal(object)
     wore_today_requested = Signal(object)
 
-    def __init__(self, record: WatchRecord, parent: QWidget | None = None) -> None:
+    def __init__(self, record: WatchRecord, all_records: list[WatchRecord] | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self._record = record
+        self._all_records = all_records if all_records is not None else [record]
         watch = record.watch
 
         content = QWidget()
@@ -560,6 +644,13 @@ class DetailView(QScrollArea):
         back_button.setCursor(Qt.CursorShape.PointingHandCursor)
         back_button.clicked.connect(self.back_requested.emit)
         layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        maintenance_text = maintenance_due_text(watch)
+        if maintenance_text is not None:
+            maintenance_line = QLabel(maintenance_text)
+            maintenance_line.setObjectName("maintenance-due-line")
+            maintenance_line.setProperty("class", "maintenance-due-line")
+            layout.addWidget(maintenance_line)
 
         layout.addWidget(_build_header(watch))
         layout.addWidget(ImageGallery(record))
@@ -609,6 +700,7 @@ class DetailView(QScrollArea):
             build_spec_group("Case", _case_rows(watch)),
             build_spec_group("Dial", _dial_rows(watch)),
             _build_straps_group(record),
+            _build_strap_compat_group(record, self._all_records),
             build_spec_group("Acquisition", _acquisition_rows(watch)),
             build_spec_group("Maintenance", _maintenance_rows(watch)),
             _build_log_group(watch),

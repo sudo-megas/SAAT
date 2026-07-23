@@ -30,9 +30,12 @@ class _SortableItem(QTableWidgetItem):
 
 
 class TableView(QTableWidget):
-    """Dense, sortable table with configurable columns. See SPEC.md §5.3."""
+    """Dense, sortable table with configurable columns. See SPEC.md §5.3.
+    Multi-select feeds the compare view (§5.4) — up to four rows selected at
+    once, tracked by slug rather than row index since sorting reorders rows."""
 
     record_activated = Signal(object)
+    selection_changed = Signal(set)  # set[str] of slugs
 
     def __init__(self, on_columns_changed: Callable[[list[str]], None], parent=None) -> None:
         super().__init__(parent)
@@ -44,6 +47,7 @@ class TableView(QTableWidget):
 
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setSortingEnabled(True)
         self.verticalHeader().setVisible(False)
         self.verticalHeader().setDefaultSectionSize(44)  # SPEC.md §6: 12px vertical padding per row
@@ -51,6 +55,7 @@ class TableView(QTableWidget):
         self.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.horizontalHeader().customContextMenuRequested.connect(self._show_header_menu)
         self.cellDoubleClicked.connect(self._on_cell_double_clicked)
+        self.itemSelectionChanged.connect(lambda: self.selection_changed.emit(self.selected_slugs()))
 
     def set_columns(self, column_keys: list[str]) -> None:
         self._column_keys = list(column_keys)
@@ -99,6 +104,30 @@ class TableView(QTableWidget):
         record = self.item(row, 0).data(Qt.ItemDataRole.UserRole)
         if record is not None and record.watch is not None:
             self.record_activated.emit(record)
+
+    def selected_slugs(self) -> set[str]:
+        slugs = set()
+        for index in self.selectionModel().selectedRows():
+            item = self.item(index.row(), 0)
+            record = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+            if record is not None:
+                slugs.add(record.slug)
+        return slugs
+
+    def set_selected_slugs(self, slugs: set[str]) -> None:
+        """Programmatic sync (from a grid checkbox, or re-selecting after a
+        _render() rebuild) — blocked so it doesn't loop back through
+        selection_changed as if the user had clicked in the table."""
+        self.blockSignals(True)
+        try:
+            self.clearSelection()
+            for row in range(self.rowCount()):
+                item = self.item(row, 0)
+                record = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+                if record is not None and record.slug in slugs:
+                    self.selectRow(row)
+        finally:
+            self.blockSignals(False)
 
     def _show_header_menu(self, pos) -> None:
         menu = QMenu(self)

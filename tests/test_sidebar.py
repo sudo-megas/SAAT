@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel
 
 from saat.config import Config
 from saat.models import Movement, Watch
@@ -104,6 +104,42 @@ class SidebarRenderingTests(UITestCase):
 
         sidebar._toggle_button.click()
         self.assertEqual(sidebar._toggle_button.geometry().y(), top_y)
+
+
+class SidebarSummaryFooterTests(UITestCase):
+    """SPEC.md §5.10: the summary always reflects the whole collection, not
+    whatever the facet checkboxes above it currently narrow the view to."""
+
+    def test_singular_count_for_one_watch(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        sidebar = Sidebar(load_collection(self.watches_dir))
+        texts = [label.text() for label in sidebar._summary_footer.findChildren(QLabel)]
+        self.assertIn("1 watch", texts)
+
+    def test_plural_count_and_movement_kind_split(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", movement=Movement(kind="Automatic")))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="F-91W", movement=Movement(kind="Quartz")))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Omega", model="Speedmaster", movement=Movement(kind="Automatic")))
+        sidebar = Sidebar(load_collection(self.watches_dir))
+        texts = [label.text() for label in sidebar._summary_footer.findChildren(QLabel)]
+        self.assertIn("3 watches", texts)
+        self.assertIn("Automatic 2 · Quartz 1", texts)
+
+    def test_no_currency_line_when_no_watch_has_a_price(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        sidebar = Sidebar(load_collection(self.watches_dir))
+        texts = [label.text() for label in sidebar._summary_footer.findChildren(QLabel)]
+        self.assertFalse(any("TRY" in t or "USD" in t for t in texts))
+
+    def test_collapsing_hides_the_footer_and_expanding_restores_it(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        sidebar = Sidebar(load_collection(self.watches_dir))
+
+        sidebar._toggle_button.click()
+        self.assertTrue(sidebar._summary_footer.isHidden())
+
+        sidebar._toggle_button.click()
+        self.assertFalse(sidebar._summary_footer.isHidden())
 
 
 class SidebarStyledBackgroundTests(UITestCase):

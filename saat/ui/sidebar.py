@@ -9,7 +9,9 @@ from PySide6.QtWidgets import (
 )
 
 from saat.storage import WatchRecord
+from saat.ui.collection_summary import compute_collection_summary
 from saat.ui.facets import Facet, VALUE_FACETS, is_not_worn_90d
+from saat.ui.formatting import fmt_price
 from saat.ui.theme import GROUP_SPACING, SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH
 
 NOT_WORN_LABEL = "Not worn in 90 days"
@@ -20,7 +22,9 @@ class Sidebar(QWidget):
     See SPEC.md §5.1. The value list per facet is fixed at construction time
     from the full collection — only update_counts() runs on every filter
     change, so checkboxes never reflow while the user is mid-click. The
-    collection summary footer described in §5.1/§5.10 is milestone 8."""
+    §5.10 summary footer is the same: nothing that feeds it (count, movement
+    kind, price) changes on a wear-only refresh, so it's computed once here
+    rather than threaded through update_counts()."""
 
     changed = Signal()
 
@@ -62,13 +66,47 @@ class Sidebar(QWidget):
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setWidget(self._groups_container)
 
+        self._summary_footer = self._build_summary_footer(records)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(16)
         layout.addWidget(self._toggle_button, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self._scroll, stretch=1)
+        layout.addWidget(self._summary_footer)
 
         self.setFixedWidth(SIDEBAR_WIDTH)
+
+    def _build_summary_footer(self, records: list[WatchRecord]) -> QWidget:
+        summary = compute_collection_summary(records)
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setSpacing(4)
+
+        rule = QWidget()
+        rule.setFixedHeight(1)
+        rule.setProperty("class", "sidebar-summary-rule")
+        layout.addWidget(rule)
+
+        count_text = "1 watch" if summary.total == 1 else f"{summary.total} watches"
+        count_label = QLabel(count_text)
+        layout.addWidget(count_label)
+
+        if summary.by_movement_kind:
+            kinds = QLabel(" · ".join(f"{kind} {count}" for kind, count in summary.by_movement_kind))
+            kinds.setProperty("muted", True)
+            kinds.setWordWrap(True)
+            layout.addWidget(kinds)
+
+        if summary.value_by_currency:
+            values = QLabel(" · ".join(fmt_price((total, currency)) for currency, total in summary.value_by_currency))
+            values.setProperty("muted", True)
+            values.setWordWrap(True)
+            layout.addWidget(values)
+
+        return container
 
     def _build_value_group(self, facet: Facet, values: list[str]) -> QWidget:
         group = QWidget()
@@ -108,4 +146,5 @@ class Sidebar(QWidget):
         self._collapsed = not self._collapsed
         self._toggle_button.setText("Show filters" if self._collapsed else "Hide filters")
         self._scroll.setVisible(not self._collapsed)
+        self._summary_footer.setVisible(not self._collapsed)
         self.setFixedWidth(SIDEBAR_COLLAPSED_WIDTH if self._collapsed else SIDEBAR_WIDTH)

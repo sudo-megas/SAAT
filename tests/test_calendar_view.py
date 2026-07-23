@@ -245,6 +245,96 @@ class MonthGridRealMouseEventTests(unittest.TestCase):
         view.close()
 
 
+class MonthGridRealKeyboardEventTests(unittest.TestCase):
+    """Drives actual QKeyEvents at _MonthGrid (not _focused_day directly),
+    mirroring MonthGridRealMouseEventTests above for the keyboard cursor."""
+
+    def test_focusing_the_grid_puts_the_cursor_on_today(self) -> None:
+        view = CalendarView([])
+        view.resize(1200, 900)
+        view.show()
+        QApplication.processEvents()
+
+        view._grid.setFocus()
+        QApplication.processEvents()
+
+        self.assertTrue(view._grid._cells[date.today()].focused)
+        view.close()
+
+    def test_right_arrow_moves_the_cursor_forward_one_day(self) -> None:
+        view = CalendarView([])
+        view.resize(1200, 900)
+        view.show()
+        QApplication.processEvents()
+        view._grid.setFocus()
+        QApplication.processEvents()
+
+        QTest.keyClick(view._grid, Qt.Key.Key_Right)
+
+        expected = date.today() + timedelta(days=1)
+        self.assertTrue(view._grid._cells[expected].focused)
+        self.assertFalse(view._grid._cells[date.today()].focused)
+        view.close()
+
+    def test_down_arrow_moves_the_cursor_forward_one_week(self) -> None:
+        view = CalendarView([])
+        view.resize(1200, 900)
+        view.show()
+        QApplication.processEvents()
+        first_of_month = date(view._year, view._month, 1)
+        view._grid._focused_day = first_of_month
+        view._grid.setFocus()
+        QApplication.processEvents()
+
+        QTest.keyClick(view._grid, Qt.Key.Key_Down)
+
+        self.assertEqual(view._grid._focused_day, first_of_month + timedelta(days=7))
+        view.close()
+
+    def test_left_arrow_at_the_first_of_the_month_does_not_cross_into_the_previous_month(self) -> None:
+        view = CalendarView([])
+        view.resize(1200, 900)
+        view.show()
+        QApplication.processEvents()
+        first_of_month = date(view._year, view._month, 1)
+        view._grid._focused_day = first_of_month
+        view._grid.setFocus()
+        QApplication.processEvents()
+
+        QTest.keyClick(view._grid, Qt.Key.Key_Left)
+
+        self.assertEqual(view._grid._focused_day, first_of_month)
+        view.close()
+
+    def test_enter_opens_the_watch_picker_for_the_focused_day(self) -> None:
+        view = CalendarView([])
+        view.resize(1200, 900)
+        view.show()
+        QApplication.processEvents()
+        view._grid.setFocus()
+        QApplication.processEvents()
+
+        received = []
+        view._grid.range_chosen.connect(received.append)
+
+        with patch.object(WatchPicker, "exec", return_value=QDialog.DialogCode.Rejected):
+            QTest.keyClick(view._grid, Qt.Key.Key_Return)
+
+        self.assertEqual(received, [[date.today()]])
+        view.close()
+
+    def test_switching_to_a_month_without_today_resets_the_cursor_to_the_first(self) -> None:
+        view = CalendarView([])
+        view.resize(1200, 900)
+        view.show()
+        QApplication.processEvents()
+
+        view._go_next()
+
+        self.assertEqual(view._grid._focused_day, date(view._year, view._month, 1))
+        view.close()
+
+
 class CalendarViewSetRecordsPreservesMonthTests(unittest.TestCase):
     def test_set_records_does_not_change_the_displayed_month(self) -> None:
         view = CalendarView([])

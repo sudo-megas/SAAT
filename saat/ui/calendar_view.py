@@ -39,6 +39,7 @@ class _DayCell(QFrame):
         self.record = record
         self.is_today = is_today
         self.highlighted = False
+        self.focused = False
         self.setMinimumSize(MIN_CELL_SIZE, MIN_CELL_SIZE)
 
         self._pixmap = None
@@ -56,6 +57,11 @@ class _DayCell(QFrame):
     def set_highlighted(self, value: bool) -> None:
         if value != self.highlighted:
             self.highlighted = value
+            self.update()
+
+    def set_focused(self, value: bool) -> None:
+        if value != self.focused:
+            self.focused = value
             self.update()
 
     def _number_color(self, palette: "theme.Palette") -> QColor:
@@ -105,6 +111,13 @@ class _DayCell(QFrame):
             painter.setPen(QPen(QColor(palette.rule), 1))
             painter.drawRect(rect.adjusted(0, 0, -1, -1))
 
+        if self.focused:
+            # Drawn at the cell's outer edge — distinct from (and layers
+            # cleanly with) today's inset ring rather than competing for the
+            # same pixels when a cell is both today and keyboard-focused.
+            painter.setPen(QPen(QColor(palette.gilt), 2))
+            painter.drawRect(rect.adjusted(0, 0, -1, -1))
+
         painter.end()
 
 
@@ -116,12 +129,21 @@ class _MonthGrid(QWidget):
 
     range_chosen = Signal(list)  # list[date], in chronological order
 
+    _ARROW_DELTAS = {
+        Qt.Key.Key_Left: timedelta(days=-1),
+        Qt.Key.Key_Right: timedelta(days=1),
+        Qt.Key.Key_Up: timedelta(days=-7),
+        Qt.Key.Key_Down: timedelta(days=7),
+    }
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._layout = QGridLayout(self)
         self._layout.setSpacing(2)
         self._cells: dict[date, _DayCell] = {}
         self._drag_anchor: date | None = None
+        self._focused_day: date | None = None
 
     def render(self, year: int, month: int, worn_index: dict[date, WatchRecord]) -> None:
         while self._layout.count():
@@ -149,17 +171,58 @@ class _MonthGrid(QWidget):
         for row in range(1, (len(days) // 7) + 1):
             self._layout.setRowStretch(row, 1)
 
+        # Cells are rebuilt every render() (month navigation, a wear edit,
+        # switching out of year view) — default the keyboard cursor to today
+        # when it's on screen, else the 1st, rather than trying to carry a
+        # date across a grid that no longer has it.
+        if today in self._cells and self._cells[today].grid_day.in_month:
+            self._focused_day = today
+        else:
+            in_month_days = sorted(d for d, cell in self._cells.items() if cell.grid_day.in_month)
+            self._focused_day = in_month_days[0] if in_month_days else None
+        self._apply_focus()
+
     def _day_at(self, pos) -> date | None:
         child = self.childAt(pos)
         if isinstance(child, _DayCell) and child.grid_day.in_month:
             return child.grid_day.day
         return None
 
+    def _apply_focus(self) -> None:
+        has_focus = self.hasFocus()
+        for day, cell in self._cells.items():
+            cell.set_focused(has_focus and day == self._focused_day)
+
+    def focusInEvent(self, event) -> None:
+        super().focusInEvent(event)
+        self._apply_focus()
+
+    def focusOutEvent(self, event) -> None:
+        super().focusOutEvent(event)
+        self._apply_focus()
+
+    def keyPressEvent(self, event) -> None:
+        key = event.key()
+        if key in self._ARROW_DELTAS and self._focused_day is not None:
+            candidate = self._focused_day + self._ARROW_DELTAS[key]
+            cell = self._cells.get(candidate)
+            if cell is not None and cell.grid_day.in_month:
+                self._focused_day = candidate
+                self._apply_focus()
+            return
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self._focused_day is not None:
+            self.range_chosen.emit([self._focused_day])
+            return
+        super().keyPressEvent(event)
+
     def mousePressEvent(self, event) -> None:
         day = self._day_at(event.pos())
         if day is not None:
             self._drag_anchor = day
+            self._focused_day = day
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
             self._apply_highlight(day, day)
+            self._apply_focus()
 
     def mouseMoveEvent(self, event) -> None:
         if self._drag_anchor is None:
@@ -255,6 +318,9 @@ class CalendarView(QWidget):
         self._records = records
         self._worn_index = build_worn_index(records)
         self._render()
+
+    def focus_grid(self) -> None:
+        self._grid.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def _go_previous(self) -> None:
         if self._year_view_active:

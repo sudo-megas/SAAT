@@ -8,7 +8,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
 from saat.models import Acquisition, Case, Dial, LogEntry, Maintenance, Movement, Strap, TimingEntry, Watch
 from saat.storage import create_watch, load_collection
@@ -23,6 +23,7 @@ from saat.ui.detail_view import (
     _case_rows,
     _dial_rows,
     _movement_rows,
+    _TimingSparkline,
 )
 from saat.ui.formatting import EM_DASH
 from saat.ui.minute_track import MinuteTrackHeader
@@ -122,6 +123,91 @@ class SpecGroupVisibilityTests(unittest.TestCase):
         self.assertIsNotNone(_build_notes_group(watch))
 
 
+class TimingSparklineTests(unittest.TestCase):
+    """SPEC.md §4: sparkline only once there are 3+ readings; the plain
+    chronological list (already covered elsewhere) always renders regardless."""
+
+    def _entry(self, day: int, deviation: float) -> TimingEntry:
+        return TimingEntry(date=date(2023, 1, day), deviation_sec=deviation, position="Dial Up")
+
+    def test_group_has_no_sparkline_with_only_two_readings(self) -> None:
+        watch = Watch(brand="Seiko", model="SARB033", timing=[self._entry(1, 5), self._entry(2, 6)])
+        group = _build_timing_group(watch)
+        self.assertIsNone(group.findChild(_TimingSparkline))
+
+    def test_group_has_a_sparkline_with_three_readings(self) -> None:
+        watch = Watch(brand="Seiko", model="SARB033", timing=[self._entry(1, 5), self._entry(2, 6), self._entry(3, 4)])
+        group = _build_timing_group(watch)
+        self.assertIsNotNone(group.findChild(_TimingSparkline))
+
+    def test_entries_missing_date_or_deviation_are_excluded_from_the_readings_count(self) -> None:
+        watch = Watch(brand="Seiko", model="SARB033", timing=[
+            self._entry(1, 5), self._entry(2, 6), self._entry(3, 4),
+            TimingEntry(date=None, deviation_sec=10, position="Crown Up"),
+            TimingEntry(date=date(2023, 1, 4), deviation_sec=None, position="Crown Up"),
+        ])
+        group = _build_timing_group(watch)
+        sparkline = group.findChild(_TimingSparkline)
+        self.assertIsNotNone(sparkline)
+        self.assertEqual(len(sparkline._values), 3)
+
+    def test_sparkline_values_are_sorted_chronologically_regardless_of_input_order(self) -> None:
+        sparkline = _TimingSparkline([self._entry(3, 30), self._entry(1, 10), self._entry(2, 20)])
+        self.assertEqual(sparkline._values, [10, 20, 30])
+
+    def test_fewer_than_two_values_paints_without_error(self) -> None:
+        sparkline = _TimingSparkline([self._entry(1, 5)])
+        sparkline.resize(160, 48)
+        sparkline.repaint()  # must not raise even though there's nothing to draw a line between
+
+
+class StrapCompatibilityTests(unittest.TestCase):
+    """SPEC.md §5.9. DetailView's default all_records=None (used by every
+    other test in this file, which only ever passes a single record) always
+    yields [] here — this class is what actually exercises the wiring."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-detail-strap-compat-test-"))
+        self.watches_dir = self.tmp / "watches"
+        self.backups_dir = self.tmp / "backups"
+        self.watches_dir.mkdir()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_no_all_records_argument_means_no_compatible_straps_section(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", case=Case(lug_width_mm=20)))
+        [record] = load_collection(self.watches_dir)
+        view = DetailView(record)
+        self.assertNotIn("Compatible Straps", [g.findChild(MinuteTrackHeader)._title for g in view._build_spec_groups(record) if g.findChild(MinuteTrackHeader)])
+
+    def test_a_matching_strap_on_another_watch_shows_the_section(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", case=Case(lug_width_mm=20)))
+        create_watch(self.watches_dir, self.backups_dir, Watch(
+            brand="Casio", model="F-91W", case=Case(lug_width_mm=22),
+            straps=[Strap(material="NATO", width_mm=20)],
+        ))
+        records = load_collection(self.watches_dir)
+        target = next(r for r in records if r.watch.brand == "Seiko")
+
+        view = DetailView(target, records)
+        titles = [g.findChild(MinuteTrackHeader)._title for g in view._build_spec_groups(target) if g.findChild(MinuteTrackHeader)]
+        self.assertIn("COMPATIBLE STRAPS", titles)
+
+    def test_no_matches_means_no_section_even_with_the_full_collection(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", case=Case(lug_width_mm=20)))
+        create_watch(self.watches_dir, self.backups_dir, Watch(
+            brand="Casio", model="F-91W", case=Case(lug_width_mm=22),
+            straps=[Strap(material="NATO", width_mm=22)],
+        ))
+        records = load_collection(self.watches_dir)
+        target = next(r for r in records if r.watch.brand == "Seiko")
+
+        view = DetailView(target, records)
+        titles = [g.findChild(MinuteTrackHeader)._title for g in view._build_spec_groups(target) if g.findChild(MinuteTrackHeader)]
+        self.assertNotIn("COMPATIBLE STRAPS", titles)
+
+
 def _fake_record(watch: Watch):
     from saat.storage import WatchRecord
     return WatchRecord(slug="fake", path=Path("/nonexistent"), watch=watch)
@@ -193,6 +279,50 @@ class DetailViewIntegrationTests(unittest.TestCase):
         view.back_requested.connect(lambda: received.append(True))
         view.findChild(QPushButton, "back-button").click()
         self.assertEqual(received, [True])
+
+
+class MaintenanceDueLineTests(unittest.TestCase):
+    """SPEC.md §4: 'a line at the top of its detail page' — silent when
+    nothing is due, silent entirely when the interval is blank."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-detail-maintenance-test-"))
+        self.watches_dir = self.tmp / "watches"
+        self.backups_dir = self.tmp / "backups"
+        self.watches_dir.mkdir()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_no_interval_shows_no_line(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        [record] = load_collection(self.watches_dir)
+        view = DetailView(record)
+        self.assertIsNone(view.findChild(QLabel, "maintenance-due-line"))
+
+    def test_overdue_service_shows_the_line(self) -> None:
+        watch = Watch(
+            brand="Seiko", model="SARB033",
+            maintenance=Maintenance(service_interval_years=1),
+            log=[LogEntry(date=date(2020, 1, 1), kind="Service")],
+        )
+        create_watch(self.watches_dir, self.backups_dir, watch)
+        [record] = load_collection(self.watches_dir)
+        view = DetailView(record)
+        line = view.findChild(QLabel, "maintenance-due-line")
+        self.assertIsNotNone(line)
+        self.assertIn("overdue", line.text().lower())
+
+    def test_interval_far_from_due_shows_no_line(self) -> None:
+        watch = Watch(
+            brand="Seiko", model="SARB033",
+            maintenance=Maintenance(service_interval_years=5),
+            log=[LogEntry(date=date.today(), kind="Service")],
+        )
+        create_watch(self.watches_dir, self.backups_dir, watch)
+        [record] = load_collection(self.watches_dir)
+        view = DetailView(record)
+        self.assertIsNone(view.findChild(QLabel, "maintenance-due-line"))
 
 
 if __name__ == "__main__":

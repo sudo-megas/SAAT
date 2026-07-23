@@ -3,13 +3,14 @@ from datetime import date
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QStackedWidget
 
 from saat.config import Config
 from saat.paths import app_dir
 from saat.storage import WatchRecord, create_watch, delete_watch, load_collection, save_watch
 from saat.ui.collection_view import CollectionView
+from saat.ui.compare_view import CompareView
 from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
@@ -41,8 +42,43 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self._stack)
         self._collection_view: CollectionView | None = None
         self._detail_view: DetailView | None = None
+        self._compare_view: CompareView | None = None
 
         self._load_and_show_collection()
+        self._install_shortcuts()
+
+    def _install_shortcuts(self) -> None:
+        """SPEC.md §5.11. WindowShortcut (QShortcut's default context) only
+        fires while this window itself is the focused top-level — WatchForm,
+        DeleteConfirmDialog, and WatchPicker are modal QDialogs running their
+        own exec() loop, so none of these can fire while one is open, and
+        Escape there is already QDialog's own default (reject on Escape).
+        That's also why Ctrl+N needs no "is a dialog already open" guard."""
+        QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(self._show_add_form)
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self._focus_search)
+        QShortcut(QKeySequence("Ctrl+E"), self).activated.connect(self._edit_current)
+        QShortcut(QKeySequence("Ctrl+W"), self).activated.connect(self._wore_today_current)
+        QShortcut(QKeySequence("Ctrl+Q"), self).activated.connect(self.close)
+        QShortcut(QKeySequence(Qt.Key.Key_Escape), self).activated.connect(self._on_escape)
+
+    def _focus_search(self) -> None:
+        if self._collection_view is not None and self._stack.currentWidget() is self._collection_view:
+            self._collection_view.focus_search()
+
+    def _edit_current(self) -> None:
+        # "Current watch" is the detail view's watch — routes to the exact
+        # handler the detail page's own Edit button calls, not a parallel path.
+        if self._detail_view is not None and self._stack.currentWidget() is self._detail_view:
+            self._show_edit_form(self._detail_view.record)
+
+    def _wore_today_current(self) -> None:
+        if self._detail_view is not None and self._stack.currentWidget() is self._detail_view:
+            self._on_wore_today(self._detail_view.record)
+
+    def _on_escape(self) -> None:
+        current = self._stack.currentWidget()
+        if current is self._detail_view or current is self._compare_view:
+            self._show_collection()
 
     def _load_and_show_collection(self) -> None:
         while self._stack.count():
@@ -51,6 +87,7 @@ class MainWindow(QMainWindow):
             widget.deleteLater()
         self._collection_view = None
         self._detail_view = None
+        self._compare_view = None
 
         records = load_collection(self._watches_dir)
         if records:
@@ -60,6 +97,8 @@ class MainWindow(QMainWindow):
             self._collection_view.assign_worn_requested.connect(self._on_assign_worn)
             self._collection_view.clear_worn_requested.connect(self._on_clear_worn)
             self._collection_view.theme_toggle_requested.connect(self._on_theme_toggle)
+            self._collection_view.wore_today_requested.connect(self._on_wore_today)
+            self._collection_view.compare_requested.connect(self._show_compare)
             self._stack.addWidget(self._collection_view)
             self._stack.setCurrentWidget(self._collection_view)
         else:
@@ -73,7 +112,7 @@ class MainWindow(QMainWindow):
             self._stack.removeWidget(self._detail_view)
             self._detail_view.deleteLater()
 
-        self._detail_view = DetailView(record, self)
+        self._detail_view = DetailView(record, self._current_records(), self)
         self._detail_view.back_requested.connect(self._show_collection)
         self._detail_view.edit_requested.connect(self._show_edit_form)
         self._detail_view.delete_requested.connect(self._show_delete_confirm)
@@ -84,6 +123,16 @@ class MainWindow(QMainWindow):
     def _show_collection(self) -> None:
         if self._collection_view is not None:
             self._stack.setCurrentWidget(self._collection_view)
+
+    def _show_compare(self, records: list[WatchRecord]) -> None:
+        if self._compare_view is not None:
+            self._stack.removeWidget(self._compare_view)
+            self._compare_view.deleteLater()
+
+        self._compare_view = CompareView(records, self)
+        self._compare_view.back_requested.connect(self._show_collection)
+        self._stack.addWidget(self._compare_view)
+        self._stack.setCurrentWidget(self._compare_view)
 
     def _current_records(self) -> list[WatchRecord]:
         return self._collection_view.records if self._collection_view is not None else []
