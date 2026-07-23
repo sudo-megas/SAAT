@@ -31,7 +31,7 @@ echo "Linking /usr/local/bin/saat..."
 ln -sf /opt/saat/SAAT /usr/local/bin/saat
 
 echo "Installing icon..."
-install -Dm644 /opt/saat/resources/icon/saat.png \
+install -Dm644 /opt/saat/_internal/resources/icon/saat.png \
     /usr/share/icons/hicolor/256x256/apps/saat.png
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
