@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.0] - 2026-07-23
+
+### Added
+
+- Dual-mode paths: portable (default, unchanged from v1.0.x — data lives beside the
+  executable) and installed (opt-in, for a future `.deb`). `data_dir()` and
+  `config_dir()` replace `app_dir()`, resolving to the OS's standard per-user
+  locations (`XDG_DATA_HOME`/`XDG_CONFIG_HOME`, default `~/.local/share/saat` and
+  `~/.config/saat`) when the build is frozen *and* a `.installed` marker file sits
+  beside the executable — never inferred, so a bare portable copy always stays
+  portable.
+- `SAAT_DATA_DIR` environment variable to override both locations at once, for
+  testing and power users.
+- `install.sh` / `uninstall.sh`: installs the portable build to `/opt/saat`, writes
+  the `.installed` marker, symlinks `/usr/local/bin/saat`, and adds an
+  application-launcher entry (and reverses all of it, without ever touching the
+  user's collection).
+
+### Fixed
+
+- `install.sh` looked for the app icon at `/opt/saat/resources/icon/saat.png`; the
+  correct path is `/opt/saat/_internal/resources/icon/saat.png` — PyInstaller's
+  onedir layout puts every bundled resource under `_internal/`, not at the top
+  level. Caught by actually running the installer against a real build.
+
 ## [1.0.1] - 2026-07-23
 
 ### Added

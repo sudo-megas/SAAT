@@ -463,7 +463,11 @@ find-and-replace across every view.
 ## 7. Build order
 
 `git init` before writing a line of code. Commit at each milestone. Do not start
-milestone *n+1* before *n* runs.
+milestone *n+1* before *n* runs. Every milestone — including follow-ups like
+packaging fixes that never made it into the numbered list below — bumps
+`__version__` (`saat/__init__.py`) and adds its entry to `CHANGELOG.md` in the same
+commit. `tests/test_version.py` enforces that the two never drift apart, the same
+as every other invariant here: checked, not remembered.
 
 1. **Skeleton.** Package layout, `main.py`, a window that opens on Wayland, `config.toml`
    read/write, theme loaded, collection empty state rendering, and the `app_dir()` /
