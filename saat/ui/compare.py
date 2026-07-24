@@ -58,3 +58,81 @@ def _all_present_and_equal(values: list) -> bool:
         return False
     first = values[0]
     return all(v == first for v in values[1:])
+
+
+# --- Milestone 15a: case silhouette ----------------------------------------
+#
+# Pure logic only — no QPainter, no widgets, unit-tested with no event loop.
+# saat.ui.case_silhouette turns this into pixels.
+
+@dataclass(frozen=True)
+class SilhouetteEntry:
+    """One selected watch's case geometry, ready to draw at a shared scale.
+    Only built for watches with a diameter — see build_silhouette_entries.
+    lug_to_lug_mm/thickness_mm/lug_width_mm are optional per watch: present,
+    that watch's lug blocks / side profile / lug-width-driven block width
+    draw; absent, that part alone is skipped for that watch, same scale,
+    no fabricated value."""
+
+    record: WatchRecord
+    diameter_mm: float
+    lug_to_lug_mm: float | None
+    thickness_mm: float | None
+    lug_width_mm: float | None
+
+
+def build_silhouette_entries(records: list[WatchRecord]) -> tuple[list[SilhouetteEntry], list[WatchRecord]]:
+    """Splits the selection into (drawable, missing_case_data). SPEC.md
+    §5.4: 'A watch missing diameter cannot be drawn. Omit it from the
+    drawing and name it in the legend as having no case data.'
+    case.diameter_mm is the one field a circle cannot be drawn without."""
+    entries: list[SilhouetteEntry] = []
+    missing: list[WatchRecord] = []
+    for r in records:
+        if r.watch is None or r.watch.case.diameter_mm is None:
+            missing.append(r)
+            continue
+        c = r.watch.case
+        entries.append(SilhouetteEntry(
+            record=r,
+            diameter_mm=c.diameter_mm,
+            lug_to_lug_mm=c.lug_to_lug_mm,
+            thickness_mm=c.thickness_mm,
+            lug_width_mm=c.lug_width_mm,
+        ))
+    return entries, missing
+
+
+def should_show_silhouette(records: list[WatchRecord]) -> bool:
+    """SPEC.md §5.4: 'Hide the whole section when fewer than 2 selected
+    watches have diameter data.'"""
+    entries, _ = build_silhouette_entries(records)
+    return len(entries) >= 2
+
+
+def silhouette_profile_entries(entries: list[SilhouetteEntry]) -> list[SilhouetteEntry]:
+    """The subset of already-drawable entries that also qualify for the
+    side-profile strip, which additionally needs thickness_mm. A separate,
+    usually-smaller drawable set than the top-down view's — a watch can
+    have a diameter (drawn up top) without a recorded thickness (absent
+    from the strip beneath)."""
+    return [e for e in entries if e.thickness_mm is not None]
+
+
+def _silhouette_extent_mm(entry: SilhouetteEntry) -> float:
+    """The furthest point this watch actually draws to — lug-to-lug when
+    known (lugs extend past the case), otherwise its diameter, since a
+    watch without lug-to-lug draws no lug blocks at all."""
+    return entry.lug_to_lug_mm if entry.lug_to_lug_mm is not None else entry.diameter_mm
+
+
+def silhouette_scale(entries: list[SilhouetteEntry], available_width_px: float) -> float:
+    """px-per-mm shared by the whole case silhouette — top view, side
+    profile and scale bar alike — sized so the largest drawn extent (see
+    _silhouette_extent_mm) fits available_width_px. 0.0 when there's
+    nothing to scale against; callers should already have checked
+    should_show_silhouette before drawing."""
+    if available_width_px <= 0 or not entries:
+        return 0.0
+    max_extent = max(_silhouette_extent_mm(e) for e in entries)
+    return available_width_px / max_extent if max_extent > 0 else 0.0

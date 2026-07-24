@@ -1,17 +1,43 @@
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPaintEvent, QPainter
 from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from saat.storage import WatchRecord
+from saat.ui.case_silhouette import build_case_silhouette_section
 from saat.ui.compare import RowContrast, build_compare_groups
 from saat.ui.minute_track import MinuteTrackHeader
 from saat.ui.theme import GROUP_SPACING, PAGE_MARGIN
+from saat.ui.year_view import slug_color
+
+COLOR_SWATCH_HEIGHT = 4
+
+
+class _ColorSwatchBar(QWidget):
+    """A thin per-watch colour bar atop a compare column header, reusing
+    year_view's slug_color() — links these headers to the visuals above
+    the table (silhouette outlines, accuracy spans, dimension bars all use
+    the same hue per watch). See SPEC.md M15 groundwork."""
+
+    def __init__(self, slug: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._slug = slug
+        self.setFixedHeight(COLOR_SWATCH_HEIGHT)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(slug_color(self._slug))
+        painter.drawRect(self.rect())
+        painter.end()
 
 
 def _build_column_header(record: WatchRecord) -> QWidget:
     container = QWidget()
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(2)
+    layout.setSpacing(4)
+
+    layout.addWidget(_ColorSwatchBar(record.slug))
 
     overline = QLabel(record.watch.brand.upper())
     overline.setProperty("class", "detail-overline")
@@ -51,6 +77,10 @@ class CompareView(QScrollArea):
         back_button.setCursor(Qt.CursorShape.PointingHandCursor)
         back_button.clicked.connect(self.back_requested.emit)
         layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        silhouette_section = build_case_silhouette_section(records)
+        if silhouette_section is not None:
+            layout.addWidget(silhouette_section)
 
         grid_widget = QWidget()
         grid = QGridLayout(grid_widget)

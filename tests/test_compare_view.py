@@ -11,8 +11,10 @@ from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
 from saat.models import Case, Watch
 from saat.storage import create_watch, load_collection
-from saat.ui.compare_view import CompareView
+from saat.ui.case_silhouette import _TopDownSilhouette
+from saat.ui.compare_view import CompareView, _ColorSwatchBar
 from saat.ui.minute_track import MinuteTrackHeader
+from saat.ui.year_view import slug_color
 
 _app = QApplication.instance() or QApplication([])
 
@@ -77,6 +79,42 @@ class CompareViewTests(unittest.TestCase):
         view = CompareView(records)  # must not raise
         titles = [label.text() for label in view.findChildren(QLabel) if label.property("class") == "detail-title"]
         self.assertEqual(len(titles), 4)
+
+    def test_each_column_header_carries_a_swatch_in_its_own_slug_colour(self) -> None:
+        """SPEC.md M15 groundwork: links the table's headers to the visuals
+        above it (case silhouette, accuracy ranges, dimension bars), all of
+        which use the same per-watch slug_color()."""
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="A"))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="B"))
+        records = load_collection(self.watches_dir)
+
+        view = CompareView(records)
+        swatches = view.findChildren(_ColorSwatchBar)
+        self.assertEqual(len(swatches), 2)
+        self.assertEqual({s._slug for s in swatches}, {r.slug for r in records})
+        for swatch in swatches:
+            swatch.resize(40, 4)
+            swatch.show()
+        QApplication.processEvents()
+        for swatch in swatches:
+            image = swatch.grab().toImage()
+            self.assertEqual(image.pixelColor(5, 2).name(), slug_color(swatch._slug).name())
+
+    def test_case_silhouette_section_appears_when_two_watches_have_diameter(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="A", case=Case(diameter_mm=38)))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="B", case=Case(diameter_mm=42)))
+        records = load_collection(self.watches_dir)
+
+        view = CompareView(records)
+        self.assertEqual(len(view.findChildren(_TopDownSilhouette)), 1)
+
+    def test_case_silhouette_section_absent_when_no_watch_has_case_data(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="A"))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="B"))
+        records = load_collection(self.watches_dir)
+
+        view = CompareView(records)
+        self.assertEqual(view.findChildren(_TopDownSilhouette), [])
 
 
 if __name__ == "__main__":
