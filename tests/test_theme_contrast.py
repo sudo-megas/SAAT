@@ -87,6 +87,39 @@ class PaletteContrastTests(unittest.TestCase):
                         self.assertGreaterEqual(ratio, 3.0, f"{fg_name} ({fg}) on {bg_name} ({bg}) in {mode}: {ratio:.2f}:1")
 
 
+class CardHoverAndSelectionContrastTests(unittest.TestCase):
+    """Milestone 16e (SPEC.md §6): WatchCard.paintEvent washes the card's
+    text-block strip on hover, eased in via _hover_progress toward plate_high@
+    at full alpha -- card-overline/title/meta text renders directly on top of
+    it in the grid, so that endpoint is pinned here specifically (rather than
+    relying only on PaletteContrastTests' generic matrix), in case a future
+    change points hover's wash at a background that matrix no longer covers.
+
+    Compare-selection was originally meant to get its own background tint
+    too (a gilt@ wash, distinct from hover's), but no alpha makes that both
+    visible and safe: reading as a wash at all needs roughly alpha>=45 over
+    plate@, while text_muted's already-thin margin there (both palettes are
+    tuned to just clear 4.5:1 against the plain backgrounds -- see this
+    class's own comments) caps any *contrast-safe* gilt alpha at 8 in light
+    mode. Visible and safe don't overlap. Compare-selection's distinct
+    treatment is instead the 2px static gilt border (vs hover's 1px animated
+    one) plus the ever-visible checked checkbox -- neither sits behind text,
+    so neither runs into this."""
+
+    def tearDown(self) -> None:
+        theme.set_mode(MODE_DARK)
+
+    def test_text_on_hovers_fully_settled_wash_meets_4_5_to_1_in_both_modes(self) -> None:
+        for mode in (MODE_DARK, MODE_LIGHT):
+            theme.set_mode(mode)
+            palette = theme.colors()
+            for fg_name in TEXT_FIELDS:
+                fg = getattr(palette, fg_name)
+                with self.subTest(mode=mode, foreground=fg_name):
+                    ratio = _contrast_ratio(fg, palette.plate_high)
+                    self.assertGreaterEqual(ratio, 4.5, f"{fg_name} ({fg}) on hover wash ({palette.plate_high}) in {mode}: {ratio:.2f}:1")
+
+
 class SlugChipContrastTests(unittest.TestCase):
     """year_view.py's per-watch colour chips share one hue per slug but a
     fixed (saturation, value) across all hues in a given mode — so unlike the

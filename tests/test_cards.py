@@ -251,27 +251,27 @@ class WatchCardHoverBorderAnimationTests(unittest.TestCase):
         card.show()
         self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().rule)))
 
-    def test_entering_hover_starts_an_animation_toward_gilt(self) -> None:
+    def test_entering_hover_starts_an_animation_toward_fully_hovered(self) -> None:
         card = WatchCard(self.record)
         card.show()
         _enter(card)
-        self.assertEqual(card._border_animation.state(), QAbstractAnimation.State.Running)
-        self.assertEqual(QColor(card._border_animation.endValue()), QColor(theme.colors().gilt))
+        self.assertEqual(card._hover_animation.state(), QAbstractAnimation.State.Running)
+        self.assertEqual(card._hover_animation.endValue(), 1.0)
 
     def test_border_reaches_gilt_once_the_hover_animation_completes(self) -> None:
         card = WatchCard(self.record)
         card.show()
         _enter(card)
-        card._border_animation.setCurrentTime(ANIM_DURATION_MS)
+        card._hover_animation.setCurrentTime(ANIM_DURATION_MS)
         self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().gilt)))
 
     def test_leaving_hover_animates_the_border_back_to_rule(self) -> None:
         card = WatchCard(self.record)
         card.show()
         _enter(card)
-        card._border_animation.setCurrentTime(ANIM_DURATION_MS)
+        card._hover_animation.setCurrentTime(ANIM_DURATION_MS)
         _leave(card)
-        card._border_animation.setCurrentTime(ANIM_DURATION_MS)
+        card._hover_animation.setCurrentTime(ANIM_DURATION_MS)
         self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().rule)))
 
     def test_cursor_focused_hover_does_not_crash_and_still_paints(self) -> None:
@@ -282,8 +282,63 @@ class WatchCardHoverBorderAnimationTests(unittest.TestCase):
         card.setProperty("cursor-focused", True)
         card.show()
         _enter(card)
-        card._border_animation.setCurrentTime(ANIM_DURATION_MS)
+        card._hover_animation.setCurrentTime(ANIM_DURATION_MS)
         card.grab()  # must not raise
+
+
+class WatchCardCompareSelectionVisualTests(unittest.TestCase):
+    """Milestone 16e (SPEC.md §6): compare-selection gets its own
+    card-frame-level visual, distinct from both hover's 1px eased border and
+    cursor-focus's 2px QSS one -- checked via the checkbox itself (the same
+    control that drives compare_toggled), not a method only tests would call."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-card-compare-visual-test-"))
+        self.watches_dir = self.tmp / "watches"
+        self.backups_dir = self.tmp / "backups"
+        self.watches_dir.mkdir()
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        [self.record] = load_collection(self.watches_dir)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_checking_compare_sets_the_dynamic_property(self) -> None:
+        card = WatchCard(self.record)
+        card.show()
+        card._checkbox.setChecked(True)
+        self.assertTrue(card.property("compare-selected"))
+        card._checkbox.setChecked(False)
+        self.assertFalse(card.property("compare-selected"))
+
+    def test_constructing_pre_selected_sets_the_property_from_the_start(self) -> None:
+        card = WatchCard(self.record, compare_selected=True)
+        self.assertTrue(card.property("compare-selected"))
+
+    def test_selected_border_is_gilt_without_ever_hovering(self) -> None:
+        card = WatchCard(self.record)
+        card.show()
+        card._checkbox.setChecked(True)
+        self.assertEqual(card._hover_animation.state(), QAbstractAnimation.State.Stopped)
+        self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().gilt)))
+
+    def test_selected_and_hovered_at_once_does_not_crash_and_stays_gilt(self) -> None:
+        """Both states can be true together (hovering a checked card) --
+        compare-selected wins the border outright per paintEvent's own
+        precedence comment, so the pixel is the same gilt either way."""
+        card = WatchCard(self.record)
+        card.show()
+        card._checkbox.setChecked(True)
+        _enter(card)
+        card._hover_animation.setCurrentTime(ANIM_DURATION_MS // 2)
+        self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().gilt)))
+
+    def test_cursor_focus_still_wins_over_compare_selected(self) -> None:
+        card = WatchCard(self.record)
+        card.setProperty("cursor-focused", True)
+        card.show()
+        card._checkbox.setChecked(True)
+        card.grab()  # must not raise; paintEvent's early return leaves the QSS 2px border alone
 
 
 if __name__ == "__main__":

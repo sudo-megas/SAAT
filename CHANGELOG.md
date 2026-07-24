@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.0] - 2026-07-24
+
+### Added
+
+- A cohesive hand-drawn icon set (grid/table/calendar view, compare, search, add,
+  back, edit, delete, wore-today, today, month navigation, sidebar collapse, clear
+  filters, sort direction, image actions, collection/wishlist scope) replacing bare
+  Unicode stand-ins throughout, always alongside the existing text label or tooltip,
+  never in place of one. A small clear-all control in the sidebar, visible only while
+  a filter is active, and a real ascending/descending toggle beside the top bar's
+  sort combo.
+- Motion: view and mode switches cross-fade, the sidebar's collapse/expand eases its
+  width, and a grid card's border eases between hairline and gilt on hover — one
+  160ms duration and easing curve throughout, nothing animating on first paint.
+- A partial tick arc — the same "minute track" vocabulary already used for the
+  detail page's spec groups — behind a grid card's placeholder tile when a watch has
+  no photo yet, and a second, undecorated minute track separating sections in the
+  calendar's Stats mode.
+
+### Changed
+
+- A full pass of stock Qt chrome that had never been explicitly styled: scrollbars
+  (now a thin hairline, widening slightly on hover), tooltips, combo-box popups,
+  context menus, checkboxes, spin-box step buttons, the date-edit calendar popup,
+  dialog button boxes, line-edit placeholder text, and disabled states across the
+  above.
+- Grid card photos now clip to the card's own corner radius with a hairline at the
+  photo edge instead of square corners overrunning it; compare-selection gets its
+  own static border and background treatment, distinct from hover's animated one.
+  Monospace figures in the table and compare views are right-aligned so they land in
+  a column instead of merely sharing a font; uppercase small-caps labels carry a
+  slight letter-spacing.
+- No tooling attribution anywhere in the project going forward — see SPEC.md §9.
+
 ## [1.4.0] - 2026-07-24
 
 ### Added

@@ -1,5 +1,7 @@
-from PySide6.QtCore import QAbstractAnimation, QRectF, Qt, QVariantAnimation, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
+import math
+
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QVariantAnimation, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from saat.models import Watch
@@ -11,6 +13,29 @@ from saat.ui.maintenance import is_maintenance_due
 
 STAR_FILLED = "★"
 STAR_EMPTY = "☆"
+
+
+def _lerp_color(start: QColor, end: QColor, t: float) -> QColor:
+    return QColor(
+        round(start.red() + (end.red() - start.red()) * t),
+        round(start.green() + (end.green() - start.green()) * t),
+        round(start.blue() + (end.blue() - start.blue()) * t),
+    )
+
+
+def _top_rounded_path(rect: QRectF, radius: float) -> QPainterPath:
+    """rect, rounded at its top-left/top-right corners only, square at the
+    bottom -- for a photo that meets the card's own top corners but sits on
+    a plain internal seam (the info block below it) at the bottom."""
+    path = QPainterPath()
+    path.moveTo(rect.left(), rect.bottom())
+    path.lineTo(rect.left(), rect.top() + radius)
+    path.quadTo(rect.left(), rect.top(), rect.left() + radius, rect.top())
+    path.lineTo(rect.right() - radius, rect.top())
+    path.quadTo(rect.right(), rect.top(), rect.right(), rect.top() + radius)
+    path.lineTo(rect.right(), rect.bottom())
+    path.closeSubpath()
+    return path
 
 
 def _wishlist_info_text(watch: Watch) -> str:
@@ -31,6 +56,94 @@ TEXT_BLOCK_HEIGHT = 100
 CARD_CONTENT_PADDING = 16  # SPEC.md §6: card padding 16
 MAINTENANCE_DOT_SIZE = 10
 WORE_TODAY_BAR_HEIGHT = 32
+CARD_RADIUS = 4.0  # must match theme.qss's watch-card border-radius: 4px
+
+
+class _CardPhoto(QLabel):
+    """The card's real photo, corner-clipped to CARD_RADIUS at the top two
+    corners only (the bottom edge abuts the info block below -- an internal
+    seam, not an outer corner), plus a 1px hairline in rule@ just inside the
+    clip. QSS border-radius doesn't clip a QLabel's own pixmap contents (a
+    Qt limitation, not a stylesheet gap) -- this bakes the clip into
+    paintEvent instead."""
+
+    def __init__(self, pixmap: QPixmap, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._pixmap = pixmap
+        self.setFixedSize(pixmap.size())
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        painter.setClipPath(_top_rounded_path(QRectF(self.rect()), CARD_RADIUS))
+        painter.drawPixmap(0, 0, self._pixmap)
+        painter.setClipping(False)
+
+        pen = QPen(QColor(theme.colors().rule))
+        pen.setWidthF(1.0)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        inset_rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        painter.drawPath(_top_rounded_path(inset_rect, max(CARD_RADIUS - 0.5, 0.0)))
+        painter.end()
+
+
+class _CardPlaceholder(QLabel):
+    """No photo yet: SPEC.md §5.2's placeholder tile, gaining a partial tick
+    arc behind the case dimensions -- the minute-track vocabulary borrowed
+    for card craft (SPEC.md §6's data-visualisation idiom), not the formal
+    signature itself, which stays at exactly its two named locations. Evokes
+    a dial's chapter ring even with nothing yet to photograph."""
+
+    def __init__(self, text: str, size: QSize, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setProperty("class", "card-placeholder")
+        self.setFixedSize(size)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setText(text)
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self._draw_tick_arc(painter)
+        painter.end()
+        super().paintEvent(event)  # QSS background fill + this label's own centred text, on top of the arc
+
+    def _draw_tick_arc(self, painter: QPainter) -> None:
+        # Circle's centre sits well above the visible tile; what shows is a
+        # shallow slice of its underside, bowing through the middle of the
+        # tile behind the case-dimension text -- the same "chapter ring"
+        # read as the minute track, just curved. Direction is outward from
+        # this off-screen centre (radially down-and-out), the curved
+        # equivalent of the straight track's perpendicular ticks.
+        center = QPointF(self.width() / 2, -self.height() * 0.35)
+        radius = self.height() * 0.9
+        span_degrees = 58
+        tick_count = 28
+
+        rule = QColor(theme.colors().rule)
+        painter.setPen(QPen(rule, 1))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        arc_path = QPainterPath()
+        arc_steps = 48
+        for i in range(arc_steps + 1):
+            theta = math.radians(-span_degrees / 2 + span_degrees * i / arc_steps)
+            point = center + QPointF(math.sin(theta), math.cos(theta)) * radius
+            if i == 0:
+                arc_path.moveTo(point)
+            else:
+                arc_path.lineTo(point)
+        painter.drawPath(arc_path)
+
+        for i in range(tick_count + 1):
+            theta = math.radians(-span_degrees / 2 + span_degrees * i / tick_count)
+            direction = QPointF(math.sin(theta), math.cos(theta))
+            tick_len = 12 if i % 4 == 0 else 6
+            outer = center + direction * radius
+            inner = center + direction * (radius - tick_len)
+            painter.drawLine(outer, inner)
 
 
 class _MaintenanceDueDot(QWidget):
@@ -60,22 +173,24 @@ class WatchCard(QFrame):
     def __init__(self, record: WatchRecord, compare_selected: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("class", "watch-card")
+        self.setProperty("compare-selected", compare_selected)
         self.setFixedWidth(CARD_WIDTH)
         self._hovering = False
         self._checkbox: QCheckBox | None = None
         self._wore_today_bar: QWidget | None = None
 
-        # Eased border-colour hover (SPEC.md §6 motion): QSS has no transition
-        # primitive, so the rule@->gilt@ hover swap is repainted by hand. The
-        # animation only holds a snapshot color while actively running; at
-        # rest (the common case) paintEvent reads theme.colors() live, same
-        # as every other themed element here, so it self-corrects on a theme
-        # toggle without a dedicated refresh hook.
-        self._border_color: QColor | None = None
-        self._border_animation = QVariantAnimation(self)
-        self._border_animation.setDuration(theme.ANIM_DURATION_MS)
-        self._border_animation.setEasingCurve(theme.ANIM_EASING)
-        self._border_animation.valueChanged.connect(self._on_border_color_changed)
+        # Eased hover lift (SPEC.md §6 motion): QSS has no transition
+        # primitive, so border colour and background wash are both repainted
+        # by hand, driven by one 0..1 progress float rather than two
+        # independently-animated colours. paintEvent always recomputes the
+        # actual rule@/gilt@/plate@/plate-high@ values live from the CURRENT
+        # theme -- only the progress fraction is cached -- so it self-corrects
+        # on a theme toggle without a dedicated refresh hook.
+        self._hover_progress = 0.0
+        self._hover_animation = QVariantAnimation(self)
+        self._hover_animation.setDuration(theme.ANIM_DURATION_MS)
+        self._hover_animation.setEasingCurve(theme.ANIM_EASING)
+        self._hover_animation.valueChanged.connect(self._on_hover_progress_changed)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -107,13 +222,13 @@ class WatchCard(QFrame):
 
     def enterEvent(self, event) -> None:
         self._hovering = True
-        self._animate_border_to(theme.colors().gilt)
+        self._animate_hover_to(1.0)
         self._update_overlay_visibility()
         super().enterEvent(event)
 
     def leaveEvent(self, event) -> None:
         self._hovering = False
-        self._animate_border_to(theme.colors().rule)
+        self._animate_hover_to(0.0)
         self._update_overlay_visibility()
         super().leaveEvent(event)
 
@@ -123,54 +238,80 @@ class WatchCard(QFrame):
         if self._wore_today_bar is not None:
             self._wore_today_bar.setVisible(self._hovering)
 
-    def _animate_border_to(self, target_hex: str) -> None:
-        current = self._border_color if self._border_color is not None else QColor(theme.colors().rule)
-        self._border_animation.stop()
-        self._border_animation.setStartValue(current)
-        self._border_animation.setEndValue(QColor(target_hex))
-        self._border_animation.start()
+    def _set_compare_selected(self, value: bool) -> None:
+        if self.property("compare-selected") != value:
+            self.setProperty("compare-selected", value)
+            self.update()
 
-    def _on_border_color_changed(self, value: QColor) -> None:
-        self._border_color = QColor(value)
+    def _animate_hover_to(self, target: float) -> None:
+        self._hover_animation.stop()
+        self._hover_animation.setStartValue(self._hover_progress)
+        self._hover_animation.setEndValue(target)
+        self._hover_animation.start()
+
+    def _on_hover_progress_changed(self, value: float) -> None:
+        self._hover_progress = float(value)
         self.update()
 
     def paintEvent(self, event) -> None:
         super().paintEvent(event)
-        # Cursor-focus (keyboard grid navigation) already draws its own 2px
-        # gilt@ border in QSS -- that state wins outright, undiminished by
-        # whatever hover border color this card happens to be mid-animating.
-        if self.property("cursor-focused"):
-            return
-
-        if self._border_animation.state() == QAbstractAnimation.State.Running:
-            color = self._border_color if self._border_color is not None else QColor(theme.colors().rule)
-        else:
-            color = QColor(theme.colors().gilt if self._hovering else theme.colors().rule)
+        palette = theme.colors()
+        cursor_focused = bool(self.property("cursor-focused"))
+        compare_selected = bool(self.property("compare-selected"))
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(color)
-        pen.setWidthF(1.0)
-        painter.setPen(pen)
-        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        painter.drawRoundedRect(rect, 4, 4)
+
+        # Hover's background wash is only ever visible in the text-block
+        # strip below the photo -- the photo/placeholder above is opaque and
+        # fully covers the frame's own background, which is exactly right,
+        # since hover shouldn't tint an actual photograph. Compare-selection
+        # does NOT get a wash of its own: a gilt@ tint visible enough to read
+        # as distinct fails text_muted's contrast floor in both themes (see
+        # tests/test_theme_contrast.py's CardHoverAndSelectionContrastTests)
+        # -- its 2px border and the ever-visible checkbox carry that job
+        # instead, neither of which sits behind text.
+        if not compare_selected and self._hover_progress > 0.0:
+            clip = QPainterPath()
+            clip.addRoundedRect(QRectF(self.rect()), CARD_RADIUS, CARD_RADIUS)
+            painter.setClipPath(clip)
+            wash = QColor(palette.plate_high)
+            wash.setAlpha(round(255 * self._hover_progress))
+            painter.fillRect(self.rect(), wash)
+            painter.setClipping(False)
+
+        # Border precedence: cursor-focus (QSS's own 2px gilt@, drawn for
+        # that property already) wins outright and undiminished by anything
+        # below; compare-selected is its own static, non-eased treatment,
+        # visually distinct from hover's animated one; hover/rest eases
+        # continuously between rule@ and gilt@ via _hover_progress.
+        if not cursor_focused:
+            if compare_selected:
+                color = QColor(palette.gilt)
+                width = 2.0
+            else:
+                color = _lerp_color(QColor(palette.rule), QColor(palette.gilt), self._hover_progress)
+                width = 1.0
+            pen = QPen(color)
+            pen.setWidthF(width)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            rect = QRectF(self.rect()).adjusted(width / 2, width / 2, -width / 2, -width / 2)
+            painter.drawRoundedRect(rect, CARD_RADIUS, CARD_RADIUS)
+
+        painter.end()
 
     def _build_image(self, record: WatchRecord, compare_selected: bool) -> QWidget:
         image_path = first_image(record)
         pixmap = cropped_pixmap(image_path, CARD_WIDTH, IMAGE_HEIGHT) if image_path else None
 
-        label = QLabel()
-        label.setFixedSize(CARD_WIDTH, IMAGE_HEIGHT)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         if pixmap is not None:
-            label.setPixmap(pixmap)
+            label: QLabel = _CardPhoto(pixmap)
         else:
-            label.setProperty("class", "card-placeholder")
             watch = record.watch
             diameter = f"{watch.case.diameter_mm:g} mm" if watch.case.diameter_mm else "—"
             lug = f"{watch.case.lug_width_mm} mm lugs" if watch.case.lug_width_mm else "—"
-            label.setText(f"{diameter}\n{lug}")
+            label = _CardPlaceholder(f"{diameter}\n{lug}", QSize(CARD_WIDTH, IMAGE_HEIGHT))
 
         container = QWidget()
         container.setFixedSize(CARD_WIDTH, IMAGE_HEIGHT)
@@ -194,6 +335,7 @@ class WatchCard(QFrame):
         self._checkbox.move(CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
         self._checkbox.toggled.connect(lambda checked: self.compare_toggled.emit(record, checked))
         self._checkbox.toggled.connect(lambda _checked: self._update_overlay_visibility())
+        self._checkbox.toggled.connect(self._set_compare_selected)
         self._checkbox.setVisible(compare_selected)
 
         if is_owned:

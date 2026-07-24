@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from saat.storage import WatchRecord
+from saat.ui.minute_track import TRACK_HEIGHT, draw_minute_track
 from saat.ui.month_grid import WEEKDAY_LABELS
 from saat.ui import theme
 from saat.ui.theme import GROUP_SPACING, SIZE_SM, resolve_fonts
@@ -41,14 +42,31 @@ def _display_name(record: WatchRecord) -> str:
 
 def _section_heading(text: str) -> QLabel:
     """Matches sidebar.py's facet-group headings — plain, muted, condensed,
-    uppercase. Stats mode's sections are NOT spec groups, so they deliberately
-    do not use MinuteTrackHeader: SPEC.md §6 reserves that for the detail
-    page, "the app's only flourish... used only for the detail view's spec
-    groups"."""
+    uppercase. Stats mode's sections are NOT spec groups, so this heading
+    itself stays plain rather than adopting MinuteTrackHeader wholesale
+    (title-plus-track) — see _StatsSectionDivider below for where the
+    minute track's tick vocabulary separates one section from the next."""
     heading = QLabel(text.upper())
     heading.setProperty("class", "spec-row-label")
     heading.setObjectName("statsSectionHeading")  # distinguishes a section heading from other spec-row-label text (e.g. weekday letters), for tests
     return heading
+
+
+class _StatsSectionDivider(QWidget):
+    """SPEC.md §6: the minute track's one other location besides the detail
+    page's spec groups -- the bare tick+rule, with no title row, between
+    each pair of visible Stats-mode sections. Reuses minute_track.py's
+    draw_minute_track() rather than MinuteTrackHeader itself, since a
+    section here already has its own plain _section_heading() above it."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(TRACK_HEIGHT)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        draw_minute_track(painter, self.width(), TRACK_HEIGHT - 1, TRACK_HEIGHT)
+        painter.end()
 
 
 def _figure_row(label: str, value: str) -> QWidget:
@@ -282,15 +300,21 @@ class StatsView(QWidget):
         self._empty_message.setVisible(False)
         self._sections_container.setVisible(True)
 
-        for section in (
-            self._build_rotation_section(stats),
-            self._build_not_worn_section(stats),
-            self._build_coverage_section(stats),
-            self._build_weekday_section(stats),
-            self._build_streaks_section(stats),
-        ):
-            if section is not None:
-                self._sections_layout.addWidget(section)
+        sections = [
+            section
+            for section in (
+                self._build_rotation_section(stats),
+                self._build_not_worn_section(stats),
+                self._build_coverage_section(stats),
+                self._build_weekday_section(stats),
+                self._build_streaks_section(stats),
+            )
+            if section is not None
+        ]
+        for index, section in enumerate(sections):
+            if index > 0:
+                self._sections_layout.addWidget(_StatsSectionDivider())
+            self._sections_layout.addWidget(section)
         self._sections_layout.addStretch()
 
     def _build_rotation_section(self, stats: PeriodStats) -> QWidget | None:

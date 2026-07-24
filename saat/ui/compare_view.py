@@ -119,6 +119,14 @@ class CompareView(QScrollArea):
                     value.setProperty("class", "spec-row-value-mono" if row.numeric else "spec-row-value")
                     value.setProperty("muted", row.contrast == RowContrast.DIMMED)
                     value.setWordWrap(True)
+                    if row.numeric:
+                        # SPEC.md §6: tabular figures need to actually land in
+                        # a column to earn the name -- left-aligned mono text
+                        # still reads as a ragged list, not a comparison. Only
+                        # the label's own text alignment changes; the cell
+                        # itself still stretches full width like every other
+                        # row, so this can't shift word-wrap sizing.
+                        value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
                     grid.addWidget(value, row_index, col, Qt.AlignmentFlag.AlignTop)
                 row_index += 1
 

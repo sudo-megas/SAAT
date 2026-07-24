@@ -295,15 +295,18 @@ QListWidget::item:hover:!selected {
 }
 
 QFrame[class="watch-card"] {
-    background: @plate-high@;
+    background: @plate@;
     border: 1px solid @rule@;
     border-radius: 4px;
 }
 
-/* Hover's border-color transition is painted by WatchCard.paintEvent (Python)
-   so it can be eased -- QSS has no transition primitive. No :hover rule here:
-   a second, instantly-swapping QSS border underneath would create a visible
-   seam against the animated one during the 160ms transition. */
+/* At rest the card sits flush with the page (--plate), distinguished only
+   by its hairline -- hover then genuinely lifts it toward --plate-high,
+   rather than starting already-elevated with nowhere left to go. Hover's
+   border and background are both painted by WatchCard.paintEvent (Python)
+   so they can be eased together -- QSS has no transition primitive, and a
+   second, instantly-swapping QSS rule underneath would show as a seam
+   against the animated one during the 160ms transition. */
 
 QFrame[class="watch-card"][cursor-focused="true"] {
     border: 2px solid @gilt@;
@@ -321,6 +324,7 @@ QLabel[class="card-overline"] {
     font-family: "@font-sans-condensed@";
     font-size: @size-xs@px;
     font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 QLabel[class="card-title"] {
@@ -435,6 +439,7 @@ QLabel[class="detail-overline"] {
     font-family: "@font-sans-condensed@";
     font-size: @size-sm@px;
     font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 QLabel[class="detail-title"] {
@@ -473,6 +478,7 @@ QLabel[class="spec-row-label"] {
     font-family: "@font-sans-condensed@";
     font-size: @size-xs@px;
     font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 QLabel[class="spec-row-value"] {

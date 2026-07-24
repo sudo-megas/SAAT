@@ -594,15 +594,30 @@ than relying on a system package, with a detected fallback so the app does not b
 if loading fails. Ubuntu Sans Condensed for labels and column headers, Ubuntu Sans
 for body and titles, **Ubuntu Mono for every number**: diameters, bph, accuracy,
 prices, dates. Measurements in monospace with tabular figures is not decoration, it
-makes a spec table readable at a glance. Scale: 11 / 13 / 15 / 20 / 28. Weights 400
-and 600 only.
+makes a spec table readable at a glance — right-align (or, absent a value, an em-dash
+in the same slot) every monospace column in the table and compare views so the figures
+actually land in a column instead of just sharing a font. Scale: 11 / 13 / 15 / 20 / 28.
+Weights 400 and 600 only. Uppercase small-caps-style labels (column overlines, spec-row
+headings) carry a slight letter-spacing — legible at 11-13px is not a given otherwise.
 
-**Signature element.** One, in one place: spec group headers in the detail view sit on a
+**Icons.** A cohesive hand-drawn set in `saat/resources/icons/` — SVG, one stroke weight
+and optical size, matched to the existing theme-toggle glyph (the app's original
+hand-drawn icon, unchanged reference). Rendered through `QtSvg` (already inside the
+PySide6 wheel, not a new dependency) at paint time, recoloured against the live
+`theme.colors()` token via `QPainter.CompositionMode_SourceIn` — the same "read the
+palette, never cache a colour" discipline as everything else in this section. Never two
+colour variants shipped per file. An icon is always additive to an existing text label
+or tooltip, never a replacement for one. Watch-derived motifs only where the metaphor is
+unambiguous (a crown for "wore today"); conventional glyphs everywhere else.
+
+**Signature element.** Two, in two places: spec group headers in the detail view sit on a
 **minute track** — a hairline rule bearing fine ticks, longer every fifth, the way a
-dial's chapter ring is printed. Draw it with `QPainter` in `--rule`, running to the edge
-of the column, so it adapts automatically to whichever mode is active. That is the app's
-only flourish. Everything else stays plain: no gradients, no glows, no escalating corner
-radii, no drop shadows beyond a 1 px hairline border.
+dial's chapter ring is printed — and the same bare track, with no title row, separates
+one section from the next in the calendar's Stats mode (§5.5). Draw it with `QPainter` in
+`--rule`, running to the edge of the column, so it adapts automatically to whichever mode
+is active. That is the app's flourish, now in exactly its second location, not a first —
+everything else stays plain: no gradients, no glows, no escalating corner radii, no drop
+shadows beyond a 1 px hairline border.
 
 **Data visualisation.** The calendar's Stats mode (§5.5) and the compare view's three
 visuals (§5.4) are the only places the app draws anything resembling a chart, and both
@@ -619,6 +634,19 @@ implies an ordering or a shared scale that doesn't exist; mixing units on one ax
 banned exactly as before, this vocabulary just now has more places it applies. Pie
 charts, gauges, progress rings and any charting dependency stay out of bounds everywhere
 in the app, the collection summary included (§5.10, unchanged: plain figures there too).
+The grid card's placeholder tile (§5.2, no photo yet) borrows the minute track's tick
+drawing once more, curved into a partial arc behind the case dimensions — this is card
+craft reusing the vocabulary above, like the rest of this paragraph, not a third home for
+the signature element itself, which stays at exactly the two locations named above.
+
+**Motion.** State changes only — nothing animates on first paint. One duration (160ms)
+and one easing curve (`InOutCubic`), named as constants in `theme.py` alongside the
+palette, so no view invents its own timing. `QStackedWidget` transitions (view switches,
+calendar mode changes, month/year navigation) cross-fade rather than slide; the sidebar's
+collapse/expand eases its width; a grid card's border eases between `--rule` and `--gilt`
+on hover, the same way, since QSS itself has no transition primitive. No reduced-motion
+setting: Qt exposes no such platform hint to honour on Linux, and 160ms is short enough
+that the gap doesn't need an escape hatch.
 
 **Spacing.** 8 px base unit. Card padding 16, group spacing 32, page margin 24. Table
 rows get 12 px vertical padding — a spec table crammed to 6 px is unreadable, and this
@@ -629,6 +657,15 @@ as named constants in a `theme.py` that also exposes them to `QPainter` code, pl
 function that swaps the active palette and reapplies. No inline stylesheets scattered
 through widget constructors — this is what makes the toggle a small feature instead of a
 find-and-replace across every view.
+
+Every stock Qt widget the app instantiates gets a rule in `theme.qss`, not just the ones
+a feature happens to touch — scrollbars (a thin hairline track/handle in `--rule`,
+widening slightly on hover), tooltips, combo-box popups, context menus, checkboxes,
+spin-box step buttons, the date-edit calendar popup, tab bars, dialog button boxes, line
+edits (placeholder text included), header views, splitter handles, message boxes,
+text-selection colour, and the disabled state of all of the above. A widget class with
+nothing to style yet is a confirmed gap, not a silent one: note it as such rather than
+letting Qt's own default chrome show through unremarked.
 
 ---
 
@@ -790,3 +827,7 @@ and document it.
 - Abstract ahead of need. There is one storage backend and one window; a
   `StorageProviderFactory` is wrong.
 - Silently swallow exceptions.
+- Carry tooling attribution anywhere — source files, docs, commit messages, repository
+  metadata, release notes. Licensing notices are exempt: LICENSE, GPL source headers, and
+  the PySide6 LGPL note stay exactly as they are; this rule is about tooling credit, not
+  licensing.

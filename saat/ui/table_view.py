@@ -81,6 +81,11 @@ class TableView(QTableWidget):
                     item = _SortableItem(column.text(record.watch), value)
                     if is_numeric_value(value):
                         item.setFont(self._mono_font)
+                        # SPEC.md §6: tabular figures are for scanning a
+                        # column at a glance -- that only works right-aligned,
+                        # so digits (and em-dash placeholders) land on a
+                        # shared trailing edge instead of a ragged one.
+                        item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                     self.setItem(row, col, item)
                 # Sorting reorders rows, so the record for a visual row can only
                 # be recovered by data attached to its items, not by row index.
