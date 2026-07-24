@@ -13,6 +13,7 @@ from saat.models import Case, Watch
 from saat.storage import create_watch, load_collection
 from saat.ui.case_silhouette import _TopDownSilhouette
 from saat.ui.compare_view import CompareView, _ColorSwatchBar
+from saat.ui.dimension_bars import _DimensionBarCell
 from saat.ui.minute_track import MinuteTrackHeader
 from saat.ui.year_view import slug_color
 
@@ -115,6 +116,22 @@ class CompareViewTests(unittest.TestCase):
 
         view = CompareView(records)
         self.assertEqual(view.findChildren(_TopDownSilhouette), [])
+
+    def test_dimension_bars_section_appears_when_two_watches_share_a_bar_eligible_attribute(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="A", case=Case(weight_g=120)))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="B", case=Case(weight_g=90)))
+        records = load_collection(self.watches_dir)
+
+        view = CompareView(records)
+        self.assertEqual(len(view.findChildren(_DimensionBarCell)), 2)
+
+    def test_dimension_bars_section_absent_when_nothing_qualifies(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="A"))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="B"))
+        records = load_collection(self.watches_dir)
+
+        view = CompareView(records)
+        self.assertEqual(view.findChildren(_DimensionBarCell), [])
 
 
 if __name__ == "__main__":

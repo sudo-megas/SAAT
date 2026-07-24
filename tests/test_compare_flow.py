@@ -10,7 +10,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication, QLabel
 
 from saat.config import Config
-from saat.models import Watch
+from saat.models import Acquisition, Watch
 from saat.storage import create_watch, load_collection
 from saat.ui.collection_view import CollectionView
 from saat.ui.compare_view import CompareView
@@ -118,6 +118,36 @@ class GridCheckboxToCompareViewTests(UITestCase):
 
         checked_slugs = {c._record.slug for c in collection_view._grid_view._cards if c._checkbox.isChecked()}
         self.assertEqual(checked_slugs, {target.slug})
+
+
+class WishlistScopeThreadsIntoCompareViewTests(UITestCase):
+    def test_comparing_from_wishlist_scope_shows_target_price_not_price(self) -> None:
+        """SPEC.md M15 Commit C: the dimension-bars price row follows the
+        active scope. Collection-scope compare is already covered by
+        GridCheckboxToCompareViewTests; this is the Wishlist-scope half,
+        exercised through the real MainWindow/CollectionView/TopBar wiring
+        rather than by constructing CompareView directly, since the thing
+        actually being tested is that MainWindow reads the scope correctly
+        at the moment Compare is clicked."""
+        create_watch(self.watches_dir, self.backups_dir, Watch(
+            brand="Seiko", model="A", status="Wishlist", acquisition=Acquisition(target_price=500, currency="USD"),
+        ))
+        create_watch(self.watches_dir, self.backups_dir, Watch(
+            brand="Seiko", model="B", status="Wishlist", acquisition=Acquisition(target_price=800, currency="USD"),
+        ))
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        collection_view._top_bar._wishlist_button.click()
+
+        for card in collection_view._grid_view._cards:
+            card._checkbox.setChecked(True)
+        collection_view._top_bar._compare_button.click()
+
+        compare_view = window.centralWidget().currentWidget()
+        self.assertIsInstance(compare_view, CompareView)
+        labels = [l.text() for l in compare_view.findChildren(QLabel)]
+        self.assertIn("Target Price", labels)
+        self.assertNotIn("Price", labels)
 
 
 class GridWoreTodayHoverTests(UITestCase):

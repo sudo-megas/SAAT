@@ -6,6 +6,7 @@ from saat.storage import WatchRecord
 from saat.ui.accuracy_ranges import build_accuracy_section
 from saat.ui.case_silhouette import build_case_silhouette_section
 from saat.ui.compare import RowContrast, build_compare_groups
+from saat.ui.dimension_bars import build_dimension_bars_section
 from saat.ui.minute_track import MinuteTrackHeader
 from saat.ui.theme import GROUP_SPACING, PAGE_MARGIN
 from saat.ui.year_view import slug_color
@@ -61,7 +62,7 @@ class CompareView(QScrollArea):
 
     back_requested = Signal()
 
-    def __init__(self, records: list[WatchRecord], parent: QWidget | None = None) -> None:
+    def __init__(self, records: list[WatchRecord], parent: QWidget | None = None, is_wishlist: bool = False) -> None:
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -86,6 +87,10 @@ class CompareView(QScrollArea):
         accuracy_section = build_accuracy_section(records)
         if accuracy_section is not None:
             layout.addWidget(accuracy_section)
+
+        dimension_bars_section = build_dimension_bars_section(records, is_wishlist)
+        if dimension_bars_section is not None:
+            layout.addWidget(dimension_bars_section)
 
         grid_widget = QWidget()
         grid = QGridLayout(grid_widget)

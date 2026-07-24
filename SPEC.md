@@ -321,11 +321,51 @@ Select two to four watches — checkbox on the grid card, or multi-select in the
 and open a side-by-side comparison. Watches as columns, attributes as rows, grouped in
 the model's order. Rows where every selected watch shares a value are dimmed; rows where
 they differ sit at full contrast, so the differences read at a glance. Rows where no
-selected watch has a value are hidden.
+selected watch has a value are hidden. Each column header carries a thin bar in that
+watch's `slug_color()` (§5.5's year-view hue, one per watch) — the same hue the three
+visuals above the table use, so the whole screen reads as one linked comparison rather
+than four unrelated widgets.
 
 This is the app's most useful screen for deciding what to wear or what to buy next.
 Build it in milestone 8, but shape the table view's data access so it isn't a second
 implementation.
+
+**Milestone 15 adds three visuals above the table**, all `QPainter`, the same restrained
+vocabulary as the Stats mode charts below (§6). Each hides itself independently when it
+has nothing to show — a selection with no case, accuracy or bar-eligible data at all
+shows only the plain table, not three empty husks above it.
+
+- **Case silhouette.** Every selected watch's case outline at one shared scale, sharing a
+  single centre point so differences read as concentric offsets, not a side-by-side
+  lineup: a circle at `diameter_mm` with lug blocks above and below extending to
+  `lug_to_lug_mm`, thin-stroked in the watch's slug colour, never filled. Beneath it, a
+  side-profile strip — one outline per watch, width `diameter_mm`, height
+  `thickness_mm`, the dimension a spec table alone under-communicates — at the same
+  scale, plus an mm scale bar so the drawing's trueness to scale is checkable, not just
+  asserted. A legend names every selected watch in its slug colour with `diameter_mm`
+  and `lug_to_lug_mm` in monospace. A watch missing `diameter_mm` cannot be drawn — it is
+  omitted from the drawing and named in the legend as having no case data, never drawn
+  as a zero-radius circle. The whole section hides when fewer than two selected watches
+  have `diameter_mm`; the side-profile strip additionally hides on its own when fewer
+  than two drawable watches have `thickness_mm`.
+- **Accuracy ranges.** One horizontal span per watch with both `accuracy_min` and
+  `accuracy_max`, in its slug colour, on one shared sec/day axis with zero marked
+  prominently. A watch specifying sec/month is converted (÷30) for the axis but labelled
+  with its original value and unit, never the converted one. A quartz movement's span is
+  meant to render as a near-invisible hairline beside a mechanical's wide one — that
+  contrast is the point, so the axis is never compressed, clipped or log-scaled to make
+  spans look more comparable, only clamped to a minimum visible width so "near-invisible"
+  does not become "literally invisible." Hidden when fewer than two selected watches have
+  both accuracy endpoints.
+- **Dimension bars.** One row per qualifying numeric attribute, one bar per watch in its
+  slug colour with the value in monospace at the end, scale shared within a row and never
+  across rows — comparing weight against water resistance on one axis would be
+  meaningless. Qualifying attributes are weight, water resistance, power reserve, lug
+  width, and price or target price depending on the active scope (§5.12); diameter,
+  lug-to-lug and thickness are excluded since the silhouette above already covers case
+  geometry. A watch with no value for a row shows an em-dash in its slot, not a
+  zero-length bar; a row hides itself when fewer than two selected watches have a value
+  for it.
 
 ### 5.5 Calendar view
 A month grid, seven columns, weeks starting Monday.
@@ -564,14 +604,21 @@ of the column, so it adapts automatically to whichever mode is active. That is t
 only flourish. Everything else stays plain: no gradients, no glows, no escalating corner
 radii, no drop shadows beyond a 1 px hairline border.
 
-**Data visualisation.** The calendar's Stats mode (§5.5) is the only other place the app
-draws anything resembling a chart, and it stays inside a narrow, plain vocabulary: hairline
-bars, a tick mark referencing the even-split value, colour chips reusing Year view's
-per-slug hue, and monospace figures for every count, percentage and delta. All of it
-`QPainter` in the active palette, the same discipline as the minute track — nothing
-rasterised, nothing imported. Pie charts, gauges, progress rings and any charting
-dependency stay out of bounds everywhere in the app, the collection summary included
-(§5.10, unchanged: plain figures there too).
+**Data visualisation.** The calendar's Stats mode (§5.5) and the compare view's three
+visuals (§5.4) are the only places the app draws anything resembling a chart, and both
+stay inside one narrow, plain vocabulary: hairline bars, a tick mark referencing a
+reference value (the even-split figure in Stats mode, zero in compare's accuracy
+ranges), colour chips or strokes reusing Year view's per-slug hue, monospace figures for
+every count, percentage, delta and measurement, and — added by the compare view's case
+silhouette — **to-scale technical drawing**: outlines at one shared, honestly-computed
+scale with an accompanying mm scale bar, no fill, the same restraint as everything else
+here. All of it `QPainter` in the active palette, the same discipline as the minute
+track — nothing rasterised, nothing imported. Every axis this vocabulary produces is
+single-unit — millimetres, sec/day, one physical unit per dimension-bar row — and never
+implies an ordering or a shared scale that doesn't exist; mixing units on one axis is
+banned exactly as before, this vocabulary just now has more places it applies. Pie
+charts, gauges, progress rings and any charting dependency stay out of bounds everywhere
+in the app, the collection summary included (§5.10, unchanged: plain figures there too).
 
 **Spacing.** 8 px base unit. Card padding 16, group spacing 32, page margin 24. Table
 rows get 12 px vertical padding — a spec table crammed to 6 px is unreadable, and this

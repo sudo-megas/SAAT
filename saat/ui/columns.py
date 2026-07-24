@@ -64,6 +64,14 @@ class Column:
     group: str
     getter: Callable[[Watch], Any]
     formatter: Callable[[Any], str] = str
+    # Milestone 15c: compare view's dimension bars (saat/ui/compare.py's
+    # dimension_bar_columns) read bar_eligible instead of a second,
+    # hardcoded list of keys living in compare.py. unit is a plain suffix
+    # (leading space included, e.g. " g") for that bar's end-of-bar label —
+    # cleaner than the table's own formatter for columns like water
+    # resistance, whose "(N bar)" parenthetical is noise on a bar chart.
+    unit: str = ""
+    bar_eligible: bool = False
 
     def value(self, watch: Watch) -> Any:
         return self.getter(watch)
@@ -88,7 +96,7 @@ COLUMNS: list[Column] = [
     # Movement
     Column("caliber", "Caliber", "Movement", lambda w: w.movement.caliber),
     Column("movement_kind", "Movement", "Movement", lambda w: w.movement.kind),
-    Column("power_reserve_hours", "Power Reserve", "Movement", lambda w: w.movement.power_reserve_hours, lambda v: fmt_number(v, "h")),
+    Column("power_reserve_hours", "Power Reserve", "Movement", lambda w: w.movement.power_reserve_hours, lambda v: fmt_number(v, "h"), unit="h", bar_eligible=True),
     Column("battery_life_years", "Battery Life", "Movement", lambda w: w.movement.battery_life_years, lambda v: fmt_number(v, "y")),
     Column("accuracy", "Accuracy", "Movement", _get_accuracy, fmt_accuracy),
     Column("jewels", "Jewels", "Movement", lambda w: w.movement.jewels),
@@ -100,14 +108,14 @@ COLUMNS: list[Column] = [
     Column("diameter_mm", "Diameter", "Case", lambda w: w.case.diameter_mm, lambda v: fmt_number(v, " mm")),
     Column("lug_to_lug_mm", "Lug-to-Lug", "Case", lambda w: w.case.lug_to_lug_mm, lambda v: fmt_number(v, " mm")),
     Column("thickness_mm", "Thickness", "Case", lambda w: w.case.thickness_mm, lambda v: fmt_number(v, " mm")),
-    Column("lug_width_mm", "Lug Width", "Case", lambda w: w.case.lug_width_mm, lambda v: fmt_number(v, " mm")),
+    Column("lug_width_mm", "Lug Width", "Case", lambda w: w.case.lug_width_mm, lambda v: fmt_number(v, " mm"), unit=" mm", bar_eligible=True),
     Column("case_material", "Material", "Case", lambda w: w.case.material),
     Column("crystal", "Crystal", "Case", lambda w: w.case.crystal),
     Column("crown", "Crown", "Case", lambda w: w.case.crown),
     Column("bezel", "Bezel", "Case", lambda w: w.case.bezel),
     Column("caseback", "Caseback", "Case", lambda w: w.case.caseback),
-    Column("water_resistance_m", "Water Resistance", "Case", lambda w: w.case.water_resistance_m, fmt_water_resistance),
-    Column("weight_g", "Weight", "Case", lambda w: w.case.weight_g, lambda v: fmt_number(v, " g")),
+    Column("water_resistance_m", "Water Resistance", "Case", lambda w: w.case.water_resistance_m, fmt_water_resistance, unit=" m", bar_eligible=True),
+    Column("weight_g", "Weight", "Case", lambda w: w.case.weight_g, lambda v: fmt_number(v, " g"), unit=" g", bar_eligible=True),
     # Dial
     Column("dial_colour", "Colour", "Dial", lambda w: w.dial.colour),
     Column("dial_material", "Material", "Dial", lambda w: w.dial.material),
@@ -121,8 +129,8 @@ COLUMNS: list[Column] = [
     Column("strap_clasp", "Clasp", "Straps", lambda w: _fitted_attr(w, "clasp")),
     # Acquisition
     Column("acquired_date", "Acquired", "Acquisition", lambda w: w.acquisition.date, fmt_date),
-    Column("price", "Price", "Acquisition", _get_price, fmt_price),
-    Column("target_price", "Target Price", "Acquisition", _get_target_price, fmt_price),
+    Column("price", "Price", "Acquisition", _get_price, fmt_price, bar_eligible=True),
+    Column("target_price", "Target Price", "Acquisition", _get_target_price, fmt_price, bar_eligible=True),
     Column("target_date", "Target Date", "Acquisition", lambda w: w.acquisition.target_date, fmt_date),
     Column("seller", "Seller", "Acquisition", lambda w: w.acquisition.seller),
     Column("condition", "Condition", "Acquisition", lambda w: w.acquisition.condition),

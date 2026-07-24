@@ -140,7 +140,8 @@ class MainWindow(QMainWindow):
             self._stack.removeWidget(self._compare_view)
             self._compare_view.deleteLater()
 
-        self._compare_view = CompareView(records, self)
+        scope = self._collection_view.current_scope() if self._collection_view is not None else None
+        self._compare_view = CompareView(records, self, is_wishlist=(scope == SCOPE_WISHLIST))
         self._compare_view.back_requested.connect(self._show_collection)
         self._stack.addWidget(self._compare_view)
         self._stack.setCurrentWidget(self._compare_view)

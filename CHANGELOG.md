@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.0] - 2026-07-24
+
+### Added
+
+- Compare view: three `QPainter` visuals above the existing comparison table, each
+  hiding itself independently when it has nothing to show.
+  - **Case silhouette** — every selected watch's case outline at one shared, true
+    scale, sharing a single centre point so size differences read as concentric
+    offsets rather than a side-by-side lineup. A side-profile strip (width x
+    thickness) at the same scale, an mm scale bar, and a legend naming any watch too
+    incomplete to draw.
+  - **Accuracy ranges** — one horizontal span per watch on a shared sec/day axis with
+    zero marked prominently. A watch specifying sec/month is converted for the axis
+    but labelled with its original value and unit; a quartz movement's span is meant
+    to render as a near-invisible hairline beside a mechanical's wide one, and the
+    axis is never compressed or rescaled to hide that.
+  - **Dimension bars** — one row per qualifying attribute (weight, water resistance,
+    power reserve, lug width, and price or target price depending on scope), one bar
+    per watch, scale shared within a row only. Diameter, lug-to-lug and thickness are
+    excluded — the silhouette already covers case geometry.
+  - Every compare column header now carries a thin bar in that watch's per-slug hue
+    (the same one Year view uses), visually linking the table to the visuals above it.
+- SPEC.md §5.4 documents the three visuals and their hide-when-empty rules; §6's data
+  visualisation vocabulary gains to-scale technical drawing as a permitted form,
+  alongside the existing hairline-bar/tick/colour-chip/monospace set.
+
 ## [1.3.0] - 2026-07-24
 
 ### Added

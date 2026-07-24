@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
+from saat.models import Watch
 from saat.storage import WatchRecord
-from saat.ui.columns import COLUMNS, GROUP_ORDER
-from saat.ui.formatting import is_empty, is_numeric_value
+from saat.ui.columns import COLUMNS, GROUP_ORDER, Column
+from saat.ui.formatting import EM_DASH, is_empty, is_numeric_value
 
 MIN_COMPARE = 2
 MAX_COMPARE = 4
@@ -209,3 +210,86 @@ def accuracy_axis_bounds(entries: list[AccuracyEntry]) -> tuple[float, float]:
         return (0.0, 0.0)
     values = [v for e in entries for v in (e.min_sec_per_day, e.max_sec_per_day)] + [0.0]
     return min(values), max(values)
+
+
+# --- Milestone 15c: dimension bars -------------------------------------
+#
+# Pure logic only — no QPainter, no widgets, unit-tested with no event loop.
+# saat.ui.dimension_bars turns this into pixels.
+
+@dataclass(frozen=True)
+class DimensionBarValue:
+    """One watch's slot in a dimension-bar row. magnitude is None when
+    this watch has no value for the row's attribute — the caller draws an
+    em-dash, never a zero-length bar, for that slot."""
+
+    record: WatchRecord
+    magnitude: float | None
+    text: str
+
+
+@dataclass(frozen=True)
+class DimensionBarRow:
+    """label/values in the same shape as CompareRow; max_magnitude is this
+    row's OWN scale reference — SPEC.md §5.4: 'Scale is shared WITHIN a
+    row, never across rows,' so each row carries its own, never a scale
+    shared with any other row."""
+
+    label: str
+    values: list[DimensionBarValue]
+    max_magnitude: float
+
+
+def dimension_bar_columns(is_wishlist: bool) -> list[Column]:
+    """Bar-eligible columns for Commit C, minus whichever of price/
+    target_price doesn't apply to the active scope — SPEC.md §5.4: 'price
+    or target_price depending on the active scope.' Driven entirely by
+    columns.py's bar_eligible metadata (which already excludes diameter,
+    lug-to-lug and thickness — the silhouette's job, not this one's), not
+    a second hardcoded list of keys here."""
+    skip_key = "price" if is_wishlist else "target_price"
+    return [c for c in COLUMNS if c.bar_eligible and c.key != skip_key]
+
+
+def _bar_magnitude(column: Column, watch: Watch) -> float | None:
+    """The plain numeric magnitude to plot, regardless of whether the
+    column's own value is a bare number (weight, lug width, ...) or a
+    (amount, currency) tuple (price, target_price) — the same tuple shape
+    is_numeric_value() already treats as "numeric" elsewhere in this file."""
+    value = column.value(watch)
+    if is_empty(value):
+        return None
+    return float(value[0]) if isinstance(value, tuple) else float(value)
+
+
+def _bar_value_text(column: Column, watch: Watch, magnitude: float | None) -> str:
+    """column.unit, when set, gives a cleaner end-of-bar label than the
+    table's own formatter — e.g. water resistance's "200 m" instead of
+    "200 m (20 bar)", noise a bar chart doesn't need. Columns without a
+    fixed unit (price/target_price: currency varies per watch) fall back
+    to the column's normal formatted text."""
+    if magnitude is None:
+        return EM_DASH
+    if column.unit:
+        return f"{magnitude:g}{column.unit}"
+    return column.text(watch)
+
+
+def build_dimension_bar_rows(records: list[WatchRecord], is_wishlist: bool = False) -> list[DimensionBarRow]:
+    """One row per qualifying numeric attribute (SPEC.md §5.4 Commit C). A
+    row appears only when at least 2 selected watches have a value for
+    it; a watch without one still gets a slot in that row (as an
+    em-dash), rather than the row silently losing a column of alignment."""
+    watches = [r.watch for r in records]
+    rows: list[DimensionBarRow] = []
+    for column in dimension_bar_columns(is_wishlist):
+        magnitudes = [_bar_magnitude(column, w) for w in watches]
+        if sum(1 for m in magnitudes if m is not None) < 2:
+            continue
+        values = [
+            DimensionBarValue(record=r, magnitude=m, text=_bar_value_text(column, w, m))
+            for r, w, m in zip(records, watches, magnitudes)
+        ]
+        max_magnitude = max((v.magnitude for v in values if v.magnitude is not None), default=0.0)
+        rows.append(DimensionBarRow(label=column.label, values=values, max_magnitude=max_magnitude))
+    return rows

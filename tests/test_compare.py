@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from saat.models import Case, Movement, Watch
+from saat.models import Acquisition, Case, Movement, Watch
 from saat.storage import WatchRecord
 from saat.ui.compare import (
     MAX_COMPARE,
@@ -11,7 +11,9 @@ from saat.ui.compare import (
     accuracy_axis_bounds,
     build_accuracy_entries,
     build_compare_groups,
+    build_dimension_bar_rows,
     build_silhouette_entries,
+    dimension_bar_columns,
     should_show_accuracy,
     should_show_silhouette,
     silhouette_profile_entries,
@@ -316,6 +318,102 @@ class AccuracyAxisBoundsTests(unittest.TestCase):
 
     def test_empty_entries_yields_zero_bounds(self) -> None:
         self.assertEqual(accuracy_axis_bounds([]), (0.0, 0.0))
+
+
+class DimensionBarColumnsTests(unittest.TestCase):
+    def test_collection_scope_includes_price_and_excludes_target_price(self) -> None:
+        keys = [c.key for c in dimension_bar_columns(is_wishlist=False)]
+        self.assertIn("price", keys)
+        self.assertNotIn("target_price", keys)
+
+    def test_wishlist_scope_includes_target_price_and_excludes_price(self) -> None:
+        keys = [c.key for c in dimension_bar_columns(is_wishlist=True)]
+        self.assertIn("target_price", keys)
+        self.assertNotIn("price", keys)
+
+    def test_case_geometry_already_covered_by_the_silhouette_is_excluded(self) -> None:
+        """SPEC.md §5.4: diameter, lug-to-lug and thickness stay out of the
+        bars — the silhouette already covers case geometry."""
+        keys = {c.key for c in dimension_bar_columns(is_wishlist=False)}
+        self.assertFalse(keys & {"diameter_mm", "lug_to_lug_mm", "thickness_mm"})
+
+    def test_the_named_dimensions_are_all_present(self) -> None:
+        keys = {c.key for c in dimension_bar_columns(is_wishlist=False)}
+        self.assertEqual(keys, {"weight_g", "water_resistance_m", "power_reserve_hours", "lug_width_mm", "price"})
+
+
+def _acquisition_record(slug: str, price=None, target_price=None) -> WatchRecord:
+    return WatchRecord(
+        slug=slug, path=Path(f"/nonexistent/{slug}"),
+        watch=Watch(brand="B", model=slug, acquisition=Acquisition(price=price, target_price=target_price, currency="USD")),
+    )
+
+
+class BuildDimensionBarRowsTests(unittest.TestCase):
+    def test_a_row_appears_only_when_at_least_two_watches_have_the_value(self) -> None:
+        records = [_record("a", brand="B", model="a", case=Case(weight_g=120))]
+        self.assertEqual(build_dimension_bar_rows(records), [])
+
+    def test_a_row_appears_at_exactly_two(self) -> None:
+        records = [
+            _record("a", brand="B", model="a", case=Case(weight_g=120)),
+            _record("b", brand="B", model="b", case=Case(weight_g=90)),
+        ]
+        rows = build_dimension_bar_rows(records)
+        self.assertEqual([r.label for r in rows], ["Weight"])
+
+    def test_a_watch_with_no_value_gets_an_em_dash_slot_not_a_dropped_column(self) -> None:
+        records = [
+            _record("a", brand="B", model="a", case=Case(weight_g=120)),
+            _record("b", brand="B", model="b", case=Case(weight_g=90)),
+            _record("c", brand="B", model="c"),  # no weight at all
+        ]
+        [row] = build_dimension_bar_rows(records)
+        self.assertEqual(len(row.values), 3)
+        missing_value = next(v for v in row.values if v.record.slug == "c")
+        self.assertIsNone(missing_value.magnitude)
+        self.assertEqual(missing_value.text, "—")
+
+    def test_unit_hint_gives_a_cleaner_label_than_the_tables_own_formatter(self) -> None:
+        """water_resistance's table formatter appends a "(N bar)"
+        parenthetical — noise at the end of a bar. The unit-hint label
+        should just be the plain figure and unit."""
+        records = [
+            _record("a", brand="B", model="a", case=Case(water_resistance_m=200)),
+            _record("b", brand="B", model="b", case=Case(water_resistance_m=100)),
+        ]
+        [row] = build_dimension_bar_rows(records)
+        texts = {v.record.slug: v.text for v in row.values}
+        self.assertEqual(texts["a"], "200 m")
+        self.assertEqual(texts["b"], "100 m")
+
+    def test_price_row_falls_back_to_the_tables_currency_aware_formatter(self) -> None:
+        records = [_acquisition_record("a", price=1200), _acquisition_record("b", price=900)]
+        [row] = build_dimension_bar_rows(records, is_wishlist=False)
+        self.assertEqual(row.label, "Price")
+        texts = {v.record.slug: v.text for v in row.values}
+        self.assertEqual(texts["a"], "1,200.00 USD")
+
+    def test_wishlist_scope_uses_target_price_instead_of_price(self) -> None:
+        records = [_acquisition_record("a", target_price=1200), _acquisition_record("b", target_price=900)]
+        [row] = build_dimension_bar_rows(records, is_wishlist=True)
+        self.assertEqual(row.label, "Target Price")
+
+    def test_max_magnitude_ignores_missing_values(self) -> None:
+        records = [
+            _record("a", brand="B", model="a", case=Case(weight_g=120)),
+            _record("b", brand="B", model="b", case=Case(weight_g=90)),
+            _record("c", brand="B", model="c"),
+        ]
+        [row] = build_dimension_bar_rows(records)
+        self.assertEqual(row.max_magnitude, 120)
+
+    def test_works_with_two_three_and_four_watches(self) -> None:
+        for count in (2, 3, 4):
+            records = [_record(str(i), brand="B", model=str(i), case=Case(weight_g=100 + i)) for i in range(count)]
+            with self.subTest(count=count):
+                [row] = build_dimension_bar_rows(records)
+                self.assertEqual(len(row.values), count)
 
 
 if __name__ == "__main__":
