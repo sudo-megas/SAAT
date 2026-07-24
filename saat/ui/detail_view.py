@@ -111,9 +111,12 @@ def _url_row(url: str | None) -> SpecRow:
 def _acquisition_rows(watch: Watch) -> list[SpecRow]:
     a = watch.acquisition
     price = (a.price, a.currency or "") if a.price is not None else None
+    target_price = (a.target_price, a.currency or "") if a.target_price is not None else None
     return [
         spec_row("Acquired", a.date, fmt_date, numeric=True),
         spec_row("Price", price, fmt_price, numeric=True),
+        spec_row("Target Price", target_price, fmt_price, numeric=True),
+        spec_row("Target Date", a.target_date, fmt_date, numeric=True),
         spec_row("Seller", a.seller),
         _url_row(a.url),
         spec_row("Condition", a.condition),
@@ -622,6 +625,7 @@ class DetailView(QScrollArea):
     edit_requested = Signal(object)
     delete_requested = Signal(object)
     wore_today_requested = Signal(object)
+    move_to_owned_requested = Signal(object)
 
     def __init__(self, record: WatchRecord, all_records: list[WatchRecord] | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -681,6 +685,13 @@ class DetailView(QScrollArea):
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.addStretch()
+
+        if record.watch.status == "Wishlist":
+            # SPEC.md §5.12: one action, no dialog — not "primary"-styled,
+            # since SPEC.md §5.1 reserves that weight for "Add watch" alone.
+            mark_owned_button = QPushButton("Mark as Owned")
+            mark_owned_button.clicked.connect(lambda: self.move_to_owned_requested.emit(record))
+            row_layout.addWidget(mark_owned_button)
 
         edit_button = QPushButton("Edit")
         edit_button.clicked.connect(lambda: self.edit_requested.emit(record))

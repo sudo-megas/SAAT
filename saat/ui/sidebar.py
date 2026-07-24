@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from saat.storage import WatchRecord
-from saat.ui.collection_summary import compute_collection_summary
+from saat.ui.collection_summary import compute_collection_summary, compute_wishlist_summary
 from saat.ui.facets import Facet, VALUE_FACETS, is_not_worn_90d
 from saat.ui.formatting import fmt_price
 from saat.ui.theme import GROUP_SPACING, SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH
@@ -28,7 +28,7 @@ class Sidebar(QWidget):
 
     changed = Signal()
 
-    def __init__(self, records: list[WatchRecord], parent: QWidget | None = None) -> None:
+    def __init__(self, records: list[WatchRecord], is_wishlist: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setProperty("class", "sidebar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -48,11 +48,19 @@ class Sidebar(QWidget):
         groups_layout.setSpacing(GROUP_SPACING)
 
         for facet in VALUE_FACETS:
+            # SPEC.md §5.12: Status is degenerate in Wishlist scope — scope
+            # itself already fixed every record's status, so the facet would
+            # only ever offer one, always-checked-feeling value.
+            if is_wishlist and facet.key == "status":
+                continue
             values = sorted({v for w in valid_watches for v in facet.extract(w)}, key=facet.sort_key)
             if values:
                 groups_layout.addWidget(self._build_value_group(facet, values))
 
-        if any(is_not_worn_90d(w) for w in valid_watches):
+        # SPEC.md §5.12: every Wishlist watch trivially qualifies as "not
+        # worn" once wear tracking excludes non-Owned watches — the facet
+        # would carry zero filtering value there.
+        if not is_wishlist and any(is_not_worn_90d(w) for w in valid_watches):
             checkbox = QCheckBox(NOT_WORN_LABEL)
             checkbox.toggled.connect(lambda _checked: self.changed.emit())
             self._not_worn_checkbox = checkbox
@@ -66,7 +74,9 @@ class Sidebar(QWidget):
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setWidget(self._groups_container)
 
-        self._summary_footer = self._build_summary_footer(records)
+        self._summary_footer = (
+            self._build_wishlist_summary_footer(records) if is_wishlist else self._build_summary_footer(records)
+        )
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -105,6 +115,48 @@ class Sidebar(QWidget):
             values.setProperty("muted", True)
             values.setWordWrap(True)
             layout.addWidget(values)
+
+        return container
+
+    def _build_wishlist_summary_footer(self, records: list[WatchRecord]) -> QWidget:
+        """SPEC.md §5.12: Wishlist scope's summary strip — sibling to
+        §5.10's footer, same plain-figures restraint, swapped in instead of
+        it rather than added alongside."""
+        summary = compute_wishlist_summary(records)
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setSpacing(4)
+
+        rule = QWidget()
+        rule.setFixedHeight(1)
+        rule.setProperty("class", "sidebar-summary-rule")
+        layout.addWidget(rule)
+
+        count_text = "1 watch" if summary.total == 1 else f"{summary.total} watches"
+        count_label = QLabel(count_text)
+        layout.addWidget(count_label)
+
+        if summary.target_value_by_currency:
+            values = QLabel(
+                " · ".join(fmt_price((total, currency)) for currency, total in summary.target_value_by_currency)
+            )
+            values.setProperty("muted", True)
+            values.setWordWrap(True)
+            layout.addWidget(values)
+
+        if summary.has_any_target_date:
+            if summary.due_next_12_months_by_currency:
+                due_text = "Due within 12mo: " + " · ".join(
+                    fmt_price((total, currency)) for currency, total in summary.due_next_12_months_by_currency
+                )
+            else:
+                due_text = "Due within 12mo: 0"
+            due = QLabel(due_text)
+            due.setProperty("muted", True)
+            due.setWordWrap(True)
+            layout.addWidget(due)
 
         return container
 

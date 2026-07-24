@@ -174,6 +174,32 @@ class WatchFormBuildTests(UITestCase):
         self.assertEqual(watch.tags, ["everyday", "vintage"])
         self.assertEqual(watch.notes, "A test note.")
 
+    def test_target_price_and_target_date_are_distinct_from_price_and_date(self) -> None:
+        """SPEC.md §4: target_price is what it costs, distinct from price
+        (what was paid) — must not overload one field for both."""
+        form = WatchForm(records=[], record=None)
+        form._brand.setText("Seiko")
+        form._model.setText("SARB033")
+        form._price.setValue(500)
+        form._target_price.setValue(650)
+        form._target_date.setDate(form._target_date.minimumDate().addDays(1))
+        form._on_save()
+
+        watch = form.saved_watch()
+        self.assertEqual(watch.acquisition.price, 500)
+        self.assertEqual(watch.acquisition.target_price, 650)
+        self.assertIsNotNone(watch.acquisition.target_date)
+
+    def test_target_price_and_target_date_default_to_unset(self) -> None:
+        form = WatchForm(records=[], record=None)
+        form._brand.setText("Seiko")
+        form._model.setText("SARB033")
+        form._on_save()
+
+        watch = form.saved_watch()
+        self.assertIsNone(watch.acquisition.target_price)
+        self.assertIsNone(watch.acquisition.target_date)
+
     def test_editing_preserves_worn_list_untouched(self) -> None:
         """The form has no worn-tracking UI (calendar-driven, milestone 7) —
         saving through it must not silently wipe existing wear history."""

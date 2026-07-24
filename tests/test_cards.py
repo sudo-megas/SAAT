@@ -8,9 +8,9 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel
 
-from saat.models import LogEntry, Maintenance, Watch
+from saat.models import Acquisition, LogEntry, Maintenance, Watch
 from saat.storage import create_watch, load_collection
 from saat.ui.cards import WatchCard, _MaintenanceDueDot
 
@@ -138,6 +138,67 @@ class WatchCardCompareAndWoreTodayTests(unittest.TestCase):
         card._wore_today_bar.click()
         self.assertEqual([r.slug for r in wore_today], [self.record.slug])
         self.assertEqual(activated, [])
+
+
+class WatchCardWishlistPresentationTests(unittest.TestCase):
+    """SPEC.md §5.12: a non-Owned card has no wear affordances; a Wishlist
+    card shows target price + rating in the slot the Wore-today bar would
+    otherwise occupy, always visible rather than hover-only."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-card-wishlist-test-"))
+        self.watches_dir = self.tmp / "watches"
+        self.backups_dir = self.tmp / "backups"
+        self.watches_dir.mkdir()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_wishlist_card_has_no_wore_today_bar(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Wishlist"))
+        [record] = load_collection(self.watches_dir)
+        card = WatchCard(record)
+        self.assertIsNone(card._wore_today_bar)
+
+    def test_wishlist_card_ignores_maintenance_due(self) -> None:
+        watch = Watch(
+            brand="Seiko", model="SARB033", status="Wishlist",
+            maintenance=Maintenance(service_interval_years=1),
+            log=[LogEntry(date=date(2020, 1, 1), kind="Service")],
+        )
+        create_watch(self.watches_dir, self.backups_dir, watch)
+        [record] = load_collection(self.watches_dir)
+        card = WatchCard(record)
+        self.assertIsNone(card.findChild(_MaintenanceDueDot))
+
+    def test_wishlist_card_shows_target_price_and_rating(self) -> None:
+        watch = Watch(
+            brand="Seiko", model="SARB033", status="Wishlist", rating=3,
+            acquisition=Acquisition(target_price=650, currency="USD"),
+        )
+        create_watch(self.watches_dir, self.backups_dir, watch)
+        [record] = load_collection(self.watches_dir)
+        card = WatchCard(record)
+        labels = [label.text() for label in card.findChildren(QLabel) if label.property("class") == "card-wishlist-info-bar"]
+        self.assertEqual(len(labels), 1)
+        self.assertIn("650.00 USD", labels[0])
+        self.assertIn("★★★☆☆", labels[0])
+
+    def test_wishlist_card_shows_em_dashes_when_target_price_and_rating_are_absent(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Wishlist"))
+        [record] = load_collection(self.watches_dir)
+        card = WatchCard(record)
+        labels = [label.text() for label in card.findChildren(QLabel) if label.property("class") == "card-wishlist-info-bar"]
+        self.assertEqual(labels, ["—  ·  —"])
+
+    def test_a_non_owned_non_wishlist_card_has_neither_bar(self) -> None:
+        """Sold/Incoming/Gifted: no wear affordance (not Owned) and no
+        wishlist info bar (not Wishlist either)."""
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Sold"))
+        [record] = load_collection(self.watches_dir)
+        card = WatchCard(record)
+        self.assertIsNone(card._wore_today_bar)
+        self.assertEqual([label for label in card.findChildren(QLabel) if label.property("class") == "card-wishlist-info-bar"], [])
 
 
 if __name__ == "__main__":

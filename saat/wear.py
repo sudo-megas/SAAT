@@ -9,10 +9,12 @@ from saat.storage import WatchRecord, save_watch
 def build_worn_index(records: list[WatchRecord]) -> dict[date, WatchRecord]:
     """date -> the WatchRecord assigned that date. SPEC.md §5.5: built in
     memory at load, never centralised to a separate store — wear history
-    lives in each watch's own `worn` list, nowhere else."""
+    lives in each watch's own `worn` list, nowhere else. SPEC.md §5.12:
+    non-Owned watches (Wishlist, Incoming, Sold, Gifted) never wear
+    anything, so they're excluded here too."""
     index: dict[date, WatchRecord] = {}
     for record in records:
-        if record.watch is None:
+        if record.watch is None or record.watch.status != "Owned":
             continue
         for day in record.watch.worn:
             index[day] = record
@@ -97,7 +99,11 @@ PERIOD_ALL_TIME = "all_time"
 
 
 def _valid_watches(records: list[WatchRecord]) -> list[WatchRecord]:
-    return [r for r in records if r.watch is not None]
+    """Owned only. SPEC.md §5.12: a watch that isn't Owned (Wishlist,
+    Incoming, Sold, Gifted) is never worn, so it must not appear in
+    rotation, not-worn, coverage, or the even-split denominator — this is
+    the single choke point every Stats derivation below reads through."""
+    return [r for r in records if r.watch is not None and r.watch.status == "Owned"]
 
 
 def _name_key(record: WatchRecord) -> tuple[str, str]:

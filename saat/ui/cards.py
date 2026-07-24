@@ -2,9 +2,26 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from saat.models import Watch
 from saat.storage import WatchRecord
+from saat.ui.formatting import EM_DASH, fmt_price
 from saat.ui.images import cropped_pixmap, first_image
 from saat.ui.maintenance import is_maintenance_due
+
+STAR_FILLED = "★"
+STAR_EMPTY = "☆"
+
+
+def _wishlist_info_text(watch: Watch) -> str:
+    """SPEC.md §5.12: Wishlist cards show target price and rating (desire)
+    instead of wear information — absent values render as an em-dash, same
+    convention as everywhere else (SPEC.md §4), never hidden."""
+    if watch.acquisition.target_price is not None:
+        price = fmt_price((watch.acquisition.target_price, watch.acquisition.currency or ""))
+    else:
+        price = EM_DASH
+    stars = STAR_FILLED * watch.rating + STAR_EMPTY * (5 - watch.rating) if watch.rating is not None else EM_DASH
+    return f"{price}  ·  {stars}"
 
 # SPEC.md §5.1: four to five cards per row on a 1440p (2560px) display.
 CARD_WIDTH = 480
@@ -113,7 +130,13 @@ class WatchCard(QFrame):
         label.setParent(container)
         label.move(0, 0)
 
-        if is_maintenance_due(record.watch):
+        # SPEC.md §5.12: a non-Owned watch (Wishlist, Incoming, Sold,
+        # Gifted) is never worn and has no maintenance to track yet — both
+        # overlays are Owned-only, regardless of which scope this card is
+        # currently being rendered in.
+        is_owned = record.watch.status == "Owned"
+
+        if is_owned and is_maintenance_due(record.watch):
             dot = _MaintenanceDueDot(container)
             dot.move(CARD_WIDTH - MAINTENANCE_DOT_SIZE - CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
             dot.show()
@@ -126,12 +149,24 @@ class WatchCard(QFrame):
         self._checkbox.toggled.connect(lambda _checked: self._update_overlay_visibility())
         self._checkbox.setVisible(compare_selected)
 
-        self._wore_today_bar = QPushButton("Wore this today", container)
-        self._wore_today_bar.setProperty("class", "card-wore-today-bar")
-        self._wore_today_bar.setFixedSize(CARD_WIDTH, WORE_TODAY_BAR_HEIGHT)
-        self._wore_today_bar.move(0, IMAGE_HEIGHT - WORE_TODAY_BAR_HEIGHT)
-        self._wore_today_bar.clicked.connect(lambda: self.wore_today_requested.emit(record))
-        self._wore_today_bar.setVisible(False)
+        if is_owned:
+            self._wore_today_bar = QPushButton("Wore this today", container)
+            self._wore_today_bar.setProperty("class", "card-wore-today-bar")
+            self._wore_today_bar.setFixedSize(CARD_WIDTH, WORE_TODAY_BAR_HEIGHT)
+            self._wore_today_bar.move(0, IMAGE_HEIGHT - WORE_TODAY_BAR_HEIGHT)
+            self._wore_today_bar.clicked.connect(lambda: self.wore_today_requested.emit(record))
+            self._wore_today_bar.setVisible(False)
+        elif record.watch.status == "Wishlist":
+            # Same slot the Wore-today bar occupies for an Owned watch, but
+            # always visible rather than hover-only — it's information, not
+            # an action — and showing target price + rating instead of a
+            # wear affordance that doesn't apply pre-purchase.
+            info_bar = QLabel(_wishlist_info_text(record.watch), container)
+            info_bar.setProperty("class", "card-wishlist-info-bar")
+            info_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            info_bar.setFixedSize(CARD_WIDTH, WORE_TODAY_BAR_HEIGHT)
+            info_bar.move(0, IMAGE_HEIGHT - WORE_TODAY_BAR_HEIGHT)
+            info_bar.show()
 
         return container
 

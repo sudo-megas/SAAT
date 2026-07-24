@@ -5,13 +5,18 @@ from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPainterPath, QPen
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
 from saat.ui import theme
-from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS
+from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS, WISHLIST_SORT_OPTIONS
 from saat.ui.compare import MIN_COMPARE
 
 VIEW_GRID = "grid"
 VIEW_TABLE = "table"
 VIEW_CALENDAR = "calendar"
 PRESET_DEFAULT = "Default"
+
+# SPEC.md §5.12: scope is orthogonal to view — Collection is everything
+# except Wishlist-status watches, Wishlist is only Wishlist-status watches.
+SCOPE_COLLECTION = "collection"
+SCOPE_WISHLIST = "wishlist"
 
 _TOGGLE_SIZE = 28
 
@@ -71,6 +76,7 @@ class TopBar(QWidget):
     control in the app. See SPEC.md §5.1."""
 
     view_changed = Signal(str)
+    scope_changed = Signal(str)
     sort_changed = Signal(str)
     preset_changed = Signal(str)
     search_changed = Signal(str)
@@ -82,6 +88,14 @@ class TopBar(QWidget):
         super().__init__(parent)
         self.setProperty("class", "top-bar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._scope = SCOPE_COLLECTION
+
+        self._collection_button = QPushButton("Collection")
+        self._collection_button.setCheckable(True)
+        self._wishlist_button = QPushButton("Wishlist")
+        self._wishlist_button.setCheckable(True)
+        self._collection_button.clicked.connect(lambda: self._set_scope(SCOPE_COLLECTION))
+        self._wishlist_button.clicked.connect(lambda: self._set_scope(SCOPE_WISHLIST))
 
         self._search_field = QLineEdit()
         self._search_field.setPlaceholderText("Search brand, model, reference, caliber, tags…")
@@ -99,8 +113,6 @@ class TopBar(QWidget):
         self._calendar_button.clicked.connect(lambda: self._set_view(VIEW_CALENDAR))
 
         self._sort_combo = QComboBox()
-        for key in SORT_OPTIONS:
-            self._sort_combo.addItem(f"Sort: {COLUMNS_BY_KEY[key].label}", key)
         self._sort_combo.currentIndexChanged.connect(
             lambda i: self.sort_changed.emit(self._sort_combo.itemData(i))
         )
@@ -125,6 +137,9 @@ class TopBar(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(24, 12, 24, 12)
         layout.setSpacing(12)
+        layout.addWidget(self._collection_button)
+        layout.addWidget(self._wishlist_button)
+        layout.addSpacing(12)
         layout.addWidget(self._search_field)
         layout.addSpacing(12)
         layout.addWidget(self._grid_button)
@@ -139,6 +154,7 @@ class TopBar(QWidget):
         layout.addWidget(self._theme_toggle)
 
         self._set_view(VIEW_GRID)
+        self._set_scope(SCOPE_COLLECTION)
 
     def set_compare_count(self, count: int) -> None:
         """SPEC.md §5.4: 'Select two to four watches.' Hidden below the
@@ -149,6 +165,15 @@ class TopBar(QWidget):
 
     def set_view(self, view: str) -> None:
         self._set_view(view)
+
+    def set_scope(self, scope: str) -> None:
+        self._set_scope(scope)
+
+    def scope(self) -> str:
+        return self._scope
+
+    def current_sort_key(self) -> str:
+        return self._sort_combo.itemData(self._sort_combo.currentIndex())
 
     def search_text(self) -> str:
         return self._search_field.text()
@@ -167,3 +192,31 @@ class TopBar(QWidget):
         self._sort_combo.setEnabled(view != VIEW_CALENDAR)
         self._search_field.setEnabled(view != VIEW_CALENDAR)
         self.view_changed.emit(view)
+
+    def _set_scope(self, scope: str) -> None:
+        self._scope = scope
+        self._collection_button.setChecked(scope == SCOPE_COLLECTION)
+        self._wishlist_button.setChecked(scope == SCOPE_WISHLIST)
+
+        is_wishlist = scope == SCOPE_WISHLIST
+        # SPEC.md §5.12: Calendar/Stats are Collection-only, hidden (not
+        # disabled) in Wishlist scope. Fall back to Grid rather than leaving
+        # a hidden view active if it was the current one.
+        if is_wishlist and self._calendar_button.isChecked():
+            self._set_view(VIEW_GRID)
+        self._calendar_button.setVisible(not is_wishlist)
+
+        # Rebuilt rather than filtered in place — Wishlist and Collection
+        # offer genuinely different option lists (SPEC.md §5.12). Signals
+        # are blocked so a mid-rebuild currentIndexChanged can't race
+        # scope_changed below and trigger a recompute against the old
+        # scope; the listener reads current_sort_key() explicitly from its
+        # scope_changed handler instead. Both lists lead with "brand", so
+        # this also resets sort to the default on scope change.
+        self._sort_combo.blockSignals(True)
+        self._sort_combo.clear()
+        for key in WISHLIST_SORT_OPTIONS if is_wishlist else SORT_OPTIONS:
+            self._sort_combo.addItem(f"Sort: {COLUMNS_BY_KEY[key].label}", key)
+        self._sort_combo.blockSignals(False)
+
+        self.scope_changed.emit(scope)

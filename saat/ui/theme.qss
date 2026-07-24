@@ -293,7 +293,8 @@ QCheckBox[class="card-compare-checkbox"] {
     border-radius: 4px;
 }
 
-QPushButton[class="card-wore-today-bar"] {
+QPushButton[class="card-wore-today-bar"],
+QLabel[class="card-wishlist-info-bar"] {
     background: rgba(20, 18, 16, 184);
     color: #E8E4DC;
     border: none;

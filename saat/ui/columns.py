@@ -36,6 +36,12 @@ def _get_price(watch: Watch):
     return (watch.acquisition.price, watch.acquisition.currency or "")
 
 
+def _get_target_price(watch: Watch):
+    if watch.acquisition.target_price is None:
+        return None
+    return (watch.acquisition.target_price, watch.acquisition.currency or "")
+
+
 _NEVER_WORN_SORT_DAYS = 10**6  # sorts ahead of any real day count — "least worn" ever
 
 
@@ -116,6 +122,8 @@ COLUMNS: list[Column] = [
     # Acquisition
     Column("acquired_date", "Acquired", "Acquisition", lambda w: w.acquisition.date, fmt_date),
     Column("price", "Price", "Acquisition", _get_price, fmt_price),
+    Column("target_price", "Target Price", "Acquisition", _get_target_price, fmt_price),
+    Column("target_date", "Target Date", "Acquisition", lambda w: w.acquisition.target_date, fmt_date),
     Column("seller", "Seller", "Acquisition", lambda w: w.acquisition.seller),
     Column("condition", "Condition", "Acquisition", lambda w: w.acquisition.condition),
     Column("box_and_papers", "Box & Papers", "Acquisition", lambda w: w.acquisition.box_and_papers, fmt_bool),
@@ -132,11 +140,19 @@ DEFAULT_COLUMN_KEYS = [
     "diameter_mm", "lug_width_mm", "water_resistance_m", "acquired_date",
 ]
 
+# SPEC.md §5.12: Wishlist scope's table default — wear/spec columns don't
+# apply pre-purchase, target price and desire (rating) do.
+DEFAULT_WISHLIST_COLUMN_KEYS = ["brand", "model", "target_price", "rating", "seller"]
+
 COLUMN_PRESETS: dict[str, list[str]] = {
     group: [c.key for c in COLUMNS if c.group == group] for group in GROUP_ORDER
 }
 
 SORT_OPTIONS = ["brand", "model", "rating", "acquired_date", "least_worn"]
+
+# SPEC.md §5.12: a separate, smaller list for Wishlist scope — least_worn and
+# acquired_date are meaningless for a watch that hasn't been bought yet.
+WISHLIST_SORT_OPTIONS = ["brand", "model", "rating", "target_price"]
 
 
 def sort_key(key: str) -> Callable[[Watch], tuple]:

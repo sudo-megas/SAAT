@@ -19,14 +19,16 @@ def _effective_width(strap: Strap, owner: WatchRecord) -> int | None:
 def compatible_straps(target: WatchRecord, all_records: list[WatchRecord]) -> list[CompatibleStrap]:
     """SPEC.md §5.9: straps belonging to *other* watches whose (effective)
     width matches this watch's case.lug_width_mm. Silent — [] — when this
-    watch has no lug width to match against; there's nothing to compare."""
-    if target.watch is None or target.watch.case.lug_width_mm is None:
+    watch has no lug width to match against; there's nothing to compare.
+    SPEC.md §5.12: swapping only makes sense between watches physically on
+    hand, so both the target and every candidate must be Owned."""
+    if target.watch is None or target.watch.status != "Owned" or target.watch.case.lug_width_mm is None:
         return []
     target_width = target.watch.case.lug_width_mm
 
     matches = []
     for record in all_records:
-        if record.slug == target.slug or record.watch is None:
+        if record.slug == target.slug or record.watch is None or record.watch.status != "Owned":
             continue
         for strap in record.watch.straps:
             if _effective_width(strap, record) == target_width:

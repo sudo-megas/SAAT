@@ -67,14 +67,23 @@ class WatchForm(QDialog):
     """Tabbed add/edit dialog mirroring the data model groups; the same
     dialog serves both operations. See SPEC.md §5.7."""
 
-    def __init__(self, records: list[WatchRecord], record: WatchRecord | None = None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        records: list[WatchRecord],
+        record: WatchRecord | None = None,
+        parent: QWidget | None = None,
+        default_status: str | None = None,
+    ) -> None:
         super().__init__(parent)
         self._records = records
         self._original_record = record
         self._dirty = False
         self._saved_watch: Watch | None = None
 
-        watch = record.watch if record is not None else Watch(brand="", model="")
+        # SPEC.md §5.12: adding from Wishlist scope defaults the new watch's
+        # status to Wishlist — otherwise it saves as Owned and immediately
+        # vanishes from the scope it was just added from.
+        watch = record.watch if record is not None else Watch(brand="", model="", status=default_status or "Owned")
         self.setWindowTitle("Edit watch" if record is not None else "Add watch")
         self.resize(820, 680)
 
@@ -354,6 +363,13 @@ class WatchForm(QDialog):
         set_date_value(self._acquired_date, a.date)
         self._price = optional_double_spin(0, 1_000_000, decimals=2)
         set_double_value(self._price, a.price)
+        # SPEC.md §4: what it costs (target_price) vs. what was paid (price)
+        # — kept adjacent to Price for direct comparison, never overloading
+        # one field for both meanings.
+        self._target_price = optional_double_spin(0, 1_000_000, decimals=2)
+        set_double_value(self._target_price, a.target_price)
+        self._target_date = optional_date_edit()
+        set_date_value(self._target_date, a.target_date)
         self._currency = QLineEdit(a.currency or "TRY")  # SPEC.md §4: default TRY
         self._seller = QLineEdit(a.seller or "")
         self._url = QLineEdit(a.url or "")
@@ -367,6 +383,8 @@ class WatchForm(QDialog):
         return self._form_tab([
             ("Acquired", self._acquired_date),
             ("Price", self._price),
+            ("Target Price", self._target_price),
+            ("Target Date", self._target_date),
             ("Currency", self._currency),
             ("Seller", self._seller),
             ("URL", self._url),
@@ -466,6 +484,8 @@ class WatchForm(QDialog):
                 condition=combo_value(self._condition),
                 box_and_papers=bool_value(self._box_and_papers),
                 warranty_until=date_value(self._warranty_until),
+                target_price=double_value(self._target_price),
+                target_date=date_value(self._target_date),
             ),
             maintenance=Maintenance(
                 service_interval_years=double_value(self._service_interval_years),

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QApplication, QDialog
 
 from saat.config import Config
 from saat.image_import import import_image, thumbnail_path
-from saat.models import Watch
+from saat.models import Acquisition, Watch
 from saat.storage import create_watch, load_collection, save_watch
 from saat.ui.collection_view import CollectionView
 from saat.ui.detail_view import DetailView
@@ -107,6 +107,25 @@ class AddFlowTests(UITestCase):
         view = window.centralWidget().currentWidget()
         self.assertEqual(len(view.records), 2)
 
+    def test_add_from_wishlist_scope_defaults_status_to_wishlist(self) -> None:
+        """SPEC.md §5.12: otherwise the new watch saves as Owned and
+        immediately vanishes from the scope it was just added from."""
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="F-91W"))
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        collection_view._top_bar.set_scope("wishlist")
+
+        captured = {}
+
+        def _capture_status_and_reject(self):
+            captured["status"] = self._status.currentText()
+            return QDialog.DialogCode.Rejected
+
+        with patch.object(WatchForm, "exec", _capture_status_and_reject):
+            collection_view.add_watch_requested.emit()
+
+        self.assertEqual(captured["status"], "Wishlist")
+
     def test_cancelling_add_form_creates_nothing(self) -> None:
         window = MainWindow(self.watches_dir, self.backups_dir, self._config())
         empty_state = window.centralWidget().currentWidget()
@@ -168,6 +187,61 @@ class EditFlowTests(UITestCase):
         self.assertTrue((images_dir / "b.jpg").exists())
         self.assertTrue(thumbnail_path(images_dir, "a.jpg").exists())
         self.assertTrue(thumbnail_path(images_dir, "b.jpg").exists())
+
+
+class MoveToOwnedFlowTests(UITestCase):
+    """SPEC.md §5.12: one action from the detail page, no dialog."""
+
+    def test_price_defaults_from_target_price_when_unset(self) -> None:
+        create_watch(
+            self.watches_dir, self.backups_dir,
+            Watch(brand="Seiko", model="SARB033", status="Wishlist", acquisition=Acquisition(target_price=650, currency="USD")),
+        )
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        [record] = collection_view.records
+
+        collection_view.record_activated.emit(record)
+        detail_view = window.centralWidget().currentWidget()
+        detail_view.move_to_owned_requested.emit(record)
+
+        [updated] = load_collection(self.watches_dir)
+        self.assertEqual(updated.watch.status, "Owned")
+        self.assertEqual(updated.watch.acquisition.price, 650)
+        self.assertEqual(updated.watch.acquisition.target_price, 650)  # left in place, not discarded
+
+    def test_an_existing_price_is_not_overwritten_by_target_price(self) -> None:
+        create_watch(
+            self.watches_dir, self.backups_dir,
+            Watch(
+                brand="Seiko", model="SARB033", status="Wishlist",
+                acquisition=Acquisition(price=400, target_price=650, currency="USD"),
+            ),
+        )
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        [record] = collection_view.records
+
+        collection_view.record_activated.emit(record)
+        detail_view = window.centralWidget().currentWidget()
+        detail_view.move_to_owned_requested.emit(record)
+
+        [updated] = load_collection(self.watches_dir)
+        self.assertEqual(updated.watch.acquisition.price, 400)
+
+    def test_returns_to_the_same_watchs_detail_page(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Wishlist"))
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        [record] = collection_view.records
+
+        collection_view.record_activated.emit(record)
+        detail_view = window.centralWidget().currentWidget()
+        detail_view.move_to_owned_requested.emit(record)
+
+        current = window.centralWidget().currentWidget()
+        self.assertIsInstance(current, DetailView)
+        self.assertEqual(current.record.watch.status, "Owned")
 
 
 class DeleteFlowTests(UITestCase):

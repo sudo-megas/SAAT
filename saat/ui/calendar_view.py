@@ -494,7 +494,11 @@ class CalendarView(QWidget):
 
     def _on_range_chosen(self, dates: list[date]) -> None:
         current = self._worn_index.get(dates[0]) if len(dates) == 1 else None
-        picker = WatchPicker(self._records, current=current, parent=self)
+        # SPEC.md §5.12: only Owned watches can be worn — offering a
+        # Wishlist/Incoming/Sold/Gifted watch here would let the picker
+        # "succeed" while build_worn_index() silently drops the assignment.
+        assignable = [r for r in self._records if r.watch is not None and r.watch.status == "Owned"]
+        picker = WatchPicker(assignable, current=current, parent=self)
         if picker.exec() != QDialog.DialogCode.Accepted:
             return
         if picker.was_cleared():

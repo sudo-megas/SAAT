@@ -31,8 +31,12 @@ from saat.wear import (
 )
 
 
-def _record(slug: str, brand: str, model: str, worn: list[date] | None = None) -> WatchRecord:
-    return WatchRecord(slug=slug, path=Path(f"/nonexistent/{slug}"), watch=Watch(brand=brand, model=model, worn=worn or []))
+def _record(
+    slug: str, brand: str, model: str, worn: list[date] | None = None, status: str = "Owned"
+) -> WatchRecord:
+    return WatchRecord(
+        slug=slug, path=Path(f"/nonexistent/{slug}"), watch=Watch(brand=brand, model=model, worn=worn or [], status=status)
+    )
 
 
 class WearTestCase(unittest.TestCase):
@@ -59,6 +63,17 @@ class BuildWornIndexTests(WearTestCase):
         broken = self.watches_dir / "broken"
         broken.mkdir()
         (broken / "watch.toml").write_text("brand = ][not valid", encoding="utf-8")
+        records = load_collection(self.watches_dir)
+        self.assertEqual(build_worn_index(records), {})
+
+    def test_a_non_owned_watch_is_excluded_from_the_index(self) -> None:
+        """SPEC.md §5.12: a Wishlist/Incoming/Sold/Gifted watch never wears
+        anything, even if its worn list carries stray dates (e.g. left over
+        from a status change)."""
+        create_watch(
+            self.watches_dir, self.backups_dir,
+            Watch(brand="Seiko", model="SARB033", status="Wishlist", worn=[date(2026, 1, 1)]),
+        )
         records = load_collection(self.watches_dir)
         self.assertEqual(build_worn_index(records), {})
 
@@ -296,6 +311,13 @@ class RotationRankingTests(unittest.TestCase):
         ranking = rotation_ranking([zenith, alpina], date(2026, 1, 1), date(2026, 1, 31))
         self.assertEqual([r.slug for r, _, _ in ranking], ["alpina-startimer", "zenith-elprimero"])
 
+    def test_a_non_owned_watch_with_worn_dates_is_excluded(self) -> None:
+        """SPEC.md §5.12. Defends against a hand-edited watch.toml where worn
+        dates survive a status change to Wishlist/Incoming/Sold/Gifted."""
+        wishlist = _record("wishlist-watch", "Seiko", "SARB033", worn=[date(2026, 1, 1)], status="Wishlist")
+        ranking = rotation_ranking([wishlist], date(2026, 1, 1), date(2026, 1, 31))
+        self.assertEqual(ranking, [])
+
 
 class EvenSplitReferenceTests(unittest.TestCase):
     def test_none_with_zero_watches(self) -> None:
@@ -311,6 +333,17 @@ class EvenSplitReferenceTests(unittest.TestCase):
         a = _record("a", "Seiko", "A")
         b = _record("b", "Omega", "B")
         self.assertAlmostEqual(even_split_reference([a, b], date(2026, 1, 1), date(2026, 1, 31)), 31 / 2)
+
+    def test_non_owned_watches_do_not_inflate_the_watch_count(self) -> None:
+        """The live bug this milestone fixes: a Wishlist watch previously
+        counted toward the denominator even though it can never be worn,
+        skewing the even-split reference for the watches that actually are
+        in rotation."""
+        owned = _record("a", "Seiko", "A", status="Owned")
+        wishlist = _record("b", "Omega", "B", status="Wishlist")
+        # Only one Owned watch present -> meaningless, same as the
+        # single-watch case above, not (2 watches -> 31/2).
+        self.assertIsNone(even_split_reference([owned, wishlist], date(2026, 1, 1), date(2026, 1, 31)))
 
 
 class NotWornInPeriodTests(unittest.TestCase):
@@ -334,6 +367,12 @@ class NotWornInPeriodTests(unittest.TestCase):
         not_worn_slugs = {r.slug for r in not_worn_in_period(records, start, end)}
         self.assertEqual(ranked_slugs | not_worn_slugs, {"seiko-sarb033", "omega-speedmaster"})
         self.assertEqual(ranked_slugs & not_worn_slugs, set())
+
+    def test_a_non_owned_watch_is_excluded_entirely_not_listed_as_not_worn(self) -> None:
+        """SPEC.md §5.12: excluded from wear tracking altogether, not just
+        counted among the "not worn" watches."""
+        wishlist = _record("wishlist-watch", "Seiko", "SARB033", status="Wishlist")
+        self.assertEqual(not_worn_in_period([wishlist], date(2026, 1, 1), date(2026, 1, 31)), [])
 
 
 class CoverageTests(unittest.TestCase):
@@ -484,6 +523,12 @@ class ComputePeriodStatsTests(unittest.TestCase):
             with self.subTest(period=period):
                 stats = compute_period_stats([record], period, today=date(2026, 1, 15))
                 self.assertIsNotNone(stats.deltas)
+
+    def test_non_owned_watches_are_excluded_from_watch_count(self) -> None:
+        owned = _record("a", "Seiko", "A")
+        wishlist = _record("b", "Omega", "B", status="Wishlist")
+        stats = compute_period_stats([owned, wishlist], PERIOD_MONTH, today=date(2026, 1, 15))
+        self.assertEqual(stats.watch_count, 1)
 
 
 if __name__ == "__main__":

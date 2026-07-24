@@ -4,14 +4,22 @@ from PySide6.QtWidgets import QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 from saat.config import Config
 from saat.storage import WatchRecord
 from saat.ui.calendar_view import CalendarView
-from saat.ui.columns import COLUMN_PRESETS, DEFAULT_COLUMN_KEYS, sort_key
+from saat.ui.columns import COLUMN_PRESETS, DEFAULT_COLUMN_KEYS, DEFAULT_WISHLIST_COLUMN_KEYS, sort_key
 from saat.ui.compare import MAX_COMPARE
 from saat.ui.facets import VALUE_FACETS, is_not_worn_90d
 from saat.ui.filtering import NOT_WORN_FACET_KEY, FilterState, passes
 from saat.ui.grid_view import GridView
 from saat.ui.sidebar import Sidebar
 from saat.ui.table_view import TableView
-from saat.ui.top_bar import PRESET_DEFAULT, VIEW_CALENDAR, VIEW_GRID, VIEW_TABLE, TopBar
+from saat.ui.top_bar import (
+    PRESET_DEFAULT,
+    SCOPE_COLLECTION,
+    SCOPE_WISHLIST,
+    VIEW_CALENDAR,
+    VIEW_GRID,
+    VIEW_TABLE,
+    TopBar,
+)
 
 DEFAULT_SORT_KEY = "brand"
 
@@ -32,10 +40,11 @@ class CollectionView(QWidget):
         self._records = records
         self._config = config
         self._sort_field = DEFAULT_SORT_KEY
+        self._scope = SCOPE_COLLECTION
         self._compare_selection: set[str] = set()
         self._ordered_records: list[WatchRecord] = []
 
-        self._sidebar = Sidebar(records)
+        self._sidebar = Sidebar(self._scoped_records())
         self._top_bar = TopBar()
         self._grid_view = GridView()
         self._table_view = TableView(on_columns_changed=self._save_columns)
@@ -52,14 +61,15 @@ class CollectionView(QWidget):
         main_column.addWidget(self._top_bar)
         main_column.addWidget(self._stack, stretch=1)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addWidget(self._sidebar)
-        layout.addLayout(main_column, 1)
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
+        self._layout.addWidget(self._sidebar)
+        self._layout.addLayout(main_column, 1)
 
         self._sidebar.changed.connect(self._recompute)
         self._top_bar.view_changed.connect(self._on_view_changed)
+        self._top_bar.scope_changed.connect(self._on_scope_changed)
         self._top_bar.sort_changed.connect(self._on_sort_changed)
         self._top_bar.preset_changed.connect(self._on_preset_changed)
         self._top_bar.search_changed.connect(lambda _text: self._recompute())
@@ -74,18 +84,29 @@ class CollectionView(QWidget):
         self._calendar_view.assign_requested.connect(self.assign_worn_requested.emit)
         self._calendar_view.clear_requested.connect(self.clear_worn_requested.emit)
 
-        self._table_view.set_columns(self._config.column_keys() or DEFAULT_COLUMN_KEYS)
+        self._table_view.set_columns(self._config.column_keys(self._scope) or self._default_column_keys())
         self._recompute()
 
         last_view = self._config.last_view()
         valid_views = (VIEW_GRID, VIEW_TABLE, VIEW_CALENDAR)
         self._top_bar.set_view(last_view if last_view in valid_views else VIEW_GRID)
 
+        last_scope = self._config.active_scope()
+        valid_scopes = (SCOPE_COLLECTION, SCOPE_WISHLIST)
+        self._top_bar.set_scope(last_scope if last_scope in valid_scopes else SCOPE_COLLECTION)
+
     @property
     def records(self) -> list[WatchRecord]:
         """The full, unfiltered collection — WatchForm's enum* suggestions and
         slug lookups need every record, not just what search/facets show."""
         return self._records
+
+    def current_scope(self) -> str:
+        """SPEC.md §5.12: MainWindow reads this to default a newly-added
+        watch's status to Wishlist when "Add watch" is clicked from Wishlist
+        scope — otherwise it would immediately vanish from the view it was
+        just added from."""
+        return self._scope
 
     def focus_search(self) -> None:
         self._top_bar.focus_search()
@@ -113,15 +134,28 @@ class CollectionView(QWidget):
             query=self._top_bar.search_text(),
         )
 
+    def _default_column_keys(self) -> list[str]:
+        return DEFAULT_WISHLIST_COLUMN_KEYS if self._scope == SCOPE_WISHLIST else DEFAULT_COLUMN_KEYS
+
+    def _scoped_records(self) -> list[WatchRecord]:
+        """SPEC.md §5.12: Wishlist scope is exactly status == "Wishlist";
+        Collection is everything else, including a broken (unparseable)
+        record — its status can't be confirmed Wishlist, so it defaults
+        into Collection, same as every other ambiguous case in this app."""
+        if self._scope == SCOPE_WISHLIST:
+            return [r for r in self._records if r.watch is not None and r.watch.status == "Wishlist"]
+        return [r for r in self._records if r.watch is None or r.watch.status != "Wishlist"]
+
     def _recompute(self) -> None:
-        valid = [r for r in self._records if r.watch is not None]
+        scoped = self._scoped_records()
+        valid = [r for r in scoped if r.watch is not None]
         state = self._filter_state()
 
         matching = sorted(
             (r for r in valid if passes(r.watch, state)),
             key=lambda r: sort_key(self._sort_field)(r.watch),
         )
-        broken = [] if state.is_active() else [r for r in self._records if r.watch is None]
+        broken = [] if state.is_active() else [r for r in scoped if r.watch is None]
         self._ordered_records = matching + broken
         self._grid_view.set_records(self._ordered_records, frozenset(self._compare_selection))
         self._table_view.set_records(self._ordered_records)
@@ -161,13 +195,34 @@ class CollectionView(QWidget):
         self._sort_field = key
         self._recompute()
 
+    def _on_scope_changed(self, scope: str) -> None:
+        self._scope = scope
+        self._sort_field = self._top_bar.current_sort_key()
+        self._rebuild_sidebar()
+        self._table_view.set_columns(self._config.column_keys(scope) or self._default_column_keys())
+        self._recompute()
+        self._config.set_active_scope(scope)
+        self._config.save()
+
+    def _rebuild_sidebar(self) -> None:
+        """SPEC.md §5.12: facet values and the summary footer both depend on
+        which watches are in scope, and Sidebar builds its facet checkboxes
+        once at construction time — so a scope change rebuilds it from
+        scratch, the same destroy-and-recreate shape MainWindow already uses
+        for the collection reload and the detail view."""
+        old_sidebar = self._sidebar
+        self._sidebar = Sidebar(self._scoped_records(), is_wishlist=self._scope == SCOPE_WISHLIST)
+        self._sidebar.changed.connect(self._recompute)
+        self._layout.replaceWidget(old_sidebar, self._sidebar)
+        old_sidebar.deleteLater()
+
     def _on_preset_changed(self, preset: str) -> None:
-        keys = DEFAULT_COLUMN_KEYS if preset == PRESET_DEFAULT else COLUMN_PRESETS.get(preset, DEFAULT_COLUMN_KEYS)
+        keys = self._default_column_keys() if preset == PRESET_DEFAULT else COLUMN_PRESETS.get(preset, self._default_column_keys())
         self._table_view.set_columns(keys)
         self._save_columns(keys)
 
     def _save_columns(self, keys: list[str]) -> None:
-        self._config.set_column_keys(keys)
+        self._config.set_column_keys(keys, self._scope)
         self._config.save()
 
     def _on_compare_toggled(self, record: WatchRecord, checked: bool) -> None:

@@ -10,8 +10,8 @@ def _record(slug: str, watch: Watch | None) -> WatchRecord:
     return WatchRecord(slug=slug, path=Path(f"/nonexistent/{slug}"), watch=watch)
 
 
-def _watch(lug_width_mm: int | None, straps: list[Strap] | None = None) -> Watch:
-    return Watch(brand="Seiko", model="SARB033", case=Case(lug_width_mm=lug_width_mm), straps=straps or [])
+def _watch(lug_width_mm: int | None, straps: list[Strap] | None = None, status: str = "Owned") -> Watch:
+    return Watch(brand="Seiko", model="SARB033", case=Case(lug_width_mm=lug_width_mm), straps=straps or [], status=status)
 
 
 class CompatibleStrapsTests(unittest.TestCase):
@@ -57,6 +57,18 @@ class CompatibleStrapsTests(unittest.TestCase):
         other2 = _record("other2", _watch(20, [Strap(material="NATO", width_mm=20), Strap(material="Rubber", width_mm=22)]))
         matches = compatible_straps(target, [target, other1, other2])
         self.assertEqual({(m.record.slug, m.strap.material) for m in matches}, {("other1", "Leather"), ("other2", "NATO")})
+
+    def test_a_non_owned_target_has_nothing_to_swap(self) -> None:
+        """SPEC.md §5.12: swapping only makes sense between watches
+        physically on hand — a Wishlist watch isn't owned yet."""
+        target = _record("target", _watch(20, status="Wishlist"))
+        other = _record("other", _watch(20, [Strap(material="Leather", width_mm=20)]))
+        self.assertEqual(compatible_straps(target, [target, other]), [])
+
+    def test_a_non_owned_candidates_straps_are_not_offered(self) -> None:
+        target = _record("target", _watch(20))
+        wishlist_other = _record("other", _watch(20, [Strap(material="Leather", width_mm=20)], status="Wishlist"))
+        self.assertEqual(compatible_straps(target, [target, wishlist_other]), [])
 
 
 if __name__ == "__main__":

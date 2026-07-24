@@ -16,7 +16,7 @@ from saat.config import Config
 from saat.models import Acquisition, Case, Movement, Watch
 from saat.storage import create_watch, load_collection
 from saat.ui.collection_view import CollectionView
-from saat.ui.columns import COLUMN_PRESETS, DEFAULT_COLUMN_KEYS
+from saat.ui.columns import COLUMN_PRESETS, DEFAULT_COLUMN_KEYS, DEFAULT_WISHLIST_COLUMN_KEYS
 from saat.ui.detail_view import DetailView
 from saat.ui.empty_state import EmptyStateView
 from saat.ui.main_window import MainWindow
@@ -142,6 +142,66 @@ class CollectionViewBehaviorTests(UITestCase):
         view = CollectionView(self.records, config)
         view._on_view_changed("table")
         self.assertEqual(config.last_view(), "table")
+
+
+class CollectionViewScopeTests(UITestCase):
+    """SPEC.md §5.12: the Collection/Wishlist scope selector."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="F-91W", status="Wishlist"))
+        self.records = load_collection(self.watches_dir)
+
+    def test_wishlist_scope_shows_only_wishlist_watches(self) -> None:
+        view = CollectionView(self.records, self._config())
+        view._top_bar.set_scope("wishlist")
+        self.assertEqual(len(view._grid_view._cards), 1)
+        self.assertEqual(view._grid_view._cards[0]._record.watch.brand, "Casio")
+
+    def test_collection_scope_excludes_wishlist_watches(self) -> None:
+        view = CollectionView(self.records, self._config())
+        view._top_bar.set_scope("wishlist")
+        view._top_bar.set_scope("collection")
+        self.assertEqual(len(view._grid_view._cards), 1)
+        self.assertEqual(view._grid_view._cards[0]._record.watch.brand, "Seiko")
+
+    def test_scope_toggle_persists_to_config(self) -> None:
+        config = self._config()
+        view = CollectionView(self.records, config)
+        view._top_bar.set_scope("wishlist")
+        self.assertEqual(config.active_scope(), "wishlist")
+
+    def test_wishlist_scope_defaults_to_wishlist_columns(self) -> None:
+        view = CollectionView(self.records, self._config())
+        view._top_bar.set_scope("wishlist")
+        self.assertEqual(view._table_view.columnCount(), len(DEFAULT_WISHLIST_COLUMN_KEYS))
+
+    def test_column_choices_are_kept_separate_per_scope(self) -> None:
+        config = self._config()
+        view = CollectionView(self.records, config)
+        view._on_preset_changed("Movement")  # collection scope
+        view._top_bar.set_scope("wishlist")
+        view._on_preset_changed("Case")  # wishlist scope
+
+        self.assertEqual(config.column_keys("collection"), COLUMN_PRESETS["Movement"])
+        self.assertEqual(config.column_keys("wishlist"), COLUMN_PRESETS["Case"])
+
+    def test_calendar_button_hides_in_wishlist_scope_and_falls_back_to_grid(self) -> None:
+        view = CollectionView(self.records, self._config())
+        view._top_bar.set_view("calendar")
+        view._top_bar.set_scope("wishlist")
+
+        self.assertFalse(view._top_bar._calendar_button.isVisible())
+        self.assertIs(view._stack.currentWidget(), view._grid_view)
+
+    def test_switching_scope_rebuilds_sidebar_facets(self) -> None:
+        """Status is skipped as a facet in Wishlist scope (SPEC.md §5.12) —
+        this only shows up if the sidebar was actually rebuilt, not just had
+        its counts refreshed."""
+        view = CollectionView(self.records, self._config())
+        view._top_bar.set_scope("wishlist")
+        self.assertEqual([k for k in view._sidebar._checkboxes if k[0] == "status"], [])
 
 
 def _formatter_exercise_watch() -> Watch:

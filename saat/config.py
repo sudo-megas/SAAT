@@ -39,13 +39,23 @@ class Config:
     def set_last_view(self, view: str) -> None:
         self.data.setdefault("view", tomlkit.table())["last"] = view
 
-    def column_keys(self) -> list[str] | None:
+    def active_scope(self) -> str | None:
+        scope = self.data.get("scope")
+        return scope.get("active") if scope else None
+
+    def set_active_scope(self, scope: str) -> None:
+        self.data.setdefault("scope", tomlkit.table())["active"] = scope
+
+    def column_keys(self, scope: str = "collection") -> list[str] | None:
+        """Column choices are stored per scope — SPEC.md §5.12: Collection
+        and Wishlist tables want different defaults, so `scope` picks a
+        distinct key under [columns] rather than sharing one."""
         columns = self.data.get("columns")
-        keys = columns.get("keys") if columns else None
+        keys = columns.get(f"{scope}_keys") if columns else None
         return list(keys) if keys else None
 
-    def set_column_keys(self, keys: list[str]) -> None:
-        self.data.setdefault("columns", tomlkit.table())["keys"] = list(keys)
+    def set_column_keys(self, keys: list[str], scope: str = "collection") -> None:
+        self.data.setdefault("columns", tomlkit.table())[f"{scope}_keys"] = list(keys)
 
     def theme_mode(self) -> str | None:
         theme = self.data.get("theme")

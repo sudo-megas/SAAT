@@ -22,8 +22,12 @@ from saat.ui.watch_picker import WatchPicker
 _app = QApplication.instance() or QApplication([])
 
 
-def _record(slug: str, brand: str, model: str, worn: list[date] | None = None) -> WatchRecord:
-    return WatchRecord(slug=slug, path=Path(f"/nonexistent/{slug}"), watch=Watch(brand=brand, model=model, worn=worn or []))
+def _record(
+    slug: str, brand: str, model: str, worn: list[date] | None = None, status: str = "Owned"
+) -> WatchRecord:
+    return WatchRecord(
+        slug=slug, path=Path(f"/nonexistent/{slug}"), watch=Watch(brand=brand, model=model, worn=worn or [], status=status)
+    )
 
 
 class CalendarViewRenderingTests(unittest.TestCase):
@@ -195,6 +199,27 @@ class CalendarViewAssignFlowTests(unittest.TestCase):
             view._on_range_chosen([day1, day2])
 
         self.assertIsNone(captured["current"])
+
+    def test_a_non_owned_watch_is_not_offered_by_the_picker(self) -> None:
+        """SPEC.md §5.12: a Wishlist watch can't be worn, so it must not be
+        assignable — offering it would let the picker "succeed" while
+        build_worn_index() silently drops the assignment on the next render."""
+        owned = _record("seiko-sarb033", "Seiko", "SARB033")
+        wishlist = _record("omega-speedmaster", "Omega", "Speedmaster", status="Wishlist")
+        view = CalendarView([owned, wishlist])
+
+        captured = {}
+
+        def _capture_init(self, records, current=None, parent=None):
+            captured["slugs"] = {r.slug for r in records}
+            self._chosen = None
+            self._cleared = False
+
+        with patch.object(WatchPicker, "__init__", _capture_init), \
+             patch.object(WatchPicker, "exec", return_value=QDialog.DialogCode.Rejected):
+            view._on_range_chosen([date.today()])
+
+        self.assertEqual(captured["slugs"], {"seiko-sarb033"})
 
 
 class MonthGridRealMouseEventTests(unittest.TestCase):

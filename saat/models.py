@@ -62,6 +62,8 @@ class Acquisition:
     condition: str | None = None
     box_and_papers: bool | None = None
     warranty_until: date | None = None
+    target_price: float | None = None
+    target_date: date | None = None
 
 
 @dataclass

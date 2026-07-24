@@ -16,6 +16,7 @@ from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
 from saat.ui import theme
+from saat.ui.top_bar import SCOPE_WISHLIST
 from saat.ui.watch_form import WatchForm
 from saat.wear import assign_worn, clear_worn, mark_worn_today
 
@@ -120,6 +121,7 @@ class MainWindow(QMainWindow):
         self._detail_view.edit_requested.connect(self._show_edit_form)
         self._detail_view.delete_requested.connect(self._show_delete_confirm)
         self._detail_view.wore_today_requested.connect(self._on_wore_today)
+        self._detail_view.move_to_owned_requested.connect(self._on_move_to_owned)
         self._stack.addWidget(self._detail_view)
         self._stack.setCurrentWidget(self._detail_view)
 
@@ -170,7 +172,9 @@ class MainWindow(QMainWindow):
         self._config.save()
 
     def _show_add_form(self) -> None:
-        form = WatchForm(self._current_records(), record=None, parent=self)
+        scope = self._collection_view.current_scope() if self._collection_view is not None else None
+        default_status = "Wishlist" if scope == SCOPE_WISHLIST else None
+        form = WatchForm(self._current_records(), record=None, parent=self, default_status=default_status)
         if form.exec() != QDialog.DialogCode.Accepted:
             return
         created = create_watch(self._watches_dir, self._backups_dir, form.saved_watch())
@@ -184,6 +188,23 @@ class MainWindow(QMainWindow):
         updated_record = dataclasses.replace(record, watch=form.saved_watch())
         save_watch(self._backups_dir, updated_record)
         form.images_tab().commit(updated_record.path / "images")
+        self._load_and_show_collection()
+
+        refreshed = self._find_record(record.slug)
+        if refreshed is not None:
+            self._show_detail(refreshed)
+
+    def _on_move_to_owned(self, record: WatchRecord) -> None:
+        """SPEC.md §5.12: one click, no dialog. Carries target_price into
+        price as the default — only when price isn't already set, never
+        overwriting a real paid price — and leaves target_price/target_date
+        in place afterward rather than discarding them."""
+        watch = record.watch
+        new_price = watch.acquisition.price if watch.acquisition.price is not None else watch.acquisition.target_price
+        updated_watch = dataclasses.replace(
+            watch, status="Owned", acquisition=dataclasses.replace(watch.acquisition, price=new_price)
+        )
+        save_watch(self._backups_dir, dataclasses.replace(record, watch=updated_watch))
         self._load_and_show_collection()
 
         refreshed = self._find_record(record.slug)

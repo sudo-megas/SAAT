@@ -148,7 +148,7 @@ and accepting free text. The owner will buy something you did not anticipate.
 | `style` | enum* | Field, Pilot, Diver, Dress, Sport, Chronograph, GMT, Racing, Skeleton, Digital, Other |
 | `status` | enum | Owned, Incoming, Wishlist, Sold, Gifted — default Owned |
 | `storage` | string | where it physically lives — box slot, winder, drawer |
-| `rating` | int 0–5 | personal, not a review score |
+| `rating` | int 0–5 | personal, not a review score. Dual meaning by status (§5.12): desire on a Wishlist watch, satisfaction on an Owned one — the same field, not a separate priority field |
 | `tags` | list[string] | free-form, feeds the filter sidebar |
 
 ### movement
@@ -204,7 +204,9 @@ and accepting free text. The owner will buy something you did not anticipate.
 | field | type | notes |
 |---|---|---|
 | `date` | date | ISO in storage, `DD.MM.YYYY` in the UI |
-| `price` | number | |
+| `price` | number | what was paid |
+| `target_price` | number | what it costs — distinct from `price`, never overloaded onto it. A wishlist watch's asking or expected price |
+| `target_date` | date | optional — when the owner hopes to buy |
 | `currency` | string | default TRY |
 | `seller` | string | |
 | `url` | string | opens in the system browser via `QDesktopServices` |
@@ -255,8 +257,9 @@ Main window, three regions:
   kind, Case material, Lug width, Tags, `Not worn in 90 days`. Each facet is multi-select
   with live counts. Facets with no values across the collection are hidden — with an
   empty collection the sidebar shows only the summary footer.
-- **Top bar.** Search field, view toggle (Grid / Table / Calendar), sort dropdown, and
-  "Add watch" as the one primary-weight control in the app.
+- **Top bar.** A Collection / Wishlist scope selector (§5.12), search field, view toggle
+  (Grid / Table / Calendar), sort dropdown, and "Add watch" as the one primary-weight
+  control in the app. Scope is orthogonal to view.
 - **Main area.** Whichever view is selected.
 
 Window opens at 1600×1000, remembers geometry in `config.toml`, minimum 1100×700. On a
@@ -420,6 +423,42 @@ Plain figures. No charts, no gauges, no progress rings.
 `Ctrl+N` add, `Ctrl+F` search, `Ctrl+E` edit current, `Ctrl+W` wore-today on the current
 watch, `Escape` back or close, `Ctrl+Q` quit. Arrow keys navigate the grid and calendar,
 `Enter` opens. Visible focus rings throughout.
+
+### 5.12 Wishlist
+A second scope alongside the collection itself, for watches not yet owned — selected in
+the top bar (§5.1), orthogonal to the Grid/Table/Calendar view toggle. **Collection** is
+every watch whose `status` is not Wishlist (Owned, Incoming, Sold, Gifted, exactly as
+before — still narrowable through the Status sidebar facet). **Wishlist** is exactly the
+watches whose `status` is Wishlist. Persisted in `config.toml` alongside the active view.
+
+Grid and Table both work in either scope. Calendar and Stats are Collection-only —
+hidden, not disabled, when the scope is Wishlist, since a watch that isn't owned yet has
+no wear history to show. Sidebar facets follow the active scope's watches; the Status
+facet and the "Not worn in 90 days" facet are both dropped in Wishlist scope — the first
+is fixed by the scope selector itself, the second is trivially true for every watch in it.
+
+**Correctness.** A watch whose `status` is not Owned — Wishlist, but also Incoming, Sold
+or Gifted — never wears anything: excluded from the calendar, all calendar stats
+(including the Stats mode even-split reference, which a Wishlist watch previously
+inflated), and strap compatibility in both directions, as a target and as a donor.
+Enforced once, at the source, in `wear.py` and `strap_compat.py` — not per view.
+
+**Presentation.** Grid cards replace the "Wore this today" affordance and the
+maintenance-due dot (both Owned-only) with target price and rating, always visible
+rather than hover-only. Table's default columns become Brand, Model, Target Price,
+Rating, Seller — the existing column-preset dropdown still applies, and column choices
+are remembered separately per scope. Sort gains Rating and Target Price in place of
+Least Worn and Acquired, which don't apply before a purchase. The sidebar's summary
+footer (§5.10) is replaced by total target price by currency, item count, and — only
+when at least one watch has a target date set — the subtotal falling in the next twelve
+months. Plain monospace figures, same restraint as §5.10.
+
+**Moving to Owned.** A watch's detail page gets a "Mark as Owned" action when its status
+is Wishlist — one click, no dialog. It sets `status` to Owned and carries `target_price`
+into `price` as a default, only when `price` isn't already set; `target_price` and
+`target_date` are left as they are afterward, not discarded. Adding a watch while in
+Wishlist scope defaults its status to Wishlist for the same reason a Collection-scope
+add defaults to Owned — otherwise it would vanish from the scope it was just added from.
 
 ---
 

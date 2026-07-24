@@ -91,6 +91,23 @@ class RowBuilderTests(unittest.TestCase):
         rows = {r.label: r.text for r in _acquisition_rows(watch)}
         self.assertEqual(rows["Price"], "350.00 USD")
 
+    def test_target_price_is_distinct_from_price(self) -> None:
+        """SPEC.md §4: target_price (what it costs) vs. price (what was
+        paid) — both render, never overloading one field for both."""
+        watch = Watch(
+            brand="Seiko", model="SARB033",
+            acquisition=Acquisition(price=350, target_price=500, currency="USD"),
+        )
+        rows = {r.label: r.text for r in _acquisition_rows(watch)}
+        self.assertEqual(rows["Price"], "350.00 USD")
+        self.assertEqual(rows["Target Price"], "500.00 USD")
+
+    def test_target_price_and_target_date_absent_render_em_dash(self) -> None:
+        watch = Watch(brand="Seiko", model="SARB033")
+        rows = {r.label: r.text for r in _acquisition_rows(watch)}
+        self.assertEqual(rows["Target Price"], EM_DASH)
+        self.assertEqual(rows["Target Date"], EM_DASH)
+
 
 class SpecGroupVisibilityTests(unittest.TestCase):
     def test_fully_empty_group_is_hidden(self) -> None:
@@ -279,6 +296,29 @@ class DetailViewIntegrationTests(unittest.TestCase):
         view.back_requested.connect(lambda: received.append(True))
         view.findChild(QPushButton, "back-button").click()
         self.assertEqual(received, [True])
+
+    def _button_labeled(self, view: DetailView, text: str) -> QPushButton | None:
+        return next((b for b in view.findChildren(QPushButton) if b.text() == text), None)
+
+    def test_mark_as_owned_button_present_only_for_a_wishlist_watch(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Wishlist"))
+        [wishlist_record] = load_collection(self.watches_dir)
+        self.assertIsNotNone(self._button_labeled(DetailView(wishlist_record), "Mark as Owned"))
+
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="F-91W", status="Owned"))
+        records = load_collection(self.watches_dir)
+        owned_record = next(r for r in records if r.watch.brand == "Casio")
+        self.assertIsNone(self._button_labeled(DetailView(owned_record), "Mark as Owned"))
+
+    def test_clicking_mark_as_owned_emits_the_request_with_the_record(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Wishlist"))
+        [record] = load_collection(self.watches_dir)
+
+        view = DetailView(record)
+        received = []
+        view.move_to_owned_requested.connect(lambda r: received.append(r))
+        self._button_labeled(view, "Mark as Owned").click()
+        self.assertEqual([r.slug for r in received], [record.slug])
 
 
 class MaintenanceDueLineTests(unittest.TestCase):

@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QLabel
 
 from saat.config import Config
-from saat.models import Movement, Watch
+from saat.models import Acquisition, Movement, Watch
 from saat.storage import create_watch, load_collection
 from saat.ui.collection_view import CollectionView
 from saat.ui.sidebar import NOT_WORN_LABEL, Sidebar
@@ -104,6 +104,42 @@ class SidebarRenderingTests(UITestCase):
 
         sidebar._toggle_button.click()
         self.assertEqual(sidebar._toggle_button.geometry().y(), top_y)
+
+
+class SidebarWishlistScopeTests(UITestCase):
+    """SPEC.md §5.12: Status and Not-worn-90d are degenerate in Wishlist
+    scope, and the summary footer swaps to the wishlist figures."""
+
+    def test_status_facet_is_not_built_in_wishlist_scope(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Wishlist"))
+        records = load_collection(self.watches_dir)
+        sidebar = Sidebar(records, is_wishlist=True)
+        self.assertEqual([k for k in sidebar._checkboxes if k[0] == "status"], [])
+
+    def test_not_worn_checkbox_is_absent_in_wishlist_scope(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Wishlist"))
+        records = load_collection(self.watches_dir)
+        sidebar = Sidebar(records, is_wishlist=True)
+        self.assertIsNone(sidebar._not_worn_checkbox)
+
+    def test_status_facet_still_builds_in_collection_scope(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Omega", model="Speedmaster", status="Sold"))
+        records = load_collection(self.watches_dir)
+        sidebar = Sidebar(records, is_wishlist=False)
+        self.assertIn(("status", "Owned"), sidebar._checkboxes)
+        self.assertIn(("status", "Sold"), sidebar._checkboxes)
+
+    def test_wishlist_summary_footer_shows_target_price_not_acquisition_value(self) -> None:
+        create_watch(
+            self.watches_dir, self.backups_dir,
+            Watch(brand="Seiko", model="SARB033", status="Wishlist", acquisition=Acquisition(target_price=500, currency="USD")),
+        )
+        records = load_collection(self.watches_dir)
+        sidebar = Sidebar(records, is_wishlist=True)
+        texts = [label.text() for label in sidebar._summary_footer.findChildren(QLabel)]
+        self.assertIn("1 watch", texts)
+        self.assertIn("500.00 USD", texts)
 
 
 class SidebarSummaryFooterTests(UITestCase):
