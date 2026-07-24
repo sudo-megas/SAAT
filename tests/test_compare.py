@@ -6,9 +6,13 @@ from saat.storage import WatchRecord
 from saat.ui.compare import (
     MAX_COMPARE,
     MIN_COMPARE,
+    SEC_PER_MONTH_DIVISOR,
     RowContrast,
+    accuracy_axis_bounds,
+    build_accuracy_entries,
     build_compare_groups,
     build_silhouette_entries,
+    should_show_accuracy,
     should_show_silhouette,
     silhouette_profile_entries,
     silhouette_scale,
@@ -221,6 +225,97 @@ class SilhouetteScaleTests(unittest.TestCase):
 
     def test_empty_entries_yields_zero_scale(self) -> None:
         self.assertEqual(silhouette_scale([], 240.0), 0.0)
+
+
+def _movement_record(slug: str, **kwargs) -> WatchRecord:
+    return WatchRecord(slug=slug, path=Path(f"/nonexistent/{slug}"), watch=Watch(brand="B", model=slug, movement=Movement(**kwargs)))
+
+
+class BuildAccuracyEntriesTests(unittest.TestCase):
+    def test_both_endpoints_present_with_no_unit_defaults_to_sec_per_day(self) -> None:
+        records = [_movement_record("a", accuracy_min=-10, accuracy_max=20)]
+        entries, missing = build_accuracy_entries(records)
+        self.assertEqual(missing, [])
+        [entry] = entries
+        self.assertEqual(entry.original_unit, "sec/day")
+        self.assertEqual((entry.min_sec_per_day, entry.max_sec_per_day), (-10, 20))
+        self.assertEqual((entry.original_min, entry.original_max), (-10, 20))
+
+    def test_sec_per_month_is_normalised_but_original_is_kept_for_labelling(self) -> None:
+        records = [_movement_record("a", accuracy_min=-15, accuracy_max=25, accuracy_unit="sec/month")]
+        [entry], _ = build_accuracy_entries(records)
+        self.assertAlmostEqual(entry.min_sec_per_day, -15 / SEC_PER_MONTH_DIVISOR)
+        self.assertAlmostEqual(entry.max_sec_per_day, 25 / SEC_PER_MONTH_DIVISOR)
+        self.assertEqual(entry.original_min, -15)
+        self.assertEqual(entry.original_max, 25)
+        self.assertEqual(entry.original_unit, "sec/month")
+
+    def test_only_one_endpoint_present_counts_as_missing(self) -> None:
+        records = [_movement_record("a", accuracy_min=-10)]  # no accuracy_max
+        entries, missing = build_accuracy_entries(records)
+        self.assertEqual(entries, [])
+        self.assertEqual([r.slug for r in missing], ["a"])
+
+    def test_no_accuracy_data_at_all_counts_as_missing(self) -> None:
+        records = [_movement_record("a")]
+        entries, missing = build_accuracy_entries(records)
+        self.assertEqual(entries, [])
+        self.assertEqual([r.slug for r in missing], ["a"])
+
+    def test_a_broken_record_with_no_watch_is_missing_not_a_crash(self) -> None:
+        broken = WatchRecord(slug="broken", path=Path("/nonexistent/broken"), watch=None, load_error="bad toml")
+        entries, missing = build_accuracy_entries([broken])
+        self.assertEqual(entries, [])
+        self.assertEqual(missing, [broken])
+
+
+class ShouldShowAccuracyTests(unittest.TestCase):
+    def test_hidden_below_two_watches_with_accuracy(self) -> None:
+        records = [_movement_record("a", accuracy_min=-10, accuracy_max=20)]
+        self.assertFalse(should_show_accuracy(records))
+
+    def test_shown_at_exactly_two(self) -> None:
+        records = [
+            _movement_record("a", accuracy_min=-10, accuracy_max=20),
+            _movement_record("b", accuracy_min=-5, accuracy_max=5),
+        ]
+        self.assertTrue(should_show_accuracy(records))
+
+    def test_shown_with_four_watches(self) -> None:
+        records = [_movement_record(str(i), accuracy_min=-10, accuracy_max=20) for i in range(4)]
+        self.assertTrue(should_show_accuracy(records))
+
+    def test_a_watch_missing_accuracy_does_not_count_toward_the_threshold(self) -> None:
+        records = [_movement_record("a", accuracy_min=-10, accuracy_max=20), _movement_record("b")]
+        self.assertFalse(should_show_accuracy(records))
+
+
+class AccuracyAxisBoundsTests(unittest.TestCase):
+    def test_zero_is_included_even_when_every_watch_sits_on_one_side_of_it(self) -> None:
+        records = [_movement_record("a", accuracy_min=5, accuracy_max=20)]
+        entries, _ = build_accuracy_entries(records)
+        self.assertEqual(accuracy_axis_bounds(entries), (0.0, 20.0))
+
+    def test_zero_is_included_for_an_entirely_negative_range(self) -> None:
+        records = [_movement_record("a", accuracy_min=-40, accuracy_max=-10)]
+        entries, _ = build_accuracy_entries(records)
+        self.assertEqual(accuracy_axis_bounds(entries), (-40.0, 0.0))
+
+    def test_bounds_span_the_widest_range_across_multiple_watches(self) -> None:
+        records = [
+            _movement_record("a", accuracy_min=-40, accuracy_max=20),
+            _movement_record("b", accuracy_min=-2, accuracy_max=2),
+        ]
+        entries, _ = build_accuracy_entries(records)
+        self.assertEqual(accuracy_axis_bounds(entries), (-40.0, 20.0))
+
+    def test_bounds_use_the_normalised_sec_per_day_value_not_the_raw_sec_per_month_one(self) -> None:
+        records = [_movement_record("a", accuracy_min=-15, accuracy_max=30, accuracy_unit="sec/month")]
+        entries, _ = build_accuracy_entries(records)
+        self.assertEqual(accuracy_axis_bounds(entries), (-15 / SEC_PER_MONTH_DIVISOR, 1.0))
+
+    def test_empty_entries_yields_zero_bounds(self) -> None:
+        self.assertEqual(accuracy_axis_bounds([]), (0.0, 0.0))
 
 
 if __name__ == "__main__":

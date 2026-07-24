@@ -3,6 +3,7 @@ from PySide6.QtGui import QPaintEvent, QPainter
 from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from saat.storage import WatchRecord
+from saat.ui.accuracy_ranges import build_accuracy_section
 from saat.ui.case_silhouette import build_case_silhouette_section
 from saat.ui.compare import RowContrast, build_compare_groups
 from saat.ui.minute_track import MinuteTrackHeader
@@ -81,6 +82,10 @@ class CompareView(QScrollArea):
         silhouette_section = build_case_silhouette_section(records)
         if silhouette_section is not None:
             layout.addWidget(silhouette_section)
+
+        accuracy_section = build_accuracy_section(records)
+        if accuracy_section is not None:
+            layout.addWidget(accuracy_section)
 
         grid_widget = QWidget()
         grid = QGridLayout(grid_widget)

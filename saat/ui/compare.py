@@ -136,3 +136,76 @@ def silhouette_scale(entries: list[SilhouetteEntry], available_width_px: float) 
         return 0.0
     max_extent = max(_silhouette_extent_mm(e) for e in entries)
     return available_width_px / max_extent if max_extent > 0 else 0.0
+
+
+# --- Milestone 15b: accuracy ranges -----------------------------------------
+#
+# Pure logic only — no QPainter, no widgets, unit-tested with no event loop.
+# saat.ui.accuracy_ranges turns this into pixels.
+
+SEC_PER_MONTH_DIVISOR = 30  # SPEC.md §5.4: "converting sec/month by dividing by 30"
+
+
+@dataclass(frozen=True)
+class AccuracyEntry:
+    """One selected watch's accuracy span, normalised to sec/day for the
+    shared axis. original_min/original_max/original_unit are kept
+    unconverted so the caller can label the watch with what was actually
+    entered — SPEC.md §5.4: 'labelled with their ORIGINAL value and unit.'"""
+
+    record: WatchRecord
+    min_sec_per_day: float
+    max_sec_per_day: float
+    original_min: float
+    original_max: float
+    original_unit: str
+
+
+def _normalise_to_sec_per_day(min_value: float, max_value: float, unit: str) -> tuple[float, float]:
+    if unit == "sec/month":
+        return min_value / SEC_PER_MONTH_DIVISOR, max_value / SEC_PER_MONTH_DIVISOR
+    return min_value, max_value
+
+
+def build_accuracy_entries(records: list[WatchRecord]) -> tuple[list[AccuracyEntry], list[WatchRecord]]:
+    """Splits the selection into (drawable, missing_accuracy_data). Both
+    accuracy_min and accuracy_max are required — a single endpoint isn't
+    enough to draw a span — matching movement.accuracy_unit's own default
+    of sec/day when unset (see columns.py's _get_accuracy)."""
+    entries: list[AccuracyEntry] = []
+    missing: list[WatchRecord] = []
+    for r in records:
+        m = r.watch.movement if r.watch is not None else None
+        if m is None or m.accuracy_min is None or m.accuracy_max is None:
+            missing.append(r)
+            continue
+        unit = m.accuracy_unit or "sec/day"
+        norm_min, norm_max = _normalise_to_sec_per_day(m.accuracy_min, m.accuracy_max, unit)
+        entries.append(AccuracyEntry(
+            record=r,
+            min_sec_per_day=norm_min,
+            max_sec_per_day=norm_max,
+            original_min=m.accuracy_min,
+            original_max=m.accuracy_max,
+            original_unit=unit,
+        ))
+    return entries, missing
+
+
+def should_show_accuracy(records: list[WatchRecord]) -> bool:
+    """SPEC.md §5.4: 'Hide the section when fewer than 2 selected watches
+    have accuracy data.'"""
+    entries, _ = build_accuracy_entries(records)
+    return len(entries) >= 2
+
+
+def accuracy_axis_bounds(entries: list[AccuracyEntry]) -> tuple[float, float]:
+    """The shared axis span in sec/day. Zero is always folded in, even
+    when every watch's own range sits entirely on one side of it — SPEC.md
+    §5.4: 'a shared axis with zero marked prominently' means the axis
+    itself must always be able to show where zero is, not just watches
+    whose span happens to straddle it."""
+    if not entries:
+        return (0.0, 0.0)
+    values = [v for e in entries for v in (e.min_sec_per_day, e.max_sec_per_day)] + [0.0]
+    return min(values), max(values)
