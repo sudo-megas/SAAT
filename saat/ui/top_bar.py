@@ -4,9 +4,12 @@ from PySide6.QtCore import QPointF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPainterPath, QPen
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
-from saat.ui import theme
+from saat.ui import icons, theme
 from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS, WISHLIST_SORT_OPTIONS
 from saat.ui.compare import MIN_COMPARE
+
+SORT_ASCENDING = "asc"
+SORT_DESCENDING = "desc"
 
 VIEW_GRID = "grid"
 VIEW_TABLE = "table"
@@ -78,6 +81,7 @@ class TopBar(QWidget):
     view_changed = Signal(str)
     scope_changed = Signal(str)
     sort_changed = Signal(str)
+    sort_direction_changed = Signal(str)
     preset_changed = Signal(str)
     search_changed = Signal(str)
     add_watch_requested = Signal()
@@ -89,25 +93,34 @@ class TopBar(QWidget):
         self.setProperty("class", "top-bar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._scope = SCOPE_COLLECTION
+        self._sort_descending = False
 
         self._collection_button = QPushButton("Collection")
         self._collection_button.setCheckable(True)
+        icons.set_checkable_icon(self._collection_button, "collection")
         self._wishlist_button = QPushButton("Wishlist")
         self._wishlist_button.setCheckable(True)
+        icons.set_checkable_icon(self._wishlist_button, "star")
         self._collection_button.clicked.connect(lambda: self._set_scope(SCOPE_COLLECTION))
         self._wishlist_button.clicked.connect(lambda: self._set_scope(SCOPE_WISHLIST))
 
         self._search_field = QLineEdit()
         self._search_field.setPlaceholderText("Search brand, model, reference, caliber, tags…")
         self._search_field.setMinimumWidth(240)
+        self._search_field.addAction(
+            icons.icon("search", theme.colors().text_muted), QLineEdit.ActionPosition.LeadingPosition
+        )
         self._search_field.textChanged.connect(self.search_changed.emit)
 
         self._grid_button = QPushButton("Grid")
         self._grid_button.setCheckable(True)
+        icons.set_checkable_icon(self._grid_button, "grid")
         self._table_button = QPushButton("Table")
         self._table_button.setCheckable(True)
+        icons.set_checkable_icon(self._table_button, "table")
         self._calendar_button = QPushButton("Calendar")
         self._calendar_button.setCheckable(True)
+        icons.set_checkable_icon(self._calendar_button, "calendar")
         self._grid_button.clicked.connect(lambda: self._set_view(VIEW_GRID))
         self._table_button.clicked.connect(lambda: self._set_view(VIEW_TABLE))
         self._calendar_button.clicked.connect(lambda: self._set_view(VIEW_CALENDAR))
@@ -117,6 +130,12 @@ class TopBar(QWidget):
             lambda i: self.sort_changed.emit(self._sort_combo.itemData(i))
         )
 
+        self._sort_direction_button = QPushButton()
+        self._sort_direction_button.setProperty("variant", "link")
+        self._sort_direction_button.setToolTip("Sort ascending")
+        self._sort_direction_button.clicked.connect(self._toggle_sort_direction)
+        self._refresh_sort_direction_icon()
+
         self._preset_combo = QComboBox()
         self._preset_combo.addItem(PRESET_DEFAULT)
         for group in GROUP_ORDER:
@@ -125,9 +144,11 @@ class TopBar(QWidget):
 
         add_button = QPushButton("Add watch")
         add_button.setProperty("variant", "primary")
+        icons.set_icon(add_button, "add", color_role="plate")
         add_button.clicked.connect(self.add_watch_requested.emit)
 
         self._compare_button = QPushButton()
+        icons.set_icon(self._compare_button, "compare")
         self._compare_button.clicked.connect(self.compare_requested.emit)
         self._compare_button.setVisible(False)
 
@@ -147,6 +168,7 @@ class TopBar(QWidget):
         layout.addWidget(self._calendar_button)
         layout.addSpacing(12)
         layout.addWidget(self._sort_combo)
+        layout.addWidget(self._sort_direction_button)
         layout.addWidget(self._preset_combo)
         layout.addStretch()
         layout.addWidget(self._compare_button)
@@ -175,6 +197,9 @@ class TopBar(QWidget):
     def current_sort_key(self) -> str:
         return self._sort_combo.itemData(self._sort_combo.currentIndex())
 
+    def current_sort_descending(self) -> bool:
+        return self._sort_descending
+
     def search_text(self) -> str:
         return self._search_field.text()
 
@@ -190,8 +215,19 @@ class TopBar(QWidget):
         # Sort and search are meaningless against a date-indexed view — the
         # calendar always shows the whole collection's wear history.
         self._sort_combo.setEnabled(view != VIEW_CALENDAR)
+        self._sort_direction_button.setEnabled(view != VIEW_CALENDAR)
         self._search_field.setEnabled(view != VIEW_CALENDAR)
         self.view_changed.emit(view)
+
+    def _toggle_sort_direction(self) -> None:
+        self._sort_descending = not self._sort_descending
+        self._refresh_sort_direction_icon()
+        self.sort_direction_changed.emit(SORT_DESCENDING if self._sort_descending else SORT_ASCENDING)
+
+    def _refresh_sort_direction_icon(self) -> None:
+        name = "sort-desc" if self._sort_descending else "sort-asc"
+        icons.set_icon(self._sort_direction_button, name)
+        self._sort_direction_button.setToolTip("Sort descending" if self._sort_descending else "Sort ascending")
 
     def _set_scope(self, scope: str) -> None:
         self._scope = scope
@@ -218,5 +254,7 @@ class TopBar(QWidget):
         for key in WISHLIST_SORT_OPTIONS if is_wishlist else SORT_OPTIONS:
             self._sort_combo.addItem(f"Sort: {COLUMNS_BY_KEY[key].label}", key)
         self._sort_combo.blockSignals(False)
+        self._sort_descending = False
+        self._refresh_sort_direction_icon()
 
         self.scope_changed.emit(scope)

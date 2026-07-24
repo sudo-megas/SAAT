@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
@@ -12,6 +13,7 @@ from saat.storage import WatchRecord
 from saat.ui.collection_summary import compute_collection_summary, compute_wishlist_summary
 from saat.ui.facets import Facet, VALUE_FACETS, is_not_worn_90d
 from saat.ui.formatting import fmt_price
+from saat.ui import icons
 from saat.ui.theme import GROUP_SPACING, SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH
 
 NOT_WORN_LABEL = "Not worn in 90 days"
@@ -38,7 +40,15 @@ class Sidebar(QWidget):
 
         self._toggle_button = QPushButton("Hide filters")
         self._toggle_button.setProperty("variant", "link")
+        icons.set_icon(self._toggle_button, "sidebar")
         self._toggle_button.clicked.connect(self._toggle_collapsed)
+
+        self._clear_filters_button = QPushButton()
+        self._clear_filters_button.setProperty("variant", "link")
+        self._clear_filters_button.setToolTip("Clear filters")
+        icons.set_icon(self._clear_filters_button, "clear-filters")
+        self._clear_filters_button.clicked.connect(self._clear_all_filters)
+        self._clear_filters_button.setVisible(False)
 
         valid_watches = [r.watch for r in records if r.watch is not None]
 
@@ -62,7 +72,7 @@ class Sidebar(QWidget):
         # would carry zero filtering value there.
         if not is_wishlist and any(is_not_worn_90d(w) for w in valid_watches):
             checkbox = QCheckBox(NOT_WORN_LABEL)
-            checkbox.toggled.connect(lambda _checked: self.changed.emit())
+            checkbox.toggled.connect(lambda _checked: self._on_facet_toggled())
             self._not_worn_checkbox = checkbox
             groups_layout.addWidget(checkbox)
 
@@ -78,10 +88,16 @@ class Sidebar(QWidget):
             self._build_wishlist_summary_footer(records) if is_wishlist else self._build_summary_footer(records)
         )
 
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.addWidget(self._toggle_button)
+        header.addStretch()
+        header.addWidget(self._clear_filters_button)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(16)
-        layout.addWidget(self._toggle_button, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(header)
         layout.addWidget(self._scroll, stretch=1)
         layout.addWidget(self._summary_footer)
 
@@ -172,7 +188,7 @@ class Sidebar(QWidget):
 
         for value in values:
             checkbox = QCheckBox(value)
-            checkbox.toggled.connect(lambda _checked: self.changed.emit())
+            checkbox.toggled.connect(lambda _checked: self._on_facet_toggled())
             self._checkboxes[(facet.key, value)] = checkbox
             layout.addWidget(checkbox)
 
@@ -187,6 +203,23 @@ class Sidebar(QWidget):
 
     def not_worn_only(self) -> bool:
         return self._not_worn_checkbox is not None and self._not_worn_checkbox.isChecked()
+
+    def _has_active_filters(self) -> bool:
+        return bool(self.active_facets()) or self.not_worn_only()
+
+    def _on_facet_toggled(self) -> None:
+        self._clear_filters_button.setVisible(self._has_active_filters())
+        self.changed.emit()
+
+    def _clear_all_filters(self) -> None:
+        all_checkboxes = list(self._checkboxes.values())
+        if self._not_worn_checkbox is not None:
+            all_checkboxes.append(self._not_worn_checkbox)
+        for checkbox in all_checkboxes:
+            checkbox.blockSignals(True)
+            checkbox.setChecked(False)
+            checkbox.blockSignals(False)
+        self._on_facet_toggled()
 
     def update_counts(self, counts: dict[str, dict[str, int]], not_worn_count: int) -> None:
         for (facet_key, value), checkbox in self._checkboxes.items():

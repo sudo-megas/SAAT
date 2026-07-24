@@ -21,6 +21,7 @@ from saat.ui.detail_view import DetailView
 from saat.ui.empty_state import EmptyStateView
 from saat.ui.main_window import MainWindow
 from saat.ui.table_view import TableView
+from saat.ui.top_bar import SCOPE_WISHLIST
 
 _app = QApplication.instance() or QApplication([])
 
@@ -114,6 +115,28 @@ class CollectionViewBehaviorTests(UITestCase):
         view._on_sort_changed("model")
         models = [view._table_view.item(r, 1).text() for r in range(view._table_view.rowCount())]
         self.assertEqual(models, sorted(models))
+
+    def test_sort_direction_toggle_reverses_the_default_ascending_order(self) -> None:
+        """Milestone 16c: a real ascending/descending toggle beside the sort
+        combo, not just a reskinned icon — wired into the same single
+        _recompute() sort call the table/grid already share."""
+        view = CollectionView(self.records, self._config())
+        ascending = [r.watch.brand for r in view._ordered_records]
+
+        view._top_bar._sort_direction_button.click()
+
+        self.assertTrue(view._top_bar.current_sort_descending())
+        descending = [r.watch.brand for r in view._ordered_records]
+        self.assertEqual(descending, list(reversed(ascending)))
+
+    def test_scope_change_resets_sort_direction_to_ascending(self) -> None:
+        view = CollectionView(self.records, self._config())
+        view._top_bar._sort_direction_button.click()
+        self.assertTrue(view._top_bar.current_sort_descending())
+
+        view._top_bar.set_scope(SCOPE_WISHLIST)
+
+        self.assertFalse(view._top_bar.current_sort_descending())
 
     def test_double_click_after_header_sort_activates_the_correct_record(self) -> None:
         """A header-sort reorders the table's visual rows without touching

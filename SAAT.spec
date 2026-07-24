@@ -37,6 +37,7 @@ a = Analysis(
         ('saat/ui/theme.qss', 'ui'),
         ('saat/resources/fonts', 'resources/fonts'),
         ('saat/resources/icon', 'resources/icon'),
+        ('saat/resources/icons', 'resources/icons'),
     ],
     hiddenimports=[],
     hookspath=[],

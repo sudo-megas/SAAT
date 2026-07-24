@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from saat.image_import import import_image, remove_image
 from saat.storage import WatchRecord
+from saat.ui import icons
 from saat.ui.images import IMAGE_EXTENSIONS, cropped_pixmap, list_images
 
 THUMB_SIZE = 64
@@ -50,6 +51,7 @@ class ImagesTab(QWidget):
         layout.addWidget(hint)
 
         add_button = QPushButton("Add images…")
+        icons.set_icon(add_button, "image-add")
         add_button.clicked.connect(self._pick_files)
         layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -166,11 +168,14 @@ class ImagesTab(QWidget):
 
         if not is_primary:
             primary_button = QPushButton("Set Primary")
+            icons.set_icon(primary_button, "star")
             primary_button.clicked.connect(lambda: self._set_primary(item))
             layout.addWidget(primary_button)
 
-        remove_button = QPushButton("✕")
+        remove_button = QPushButton()
         remove_button.setProperty("variant", "link")
+        remove_button.setToolTip("Remove image")
+        icons.set_icon(remove_button, "remove")
         remove_button.clicked.connect(lambda: self._remove(item))
         layout.addWidget(remove_button)
 

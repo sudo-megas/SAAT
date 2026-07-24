@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QPushButton, QVBoxLayou
 from saat.models import Watch
 from saat.storage import WatchRecord
 from saat.ui.formatting import EM_DASH, fmt_price
+from saat.ui import icons
 from saat.ui.images import cropped_pixmap, first_image
 from saat.ui.maintenance import is_maintenance_due
 
@@ -152,6 +153,10 @@ class WatchCard(QFrame):
         if is_owned:
             self._wore_today_bar = QPushButton("Wore this today", container)
             self._wore_today_bar.setProperty("class", "card-wore-today-bar")
+            # Fixed light icon colour, matching the class's own fixed dark
+            # scrim (theme.qss) — this overlay sits on an arbitrary photo,
+            # not the app's plate, so it doesn't follow the theme toggle.
+            self._wore_today_bar.setIcon(icons.icon("wore-today", "#E8E4DC"))
             self._wore_today_bar.setFixedSize(CARD_WIDTH, WORE_TODAY_BAR_HEIGHT)
             self._wore_today_bar.move(0, IMAGE_HEIGHT - WORE_TODAY_BAR_HEIGHT)
             self._wore_today_bar.clicked.connect(lambda: self.wore_today_requested.emit(record))

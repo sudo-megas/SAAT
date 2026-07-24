@@ -7,6 +7,7 @@ from saat.ui.accuracy_ranges import build_accuracy_section
 from saat.ui.case_silhouette import build_case_silhouette_section
 from saat.ui.compare import RowContrast, build_compare_groups
 from saat.ui.dimension_bars import build_dimension_bars_section
+from saat.ui import icons
 from saat.ui.minute_track import MinuteTrackHeader
 from saat.ui.theme import GROUP_SPACING, PAGE_MARGIN
 from saat.ui.year_view import slug_color
@@ -73,10 +74,11 @@ class CompareView(QScrollArea):
         layout.setContentsMargins(PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN)
         layout.setSpacing(GROUP_SPACING)
 
-        back_button = QPushButton("← Back")
+        back_button = QPushButton("Back")
         back_button.setObjectName("back-button")
         back_button.setProperty("variant", "link")
         back_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        icons.set_icon(back_button, "back")
         back_button.clicked.connect(self.back_requested.emit)
         layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignLeft)
 

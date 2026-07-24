@@ -15,6 +15,7 @@ from saat.ui.top_bar import (
     PRESET_DEFAULT,
     SCOPE_COLLECTION,
     SCOPE_WISHLIST,
+    SORT_DESCENDING,
     VIEW_CALENDAR,
     VIEW_GRID,
     VIEW_TABLE,
@@ -40,6 +41,7 @@ class CollectionView(QWidget):
         self._records = records
         self._config = config
         self._sort_field = DEFAULT_SORT_KEY
+        self._sort_descending = False
         self._scope = SCOPE_COLLECTION
         self._compare_selection: set[str] = set()
         self._ordered_records: list[WatchRecord] = []
@@ -71,6 +73,7 @@ class CollectionView(QWidget):
         self._top_bar.view_changed.connect(self._on_view_changed)
         self._top_bar.scope_changed.connect(self._on_scope_changed)
         self._top_bar.sort_changed.connect(self._on_sort_changed)
+        self._top_bar.sort_direction_changed.connect(self._on_sort_direction_changed)
         self._top_bar.preset_changed.connect(self._on_preset_changed)
         self._top_bar.search_changed.connect(lambda _text: self._recompute())
         self._top_bar.compare_requested.connect(self._on_compare_requested)
@@ -154,6 +157,7 @@ class CollectionView(QWidget):
         matching = sorted(
             (r for r in valid if passes(r.watch, state)),
             key=lambda r: sort_key(self._sort_field)(r.watch),
+            reverse=self._sort_descending,
         )
         broken = [] if state.is_active() else [r for r in scoped if r.watch is None]
         self._ordered_records = matching + broken
@@ -195,9 +199,14 @@ class CollectionView(QWidget):
         self._sort_field = key
         self._recompute()
 
+    def _on_sort_direction_changed(self, direction: str) -> None:
+        self._sort_descending = direction == SORT_DESCENDING
+        self._recompute()
+
     def _on_scope_changed(self, scope: str) -> None:
         self._scope = scope
         self._sort_field = self._top_bar.current_sort_key()
+        self._sort_descending = self._top_bar.current_sort_descending()
         self._rebuild_sidebar()
         self._table_view.set_columns(self._config.column_keys(scope) or self._default_column_keys())
         self._recompute()

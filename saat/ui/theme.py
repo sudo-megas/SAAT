@@ -152,5 +152,10 @@ def apply_theme(app: QApplication, mode: str | None = None) -> None:
     # QSS reapplication alone doesn't invalidate a custom paintEvent's pixel
     # content — Qt has no way to know it depends on theme.colors(). Force
     # every widget to redraw so the hand-painted ones pick up the new palette.
+    # A themed QIcon (saat.ui.icons.set_icon) is a cached pixmap, not a live
+    # paintEvent — the same sweep also calls its _refresh_icon hook if set.
     for widget in QApplication.allWidgets():
         widget.update()
+        refresh_icon = getattr(widget, "_refresh_icon", None)
+        if refresh_icon is not None:
+            refresh_icon()

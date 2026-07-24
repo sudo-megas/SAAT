@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from saat.models import LogEntry, Strap, TimingEntry
+from saat.ui import icons
 from saat.ui.form_fields import (
     combo_value,
     date_value,
@@ -34,10 +35,12 @@ STRAP_CLASP_SUGGESTIONS = ["Pin Buckle", "Deployant", "Butterfly", "Ratcheting"]
 
 
 def _remove_button() -> QPushButton:
-    button = QPushButton("✕")
+    button = QPushButton()
     button.setProperty("variant", "link")
     button.setFixedWidth(28)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
+    button.setToolTip("Remove")
+    icons.set_icon(button, "remove")
     return button
 
 

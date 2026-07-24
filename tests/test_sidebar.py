@@ -191,6 +191,51 @@ class SidebarStyledBackgroundTests(UITestCase):
         self.assertTrue(sidebar.testAttribute(Qt.WidgetAttribute.WA_StyledBackground))
 
 
+class SidebarClearFiltersTests(UITestCase):
+    """Milestone 16c: a small new control, since none existed before — hidden
+    until at least one filter is active, and it must clear every kind
+    (facet checkboxes and the "not worn" checkbox alike) in one click."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        create_watch(
+            self.watches_dir, self.backups_dir,
+            Watch(brand="Seiko", model="SARB033", style="Dress"),
+        )
+        self.records = load_collection(self.watches_dir)
+
+    def test_hidden_with_no_active_filters(self) -> None:
+        sidebar = Sidebar(self.records)
+        self.assertTrue(sidebar._clear_filters_button.isHidden())
+
+    def test_becomes_visible_once_a_facet_is_checked(self) -> None:
+        sidebar = Sidebar(self.records)
+        sidebar._checkboxes[("style", "Dress")].setChecked(True)
+        self.assertFalse(sidebar._clear_filters_button.isHidden())
+
+    def test_clicking_it_unchecks_every_facet_and_hides_itself_again(self) -> None:
+        sidebar = Sidebar(self.records)
+        sidebar._checkboxes[("style", "Dress")].setChecked(True)
+
+        sidebar._clear_filters_button.click()
+
+        self.assertFalse(sidebar._checkboxes[("style", "Dress")].isChecked())
+        self.assertTrue(sidebar._clear_filters_button.isHidden())
+
+    def test_clicking_it_only_emits_changed_once(self) -> None:
+        """Checking two facets then clearing both must not fire changed
+        once per checkbox — CollectionView listens to recompute, and a
+        multi-fire would just be N redundant passes over the same data."""
+        sidebar = Sidebar(self.records)
+        sidebar._checkboxes[("style", "Dress")].setChecked(True)
+        received = []
+        sidebar.changed.connect(lambda: received.append(None))
+
+        sidebar._clear_filters_button.click()
+
+        self.assertEqual(len(received), 1)
+
+
 class CollectionViewFilteringTests(UITestCase):
     def setUp(self) -> None:
         super().setUp()

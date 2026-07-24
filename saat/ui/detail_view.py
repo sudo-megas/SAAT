@@ -23,7 +23,7 @@ from saat.ui.maintenance import maintenance_due_text
 from saat.ui.minute_track import MinuteTrackHeader
 from saat.ui.spec_group import SpecRow, build_spec_group, spec_row
 from saat.ui.strap_compat import CompatibleStrap, compatible_straps
-from saat.ui import theme
+from saat.ui import icons, theme
 from saat.ui.theme import GROUP_SPACING, PAGE_MARGIN, SIZE_XS, resolve_fonts
 from saat.ui.wear_stats import days_since_worn, last_worn, longest_streak, times_worn_this_year
 
@@ -668,10 +668,11 @@ class DetailView(QScrollArea):
         layout.setContentsMargins(PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN)
         layout.setSpacing(GROUP_SPACING)
 
-        back_button = QPushButton("← Back")
+        back_button = QPushButton("Back")
         back_button.setObjectName("back-button")
         back_button.setProperty("variant", "link")
         back_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        icons.set_icon(back_button, "back")
         back_button.clicked.connect(self.back_requested.emit)
         layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -690,6 +691,7 @@ class DetailView(QScrollArea):
             layout.addWidget(wear_section)
 
         wore_today_button = QPushButton("Wore this today")
+        icons.set_icon(wore_today_button, "wore-today")
         wore_today_button.clicked.connect(lambda: self.wore_today_requested.emit(record))
         layout.addWidget(wore_today_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -720,11 +722,13 @@ class DetailView(QScrollArea):
             row_layout.addWidget(mark_owned_button)
 
         edit_button = QPushButton("Edit")
+        icons.set_icon(edit_button, "edit")
         edit_button.clicked.connect(lambda: self.edit_requested.emit(record))
         row_layout.addWidget(edit_button)
 
         delete_button = QPushButton("Delete")
         delete_button.setProperty("variant", "destructive")
+        icons.set_icon(delete_button, "delete", color_role="text")
         delete_button.clicked.connect(lambda: self.delete_requested.emit(record))
         row_layout.addWidget(delete_button)
 

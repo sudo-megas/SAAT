@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from saat.storage import WatchRecord
 from saat.ui.calendar_stats import StatsView
+from saat.ui import icons
 from saat.ui.images import cropped_pixmap, first_image
 from saat.ui.month_grid import GridDay, WEEKDAY_LABELS, month_grid_days
 from saat.ui import theme
@@ -306,11 +307,16 @@ class CalendarView(QWidget):
         self._mode = _MODE_MONTH
         self._emphasized_slug: str | None = None
 
-        self._prev_button = QPushButton("‹")
+        self._prev_button = QPushButton()
+        self._prev_button.setToolTip("Previous month")
+        icons.set_icon(self._prev_button, "prev-month")
         self._prev_button.clicked.connect(self._go_previous)
-        self._next_button = QPushButton("›")
+        self._next_button = QPushButton()
+        self._next_button.setToolTip("Next month")
+        icons.set_icon(self._next_button, "next-month")
         self._next_button.clicked.connect(self._go_next)
         self._today_button = QPushButton("Today")
+        icons.set_icon(self._today_button, "today")
         self._today_button.clicked.connect(self._go_today)
 
         self._month_combo = QComboBox()
@@ -323,12 +329,13 @@ class CalendarView(QWidget):
         self._month_button = QPushButton("Month")
         self._year_button = QPushButton("Year")
         self._stats_button = QPushButton("Stats")
-        for button, mode in (
-            (self._month_button, _MODE_MONTH),
-            (self._year_button, _MODE_YEAR),
-            (self._stats_button, _MODE_STATS),
+        for button, mode, icon_name in (
+            (self._month_button, _MODE_MONTH, "calendar"),
+            (self._year_button, _MODE_YEAR, "year"),
+            (self._stats_button, _MODE_STATS, "stats"),
         ):
             button.setCheckable(True)
+            icons.set_checkable_icon(button, icon_name)
             button.clicked.connect(lambda _checked, m=mode: self._set_mode(m))
 
         header = QHBoxLayout()
