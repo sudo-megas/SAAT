@@ -4,6 +4,45 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0] - 2026-07-24
+
+### Added
+
+- Wishlist scope: a Collection/Wishlist selector in the top bar, orthogonal to the
+  Grid/Table/Calendar view toggle. Wishlist is exactly the watches whose status is
+  Wishlist; Collection is everything else, unchanged. Calendar and Stats are hidden
+  (not disabled) in Wishlist scope, since a watch not yet owned has no wear history.
+  Sidebar facets and the summary footer, table defaults, sort options and remembered
+  column choices all follow the active scope.
+- Two new Acquisition fields: `target_price` (what it costs) and `target_date` (when
+  the owner hopes to buy), distinct from `price`/`date`. The existing rating field
+  doubles as desire on a Wishlist watch rather than adding a separate priority field.
+- Wishlist grid cards show target price and rating in place of the Owned-only
+  Wore-today action and maintenance indicator; the sidebar's summary swaps to total
+  target price by currency, item count, and — when any target date is set — the
+  subtotal due in the next 12 months.
+- A one-click "Mark as Owned" action on a Wishlist watch's detail page, carrying
+  target price into price as a default (only when price isn't already set) without
+  discarding either target field. Adding a watch from Wishlist scope now defaults its
+  status to Wishlist.
+- Sellers: an optional `sellers.toml` directory (name, url, city, notes) living beside
+  `watches/`, managed through a new "Manage sellers…" dialog reachable from the
+  add/edit form. The seller field is now an editable combo offering `sellers.toml`
+  entries plus every seller already used in the collection, still accepting free text.
+  A watch's seller renders as a clickable link on its detail page when it matches a
+  `sellers.toml` entry with a URL. Deliberately loosely coupled — a watch's seller
+  stays a plain string, and deleting a `sellers.toml` entry never touches a watch.
+
+### Fixed
+
+- A watch whose status wasn't Owned (Wishlist, but also Incoming, Sold or Gifted)
+  previously counted toward wear tracking: it showed up in the calendar's assignment
+  picker and, if it had any recorded wear, in every calendar stat — including
+  inflating the Stats mode even-split reference's denominator even though it could
+  never actually be worn. Non-Owned watches are now excluded from the calendar, all
+  calendar stats, and strap compatibility (in both directions), fixed once at the
+  source rather than per view.
+
 ## [1.2.0] - 2026-07-24
 
 ### Added

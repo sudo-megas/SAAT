@@ -2,6 +2,7 @@ watches/*
 !watches/_template.toml
 !watches/.gitkeep
 config.toml
+sellers.toml
 backups/
 .venv/
 build/

@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -12,6 +14,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
+    QPushButton,
     QScrollArea,
     QSpinBox,
     QTabWidget,
@@ -20,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from saat.models import Acquisition, Case, Dial, Maintenance, Movement, Watch
+from saat.sellers import Seller
 from saat.storage import WatchRecord
 from saat.ui.dialogs import confirm_discard_changes
 from saat.ui.form_fields import (
@@ -35,6 +39,7 @@ from saat.ui.form_fields import (
     optional_date_edit,
     optional_double_spin,
     optional_int_spin,
+    refresh_combo_options,
     set_bool_value,
     set_combo_value,
     set_date_value,
@@ -73,12 +78,16 @@ class WatchForm(QDialog):
         record: WatchRecord | None = None,
         parent: QWidget | None = None,
         default_status: str | None = None,
+        sellers: list[Seller] | None = None,
+        manage_sellers: Callable[[], list[Seller]] | None = None,
     ) -> None:
         super().__init__(parent)
         self._records = records
         self._original_record = record
         self._dirty = False
         self._saved_watch: Watch | None = None
+        self._sellers = list(sellers) if sellers is not None else []
+        self._manage_sellers = manage_sellers
 
         # SPEC.md §5.12: adding from Wishlist scope defaults the new watch's
         # status to Wishlist — otherwise it saves as Owned and immediately
@@ -371,7 +380,22 @@ class WatchForm(QDialog):
         self._target_date = optional_date_edit()
         set_date_value(self._target_date, a.target_date)
         self._currency = QLineEdit(a.currency or "TRY")  # SPEC.md §4: default TRY
-        self._seller = QLineEdit(a.seller or "")
+
+        # SPEC.md §3/§4: an enum*-style combo — sellers.toml entries plus
+        # every seller value already used in the collection, plus free
+        # text — same pattern as group/style/case material etc.
+        self._seller = suggested_combo([s.name for s in self._sellers], self._existing(lambda w: w.acquisition.seller))
+        set_combo_value(self._seller, a.seller)
+        manage_sellers_button = QPushButton("Manage sellers…")
+        manage_sellers_button.setProperty("variant", "link")
+        manage_sellers_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        manage_sellers_button.clicked.connect(self._on_manage_sellers)
+        seller_row = QWidget()
+        seller_layout = QHBoxLayout(seller_row)
+        seller_layout.setContentsMargins(0, 0, 0, 0)
+        seller_layout.addWidget(self._seller, 1)
+        seller_layout.addWidget(manage_sellers_button)
+
         self._url = QLineEdit(a.url or "")
         self._condition = fixed_combo(CONDITION_OPTIONS)
         set_combo_value(self._condition, a.condition)
@@ -386,12 +410,24 @@ class WatchForm(QDialog):
             ("Target Price", self._target_price),
             ("Target Date", self._target_date),
             ("Currency", self._currency),
-            ("Seller", self._seller),
+            ("Seller", seller_row),
             ("URL", self._url),
             ("Condition", self._condition),
             ("Box & Papers", self._box_and_papers),
             ("Warranty Until", self._warranty_until),
         ])
+
+    def _on_manage_sellers(self) -> None:
+        """Delegates the actual dialog to the caller (MainWindow owns
+        backups_dir/sellers_path, WatchForm doesn't) — refreshes the combo
+        in place afterward so a newly added seller is selectable without
+        closing and reopening this form."""
+        if self._manage_sellers is None:
+            return
+        self._sellers = self._manage_sellers()
+        refresh_combo_options(
+            self._seller, [s.name for s in self._sellers], self._existing(lambda w: w.acquisition.seller)
+        )
 
     # --- Maintenance -----------------------------------------------------------
 
@@ -479,7 +515,7 @@ class WatchForm(QDialog):
                 date=date_value(self._acquired_date),
                 price=double_value(self._price),
                 currency=self._currency.text().strip() or None,
-                seller=self._seller.text().strip() or None,
+                seller=combo_value(self._seller),
                 url=self._url.text().strip() or None,
                 condition=combo_value(self._condition),
                 box_and_papers=bool_value(self._box_and_papers),

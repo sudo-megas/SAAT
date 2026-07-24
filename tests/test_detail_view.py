@@ -11,6 +11,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
 from saat.models import Acquisition, Case, Dial, LogEntry, Maintenance, Movement, Strap, TimingEntry, Watch
+from saat.sellers import Seller
 from saat.storage import create_watch, load_collection
 from saat.ui.detail_view import (
     DetailView,
@@ -107,6 +108,39 @@ class RowBuilderTests(unittest.TestCase):
         rows = {r.label: r.text for r in _acquisition_rows(watch)}
         self.assertEqual(rows["Target Price"], EM_DASH)
         self.assertEqual(rows["Target Date"], EM_DASH)
+
+    def test_seller_matching_a_sellers_toml_entry_with_a_url_renders_as_a_link(self) -> None:
+        watch = Watch(brand="Seiko", model="SARB033", acquisition=Acquisition(seller="Some Shop"))
+        sellers = [Seller(name="Some Shop", url="https://example.com")]
+        rows = {r.label: r for r in _acquisition_rows(watch, sellers)}
+        self.assertIsInstance(rows["Seller"].widget, QPushButton)
+        self.assertEqual(rows["Seller"].text, "Some Shop")
+
+    def test_seller_matching_an_entry_with_no_url_renders_as_plain_text(self) -> None:
+        watch = Watch(brand="Seiko", model="SARB033", acquisition=Acquisition(seller="Some Shop"))
+        sellers = [Seller(name="Some Shop")]
+        rows = {r.label: r for r in _acquisition_rows(watch, sellers)}
+        self.assertIsNone(rows["Seller"].widget)
+
+    def test_seller_not_matching_any_sellers_toml_entry_renders_as_plain_text(self) -> None:
+        """SPEC.md §3: loose coupling — a free-text seller with no matching
+        directory entry is not an error, just plain text."""
+        watch = Watch(brand="Seiko", model="SARB033", acquisition=Acquisition(seller="Some Random Shop"))
+        sellers = [Seller(name="Some Shop", url="https://example.com")]
+        rows = {r.label: r for r in _acquisition_rows(watch, sellers)}
+        self.assertIsNone(rows["Seller"].widget)
+        self.assertEqual(rows["Seller"].text, "Some Random Shop")
+
+    def test_seller_match_is_case_sensitive(self) -> None:
+        watch = Watch(brand="Seiko", model="SARB033", acquisition=Acquisition(seller="some shop"))
+        sellers = [Seller(name="Some Shop", url="https://example.com")]
+        rows = {r.label: r for r in _acquisition_rows(watch, sellers)}
+        self.assertIsNone(rows["Seller"].widget)
+
+    def test_absent_seller_renders_em_dash_regardless_of_sellers_toml(self) -> None:
+        watch = Watch(brand="Seiko", model="SARB033")
+        rows = {r.label: r.text for r in _acquisition_rows(watch, [Seller(name="Some Shop", url="https://example.com")])}
+        self.assertEqual(rows["Seller"], EM_DASH)
 
 
 class SpecGroupVisibilityTests(unittest.TestCase):
@@ -309,6 +343,26 @@ class DetailViewIntegrationTests(unittest.TestCase):
         records = load_collection(self.watches_dir)
         owned_record = next(r for r in records if r.watch.brand == "Casio")
         self.assertIsNone(self._button_labeled(DetailView(owned_record), "Mark as Owned"))
+
+    def test_sellers_param_threads_through_to_the_seller_link(self) -> None:
+        from unittest.mock import patch
+
+        from PySide6.QtGui import QDesktopServices
+
+        create_watch(
+            self.watches_dir, self.backups_dir,
+            Watch(brand="Seiko", model="SARB033", acquisition=Acquisition(seller="Some Shop")),
+        )
+        [record] = load_collection(self.watches_dir)
+
+        view = DetailView(record, sellers=[Seller(name="Some Shop", url="https://example.com/shop")])
+        link = self._button_labeled(view, "Some Shop")
+        self.assertIsNotNone(link)
+
+        with patch.object(QDesktopServices, "openUrl") as open_url:
+            link.click()
+        open_url.assert_called_once()
+        self.assertEqual(open_url.call_args[0][0].toString(), "https://example.com/shop")
 
     def test_clicking_mark_as_owned_emits_the_request_with_the_record(self) -> None:
         create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", status="Wishlist"))

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from saat.models import LogEntry, Movement, Strap, TimingEntry, Watch
+from saat.sellers import Seller, find_seller
 from saat.storage import WatchRecord
 from saat.ui.formatting import EM_DASH, fmt_accuracy, fmt_bool, fmt_bph, fmt_date, fmt_list, fmt_number, fmt_price, fmt_water_resistance, is_empty
 from saat.ui.images import cropped_pixmap, fit_pixmap, list_images
@@ -108,7 +109,25 @@ def _url_row(url: str | None) -> SpecRow:
     return SpecRow("URL", url, widget=link)
 
 
-def _acquisition_rows(watch: Watch) -> list[SpecRow]:
+def _seller_row(seller_name: str | None, sellers: list[Seller]) -> SpecRow:
+    """SPEC.md §3: when the watch's seller string exactly matches a
+    sellers.toml entry that has a url, render it as a link — the same
+    QDesktopServices hand-off _url_row already uses, not a new mechanism.
+    A non-matching or url-less seller renders as plain text, same as any
+    other string field."""
+    if is_empty(seller_name):
+        return SpecRow("Seller", EM_DASH)
+    matched = find_seller(sellers, seller_name)
+    if matched is None or is_empty(matched.url):
+        return SpecRow("Seller", seller_name)
+    link = QPushButton(seller_name)
+    link.setProperty("variant", "link")
+    link.setCursor(Qt.CursorShape.PointingHandCursor)
+    link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(matched.url)))
+    return SpecRow("Seller", seller_name, widget=link)
+
+
+def _acquisition_rows(watch: Watch, sellers: list[Seller] | None = None) -> list[SpecRow]:
     a = watch.acquisition
     price = (a.price, a.currency or "") if a.price is not None else None
     target_price = (a.target_price, a.currency or "") if a.target_price is not None else None
@@ -117,7 +136,7 @@ def _acquisition_rows(watch: Watch) -> list[SpecRow]:
         spec_row("Price", price, fmt_price, numeric=True),
         spec_row("Target Price", target_price, fmt_price, numeric=True),
         spec_row("Target Date", a.target_date, fmt_date, numeric=True),
-        spec_row("Seller", a.seller),
+        _seller_row(a.seller, sellers or []),
         _url_row(a.url),
         spec_row("Condition", a.condition),
         spec_row("Box & Papers", a.box_and_papers, fmt_bool),
@@ -627,7 +646,13 @@ class DetailView(QScrollArea):
     wore_today_requested = Signal(object)
     move_to_owned_requested = Signal(object)
 
-    def __init__(self, record: WatchRecord, all_records: list[WatchRecord] | None = None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        record: WatchRecord,
+        all_records: list[WatchRecord] | None = None,
+        parent: QWidget | None = None,
+        sellers: list[Seller] | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -635,6 +660,7 @@ class DetailView(QScrollArea):
 
         self._record = record
         self._all_records = all_records if all_records is not None else [record]
+        self._sellers = sellers or []
         watch = record.watch
 
         content = QWidget()
@@ -712,7 +738,7 @@ class DetailView(QScrollArea):
             build_spec_group("Dial", _dial_rows(watch)),
             _build_straps_group(record),
             _build_strap_compat_group(record, self._all_records),
-            build_spec_group("Acquisition", _acquisition_rows(watch)),
+            build_spec_group("Acquisition", _acquisition_rows(watch, self._sellers)),
             build_spec_group("Maintenance", _maintenance_rows(watch)),
             _build_log_group(watch),
             _build_timing_group(watch),

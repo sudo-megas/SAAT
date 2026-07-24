@@ -9,12 +9,15 @@ from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QStackedWidget
 from saat import __version__
 from saat.config import Config
 from saat.paths import data_dir
+from saat.sellers import Seller, load_sellers
+from saat.sellers import sellers_path as default_sellers_path
 from saat.storage import WatchRecord, create_watch, delete_watch, load_collection, save_watch
 from saat.ui.collection_view import CollectionView
 from saat.ui.compare_view import CompareView
 from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
+from saat.ui.sellers_dialog import SellersDialog
 from saat.ui import theme
 from saat.ui.top_bar import SCOPE_WISHLIST
 from saat.ui.watch_form import WatchForm
@@ -30,6 +33,7 @@ class MainWindow(QMainWindow):
         watches_dir: Path | None = None,
         backups_dir: Path | None = None,
         config: Config | None = None,
+        sellers_path: Path | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle(f"SAAT v{__version__}")
@@ -38,6 +42,8 @@ class MainWindow(QMainWindow):
         self._watches_dir = watches_dir if watches_dir is not None else data_dir() / "watches"
         self._backups_dir = backups_dir if backups_dir is not None else data_dir() / "backups"
         self._config = config if config is not None else Config()
+        self._sellers_path = sellers_path if sellers_path is not None else default_sellers_path(data_dir())
+        self._sellers: list[Seller] = load_sellers(self._sellers_path)
         self._restore_geometry()
 
         self._stack = QStackedWidget()
@@ -116,7 +122,7 @@ class MainWindow(QMainWindow):
             self._stack.removeWidget(self._detail_view)
             self._detail_view.deleteLater()
 
-        self._detail_view = DetailView(record, self._current_records(), self)
+        self._detail_view = DetailView(record, self._current_records(), self, sellers=self._sellers)
         self._detail_view.back_requested.connect(self._show_collection)
         self._detail_view.edit_requested.connect(self._show_edit_form)
         self._detail_view.delete_requested.connect(self._show_delete_confirm)
@@ -171,10 +177,24 @@ class MainWindow(QMainWindow):
         self._config.set_theme_mode(new_mode)
         self._config.save()
 
+    def _manage_sellers(self) -> list[Seller]:
+        """Passed into WatchForm as a callback so it can open the dialog
+        without needing to know about backups_dir/sellers_path itself —
+        MainWindow owns all disk I/O, WatchForm stays a pure UI component.
+        Updates self._sellers so every subsequently-opened form/detail page
+        sees the change, not just the one that triggered it."""
+        dialog = SellersDialog(self._sellers, self._backups_dir, self._sellers_path, parent=self)
+        dialog.exec()
+        self._sellers = dialog.sellers()
+        return self._sellers
+
     def _show_add_form(self) -> None:
         scope = self._collection_view.current_scope() if self._collection_view is not None else None
         default_status = "Wishlist" if scope == SCOPE_WISHLIST else None
-        form = WatchForm(self._current_records(), record=None, parent=self, default_status=default_status)
+        form = WatchForm(
+            self._current_records(), record=None, parent=self, default_status=default_status,
+            sellers=self._sellers, manage_sellers=self._manage_sellers,
+        )
         if form.exec() != QDialog.DialogCode.Accepted:
             return
         created = create_watch(self._watches_dir, self._backups_dir, form.saved_watch())
@@ -182,7 +202,10 @@ class MainWindow(QMainWindow):
         self._load_and_show_collection()
 
     def _show_edit_form(self, record: WatchRecord) -> None:
-        form = WatchForm(self._current_records(), record=record, parent=self)
+        form = WatchForm(
+            self._current_records(), record=record, parent=self,
+            sellers=self._sellers, manage_sellers=self._manage_sellers,
+        )
         if form.exec() != QDialog.DialogCode.Accepted:
             return
         updated_record = dataclasses.replace(record, watch=form.saved_watch())

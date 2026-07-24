@@ -11,7 +11,8 @@ from unittest.mock import patch
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from saat.models import Case, Movement, Strap, Watch
+from saat.models import Acquisition, Case, Movement, Strap, Watch
+from saat.sellers import Seller
 from saat.storage import create_watch, load_collection
 from saat.ui.form_fields import (
     WaterResistanceField,
@@ -199,6 +200,40 @@ class WatchFormBuildTests(UITestCase):
         watch = form.saved_watch()
         self.assertIsNone(watch.acquisition.target_price)
         self.assertIsNone(watch.acquisition.target_date)
+
+    def test_seller_combo_offers_sellers_toml_names_and_existing_collection_values(self) -> None:
+        """SPEC.md §3/§4: same enum* pattern as group/style/etc — sellers.toml
+        entries plus every seller value already used in the collection."""
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Casio", model="F-91W", acquisition=Acquisition(seller="Collection Seller")))
+        records = load_collection(self.watches_dir)
+        sellers = [Seller(name="Toml Seller")]
+
+        form = WatchForm(records=records, record=None, sellers=sellers)
+        items = [form._seller.itemText(i) for i in range(form._seller.count())]
+        self.assertIn("Toml Seller", items)
+        self.assertIn("Collection Seller", items)
+
+    def test_seller_combo_still_accepts_free_text(self) -> None:
+        """SPEC.md §3: loose coupling — free text never requires a matching
+        sellers.toml entry."""
+        form = WatchForm(records=[], record=None, sellers=[Seller(name="Toml Seller")])
+        form._brand.setText("Seiko")
+        form._model.setText("SARB033")
+        form._seller.setCurrentText("A Brand New Shop")
+        form._on_save()
+
+        watch = form.saved_watch()
+        self.assertEqual(watch.acquisition.seller, "A Brand New Shop")
+
+    def test_manage_sellers_button_refreshes_the_combo_without_losing_typed_text(self) -> None:
+        form = WatchForm(records=[], record=None, sellers=[], manage_sellers=lambda: [Seller(name="Newly Added")])
+        form._seller.setCurrentText("Still Typing")
+
+        form._on_manage_sellers()
+
+        items = [form._seller.itemText(i) for i in range(form._seller.count())]
+        self.assertIn("Newly Added", items)
+        self.assertEqual(form._seller.currentText(), "Still Typing")
 
     def test_editing_preserves_worn_list_untouched(self) -> None:
         """The form has no worn-tracking UI (calendar-driven, milestone 7) —

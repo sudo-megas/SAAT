@@ -19,7 +19,9 @@ from saat.ui.collection_view import CollectionView
 from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
+from saat.sellers import load_sellers
 from saat.ui.main_window import MainWindow
+from saat.ui.sellers_dialog import SellersDialog
 from saat.ui.watch_form import WatchForm
 
 _app = QApplication.instance() or QApplication([])
@@ -284,6 +286,58 @@ class DeleteConfirmDialogTests(UITestCase):
 
         dialog._input.setText("SARB033")
         self.assertTrue(dialog._delete_button.isEnabled())
+
+
+class SellersIntegrationTests(UITestCase):
+    """End to end through a real MainWindow, with an explicit sellers_path
+    (a temp file) — the default sellers_path falls back to data_dir(),
+    which resolves to the source checkout in an unfrozen process, so tests
+    must isolate it explicitly the same way they already isolate
+    watches_dir/backups_dir/config, never relying on that fallback."""
+
+    def test_managing_sellers_updates_main_windows_own_list_and_persists(self) -> None:
+        sellers_file = self.tmp / "sellers.toml"
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config(), sellers_path=sellers_file)
+
+        def _fake_dialog_exec(self):
+            self._name.setText("Some Shop")
+            self._url.setText("https://example.com")
+            self._on_save()
+            return QDialog.DialogCode.Accepted
+
+        with patch.object(SellersDialog, "exec", _fake_dialog_exec):
+            updated = window._manage_sellers()
+
+        self.assertEqual([s.name for s in updated], ["Some Shop"])
+        self.assertEqual([s.name for s in window._sellers], ["Some Shop"])
+        self.assertEqual(load_sellers(sellers_file)[0].url, "https://example.com")
+
+    def test_a_newly_added_seller_is_selectable_on_the_watch_being_added(self) -> None:
+        """Full chain: manage sellers from the add form, pick the new
+        seller, save the watch, and it round-trips to disk."""
+        sellers_file = self.tmp / "sellers.toml"
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config(), sellers_path=sellers_file)
+        empty_state = window.centralWidget().currentWidget()
+
+        def _fake_dialog_exec(self):
+            self._name.setText("Some Shop")
+            self._on_save()
+            return QDialog.DialogCode.Accepted
+
+        def _exec(self):
+            self._brand.setText("Seiko")
+            self._model.setText("SARB033")
+            with patch.object(SellersDialog, "exec", _fake_dialog_exec):
+                self._on_manage_sellers()
+            self._seller.setCurrentText("Some Shop")
+            self._on_save()
+            return QDialog.DialogCode.Accepted
+
+        with patch.object(WatchForm, "exec", _exec):
+            empty_state.add_watch_requested.emit()
+
+        [record] = load_collection(self.watches_dir)
+        self.assertEqual(record.watch.acquisition.seller, "Some Shop")
 
 
 if __name__ == "__main__":

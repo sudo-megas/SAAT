@@ -64,6 +64,7 @@ saat/
 ├── saat/                      package: models, storage, ui
 ├── watches/                   THE DATA — ships empty
 │   └── _template.toml         commented blank template, skipped by the loader
+├── sellers.toml               seller directory — optional, created on first use
 ├── config.toml                window geometry, last view, column choices
 ├── backups/                   timestamped copies, pruned to the newest 20
 │   └── deleted/
@@ -101,6 +102,37 @@ Rules for the storage layer:
 - Images are files. Never base64, never embedded in TOML. The TOML stores filenames
   relative to that watch's `images/` folder.
 
+### Sellers
+
+`sellers.toml` lives in `data_dir()` beside `watches/` — **not** `config_dir()`. It is
+user-authored content that travels with the collection and falls under the same backup
+scheme as `watch.toml`, unlike `config.toml`, which is UI state. Ships absent; the app
+works normally without it and creates it only the first time the owner adds a seller
+through the manage-sellers dialog.
+
+One `[[seller]]` block per entry:
+
+```toml
+[[seller]]
+name = "Some Shop"
+url = "https://example.com"
+city = "Istanbul"
+notes = "Good prices on vintage Seiko"
+```
+
+`name` is required; `url`, `city` and `notes` are optional. Rebuilt fresh via `tomlkit`
+on every save, the same treatment `docs/schema.md` already documents for `watch.toml`'s
+own array-of-table sections (`straps`, `log`, `timing`) — no per-entry comment
+preservation, not a new pattern.
+
+**Loose coupling, deliberately.** A watch's `acquisition.seller` (§4) is always a plain
+string, never a reference into `sellers.toml`. There is no foreign key and no
+referential-integrity check — this project has no relational model, and adding one for
+a convenience directory would be exactly the abstraction-ahead-of-need §9 rules out.
+Deleting a `sellers.toml` entry must never orphan or alter a watch: the seller name stays
+on the watch exactly as typed, and only the ability to render it as a link (§5.6, when
+the name matches an entry that has a `url`) is lost.
+
 ### Git
 
 The code is version-controlled; **the collection is not**. Watch data contains serial
@@ -112,6 +144,7 @@ watches/*
 !watches/_template.toml
 !watches/.gitkeep
 config.toml
+sellers.toml
 backups/
 .venv/
 build/
@@ -208,7 +241,7 @@ and accepting free text. The owner will buy something you did not anticipate.
 | `target_price` | number | what it costs — distinct from `price`, never overloaded onto it. A wishlist watch's asking or expected price |
 | `target_date` | date | optional — when the owner hopes to buy |
 | `currency` | string | default TRY |
-| `seller` | string | |
+| `seller` | string | editable combo (§5.7); rendered as a link in the detail view (§5.6) when it matches a `sellers.toml` entry (§3) with a `url` |
 | `url` | string | opens in the system browser via `QDesktopServices` |
 | `condition` | enum | New, Pre-owned |
 | `box_and_papers` | bool | |
@@ -385,7 +418,11 @@ spends time.
 - Empty groups are hidden, not rendered as a list of dashes. A watch with only a brand
   and model shows a short page, and that is correct.
 - Straps render as small cards with their own photo, the fitted one marked.
-- Edit and Delete at the bottom. Delete requires typing the model name to confirm.
+- A watch's seller, in Acquisition, renders as a `QDesktopServices` link — the same
+  hand-off the acquisition URL already uses — when it matches a `sellers.toml` entry
+  (§3) that has a `url`. Plain text otherwise.
+- Edit and Delete at the bottom. Delete requires typing the model name to confirm. A
+  Wishlist watch additionally gets a one-click "Mark as Owned" action (§5.12).
 
 ### 5.7 Add / edit form
 A tabbed dialog mirroring the data model groups; the same dialog serves both operations.
@@ -395,6 +432,10 @@ A tabbed dialog mirroring the data model groups; the same dialog serves both ope
   separate labels.
 - The Movement tab swaps `power_reserve_hours` for `battery_life_years` and changes the
   accuracy unit when `kind` is Quartz or Solar.
+- The seller field is an enum*-style combo (§4): `sellers.toml` entries plus every
+  seller value already used in the collection, plus free text. A "Manage sellers…"
+  action beside it opens a small add/edit/delete dialog over `sellers.toml` (§3); typing
+  free text directly never touches that file.
 - The Images tab accepts drag-and-drop and a file picker, copies files into the watch's
   `images/`, generates thumbnails with Pillow, allows reordering and setting the primary.
 - Saving with only brand and model filled must succeed. Validation blocks nothing else.

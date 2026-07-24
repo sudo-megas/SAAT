@@ -37,6 +37,22 @@ def suggested_combo(suggestions: list[str], existing: list[str]) -> QComboBox:
     return combo
 
 
+def refresh_combo_options(combo: QComboBox, suggestions: list[str], existing: list[str]) -> None:
+    """Repopulates a suggested_combo's dropdown items in place, preserving
+    whatever text is currently typed/selected — for when the suggestion
+    source (e.g. sellers.toml, after the manage-sellers dialog closes)
+    changes while the combo is still open, without disturbing the user's
+    current entry."""
+    current_text = combo.currentText()
+    combo.blockSignals(True)
+    combo.clear()
+    options = list(dict.fromkeys([*suggestions, *existing]))
+    combo.addItem("")
+    combo.addItems(options)
+    combo.setCurrentText(current_text)
+    combo.blockSignals(False)
+
+
 def fixed_combo(options: list[str], allow_blank: bool = True) -> QComboBox:
     """A plain (non-suggested) enum field: a closed set, no free text."""
     combo = QComboBox()
