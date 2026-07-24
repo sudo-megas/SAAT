@@ -22,7 +22,7 @@ from saat.ui.calendar_stats import StatsView
 from saat.ui import icons
 from saat.ui.images import cropped_pixmap, first_image
 from saat.ui.month_grid import GridDay, WEEKDAY_LABELS, month_grid_days
-from saat.ui import theme
+from saat.ui import motion, theme
 from saat.ui.theme import SIZE_SM, SIZE_XS, resolve_fonts
 from saat.ui.watch_picker import WatchPicker
 from saat.ui.year_view import YearView
@@ -399,7 +399,7 @@ class CalendarView(QWidget):
         if self._emphasized_slug is None:
             return
         self._emphasized_slug = None
-        self._render()
+        motion.fade_transition(self._content_stack.currentWidget(), self._render)
 
     def _go_previous(self) -> None:
         if self._mode == _MODE_YEAR:
@@ -409,7 +409,7 @@ class CalendarView(QWidget):
             if self._month == 0:
                 self._month = 12
                 self._year -= 1
-        self._render()
+        motion.fade_transition(self._content_stack.currentWidget(), self._render)
 
     def _go_next(self) -> None:
         if self._mode == _MODE_YEAR:
@@ -419,32 +419,36 @@ class CalendarView(QWidget):
             if self._month == 13:
                 self._month = 1
                 self._year += 1
-        self._render()
+        motion.fade_transition(self._content_stack.currentWidget(), self._render)
 
     def _go_today(self) -> None:
         today = date.today()
         self._year = today.year
         if self._mode == _MODE_MONTH:
             self._month = today.month
-        self._render()
+        motion.fade_transition(self._content_stack.currentWidget(), self._render)
 
     def _on_month_combo_changed(self, index: int) -> None:
         month = index + 1
         if index >= 0 and month != self._month:
             self._month = month
-            self._render()
+            motion.fade_transition(self._content_stack.currentWidget(), self._render)
 
     def _on_year_spinbox_changed(self, value: int) -> None:
         if value != self._year:
             self._year = value
-            self._render()
+            motion.fade_transition(self._content_stack.currentWidget(), self._render)
 
     def _set_mode(self, mode: str) -> None:
         self._emphasized_slug = None  # SPEC.md §5.5: any mode change clears click-through emphasis
         self._mode = mode
         self._update_mode_buttons()
-        self._content_stack.setCurrentIndex({_MODE_MONTH: 0, _MODE_YEAR: 1, _MODE_STATS: 2}[mode])
-        self._render()
+
+        def _switch_and_render() -> None:
+            self._content_stack.setCurrentIndex({_MODE_MONTH: 0, _MODE_YEAR: 1, _MODE_STATS: 2}[mode])
+            self._render()
+
+        motion.fade_transition(self._content_stack, _switch_and_render)
 
     def _update_mode_buttons(self) -> None:
         self._month_button.setChecked(self._mode == _MODE_MONTH)

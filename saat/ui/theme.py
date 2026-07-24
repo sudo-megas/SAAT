@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from PySide6.QtCore import QEasingCurve
 from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
@@ -80,6 +81,12 @@ TABLE_ROW_PADDING = 12
 # SPEC.md §5.1 — left sidebar, ~260px, collapsible.
 SIDEBAR_WIDTH = 260
 SIDEBAR_COLLAPSED_WIDTH = 130
+
+# SPEC.md §6 — one duration, one easing curve, single-sourced so no view
+# scatters its own magic number. Only state CHANGES animate, never first
+# paint, and nothing here runs longer than ANIM_DURATION_MS.
+ANIM_DURATION_MS = 160
+ANIM_EASING = QEasingCurve.Type.InOutCubic
 
 FONT_SANS = "Ubuntu Sans"
 FONT_SANS_CONDENSED = "Ubuntu Sans Condensed"

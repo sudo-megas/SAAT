@@ -13,7 +13,7 @@ from saat.storage import WatchRecord
 from saat.ui.collection_summary import compute_collection_summary, compute_wishlist_summary
 from saat.ui.facets import Facet, VALUE_FACETS, is_not_worn_90d
 from saat.ui.formatting import fmt_price
-from saat.ui import icons
+from saat.ui import icons, motion
 from saat.ui.theme import GROUP_SPACING, SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH
 
 NOT_WORN_LABEL = "Not worn in 90 days"
@@ -232,4 +232,4 @@ class Sidebar(QWidget):
         self._toggle_button.setText("Show filters" if self._collapsed else "Hide filters")
         self._scroll.setVisible(not self._collapsed)
         self._summary_footer.setVisible(not self._collapsed)
-        self.setFixedWidth(SIDEBAR_COLLAPSED_WIDTH if self._collapsed else SIDEBAR_WIDTH)
+        motion.animate_width(self, SIDEBAR_COLLAPSED_WIDTH if self._collapsed else SIDEBAR_WIDTH)

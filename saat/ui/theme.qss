@@ -300,9 +300,10 @@ QFrame[class="watch-card"] {
     border-radius: 4px;
 }
 
-QFrame[class="watch-card"]:hover {
-    border-color: @gilt@;
-}
+/* Hover's border-color transition is painted by WatchCard.paintEvent (Python)
+   so it can be eased -- QSS has no transition primitive. No :hover rule here:
+   a second, instantly-swapping QSS border underneath would create a visible
+   seam against the animated one during the 160ms transition. */
 
 QFrame[class="watch-card"][cursor-focused="true"] {
     border: 2px solid @gilt@;

@@ -15,6 +15,7 @@ from saat.models import Acquisition, Movement, Watch
 from saat.storage import create_watch, load_collection
 from saat.ui.collection_view import CollectionView
 from saat.ui.sidebar import NOT_WORN_LABEL, Sidebar
+from saat.ui.theme import ANIM_DURATION_MS
 
 _app = QApplication.instance() or QApplication([])
 
@@ -78,6 +79,15 @@ class SidebarRenderingTests(UITestCase):
         self.assertEqual(sidebar._not_worn_checkbox.text(), f"{NOT_WORN_LABEL} (5)")
 
     def test_collapse_toggle_hides_facets_and_shrinks_width(self) -> None:
+        """Milestone 16d: the width change is now eased (theme.ANIM_DURATION_MS
+        via motion.animate_width), not instant — the visibility change is
+        still synchronous, but the final width needs the animation to land.
+        Driven via QPropertyAnimation.setCurrentTime() rather than QTest.qWait():
+        a real wall-clock wait pumps the whole app's posted-event queue, which
+        in a long-running unittest process can include stale deferred-delete
+        events for widgets other tests never let the event loop clean up --
+        setCurrentTime() advances only this animation, deterministically, with
+        no risk of draining that unrelated backlog."""
         create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033", style="Diver"))
         records = load_collection(self.watches_dir)
         sidebar = Sidebar(records)
@@ -86,10 +96,12 @@ class SidebarRenderingTests(UITestCase):
 
         sidebar._toggle_button.click()
         self.assertTrue(sidebar._scroll.isHidden())
+        sidebar._width_animation.setCurrentTime(ANIM_DURATION_MS)
         self.assertLess(sidebar.width(), expanded_width)
 
         sidebar._toggle_button.click()
         self.assertFalse(sidebar._scroll.isHidden())
+        sidebar._width_animation.setCurrentTime(ANIM_DURATION_MS)
         self.assertEqual(sidebar.width(), expanded_width)
 
     def test_toggle_button_stays_pinned_to_the_top_while_collapsed(self) -> None:

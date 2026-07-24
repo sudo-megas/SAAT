@@ -8,13 +8,21 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+from PySide6.QtCore import QAbstractAnimation, QEvent, QPoint
+from PySide6.QtGui import QColor, QEnterEvent
 from PySide6.QtWidgets import QApplication, QLabel
 
 from saat.models import Acquisition, LogEntry, Maintenance, Watch
 from saat.storage import create_watch, load_collection
+from saat.ui import theme
 from saat.ui.cards import WatchCard, _MaintenanceDueDot
+from saat.ui.theme import ANIM_DURATION_MS
 
 _app = QApplication.instance() or QApplication([])
+
+
+def _close(a: QColor, b: QColor, tolerance: int = 30) -> bool:
+    return abs(a.red() - b.red()) + abs(a.green() - b.green()) + abs(a.blue() - b.blue()) < tolerance
 
 
 def _hover(card: WatchCard, entering: bool) -> None:
@@ -23,6 +31,25 @@ def _hover(card: WatchCard, entering: bool) -> None:
     same state+recompute the handlers themselves call."""
     card._hovering = entering
     card._update_overlay_visibility()
+
+
+def _enter(card: WatchCard) -> None:
+    """The real enterEvent, unlike _hover() above, needs an actual
+    QEnterEvent — it's what's under test in WatchCardHoverBorderAnimationTests
+    below, so unlike _hover() it can't be shortcut."""
+    pos = QPoint(10, 10)
+    card.enterEvent(QEnterEvent(pos, pos, card.mapToGlobal(pos)))
+
+
+def _leave(card: WatchCard) -> None:
+    card.leaveEvent(QEvent(QEvent.Type.Leave))
+
+
+def _border_pixel(card: WatchCard) -> QColor:
+    """Top edge, inset past the rounded corner -- the one place the 1px
+    border is guaranteed to be a solid, unaliased run of its full color."""
+    image = card.grab().toImage()
+    return image.pixelColor(image.width() // 2, 0)
 
 
 class WatchCardMaintenanceDotTests(unittest.TestCase):
@@ -199,6 +226,64 @@ class WatchCardWishlistPresentationTests(unittest.TestCase):
         card = WatchCard(record)
         self.assertIsNone(card._wore_today_bar)
         self.assertEqual([label for label in card.findChildren(QLabel) if label.property("class") == "card-wishlist-info-bar"], [])
+
+
+class WatchCardHoverBorderAnimationTests(unittest.TestCase):
+    """Milestone 16d (SPEC.md §6 motion): the card border eases between
+    rule@ and gilt@ on hover rather than snapping — QSS has no transition
+    primitive, so WatchCard.paintEvent draws this border itself, driven by
+    a QVariantAnimation. Driven via setCurrentTime(), not QTest.qWait(): see
+    tests/test_sidebar.py's width test for why a real wait is avoided here."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-card-hover-border-test-"))
+        self.watches_dir = self.tmp / "watches"
+        self.backups_dir = self.tmp / "backups"
+        self.watches_dir.mkdir()
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        [self.record] = load_collection(self.watches_dir)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_border_is_rule_colored_at_rest(self) -> None:
+        card = WatchCard(self.record)
+        card.show()
+        self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().rule)))
+
+    def test_entering_hover_starts_an_animation_toward_gilt(self) -> None:
+        card = WatchCard(self.record)
+        card.show()
+        _enter(card)
+        self.assertEqual(card._border_animation.state(), QAbstractAnimation.State.Running)
+        self.assertEqual(QColor(card._border_animation.endValue()), QColor(theme.colors().gilt))
+
+    def test_border_reaches_gilt_once_the_hover_animation_completes(self) -> None:
+        card = WatchCard(self.record)
+        card.show()
+        _enter(card)
+        card._border_animation.setCurrentTime(ANIM_DURATION_MS)
+        self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().gilt)))
+
+    def test_leaving_hover_animates_the_border_back_to_rule(self) -> None:
+        card = WatchCard(self.record)
+        card.show()
+        _enter(card)
+        card._border_animation.setCurrentTime(ANIM_DURATION_MS)
+        _leave(card)
+        card._border_animation.setCurrentTime(ANIM_DURATION_MS)
+        self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().rule)))
+
+    def test_cursor_focused_hover_does_not_crash_and_still_paints(self) -> None:
+        """Cursor-focus's own 2px gilt@ QSS border wins outright (see
+        paintEvent) -- this just guards the early-return path against
+        raising when both states are true at once, not its exact pixels."""
+        card = WatchCard(self.record)
+        card.setProperty("cursor-focused", True)
+        card.show()
+        _enter(card)
+        card._border_animation.setCurrentTime(ANIM_DURATION_MS)
+        card.grab()  # must not raise
 
 
 if __name__ == "__main__":

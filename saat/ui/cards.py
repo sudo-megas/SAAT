@@ -1,11 +1,11 @@
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtCore import QAbstractAnimation, QRectF, Qt, QVariantAnimation, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from saat.models import Watch
 from saat.storage import WatchRecord
 from saat.ui.formatting import EM_DASH, fmt_price
-from saat.ui import icons
+from saat.ui import icons, theme
 from saat.ui.images import cropped_pixmap, first_image
 from saat.ui.maintenance import is_maintenance_due
 
@@ -65,6 +65,18 @@ class WatchCard(QFrame):
         self._checkbox: QCheckBox | None = None
         self._wore_today_bar: QWidget | None = None
 
+        # Eased border-colour hover (SPEC.md §6 motion): QSS has no transition
+        # primitive, so the rule@->gilt@ hover swap is repainted by hand. The
+        # animation only holds a snapshot color while actively running; at
+        # rest (the common case) paintEvent reads theme.colors() live, same
+        # as every other themed element here, so it self-corrects on a theme
+        # toggle without a dedicated refresh hook.
+        self._border_color: QColor | None = None
+        self._border_animation = QVariantAnimation(self)
+        self._border_animation.setDuration(theme.ANIM_DURATION_MS)
+        self._border_animation.setEasingCurve(theme.ANIM_EASING)
+        self._border_animation.valueChanged.connect(self._on_border_color_changed)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -95,11 +107,13 @@ class WatchCard(QFrame):
 
     def enterEvent(self, event) -> None:
         self._hovering = True
+        self._animate_border_to(theme.colors().gilt)
         self._update_overlay_visibility()
         super().enterEvent(event)
 
     def leaveEvent(self, event) -> None:
         self._hovering = False
+        self._animate_border_to(theme.colors().rule)
         self._update_overlay_visibility()
         super().leaveEvent(event)
 
@@ -108,6 +122,38 @@ class WatchCard(QFrame):
             self._checkbox.setVisible(self._hovering or self._checkbox.isChecked())
         if self._wore_today_bar is not None:
             self._wore_today_bar.setVisible(self._hovering)
+
+    def _animate_border_to(self, target_hex: str) -> None:
+        current = self._border_color if self._border_color is not None else QColor(theme.colors().rule)
+        self._border_animation.stop()
+        self._border_animation.setStartValue(current)
+        self._border_animation.setEndValue(QColor(target_hex))
+        self._border_animation.start()
+
+    def _on_border_color_changed(self, value: QColor) -> None:
+        self._border_color = QColor(value)
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        # Cursor-focus (keyboard grid navigation) already draws its own 2px
+        # gilt@ border in QSS -- that state wins outright, undiminished by
+        # whatever hover border color this card happens to be mid-animating.
+        if self.property("cursor-focused"):
+            return
+
+        if self._border_animation.state() == QAbstractAnimation.State.Running:
+            color = self._border_color if self._border_color is not None else QColor(theme.colors().rule)
+        else:
+            color = QColor(theme.colors().gilt if self._hovering else theme.colors().rule)
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(color)
+        pen.setWidthF(1.0)
+        painter.setPen(pen)
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        painter.drawRoundedRect(rect, 4, 4)
 
     def _build_image(self, record: WatchRecord, compare_selected: bool) -> QWidget:
         image_path = first_image(record)

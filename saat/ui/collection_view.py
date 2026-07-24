@@ -9,6 +9,7 @@ from saat.ui.compare import MAX_COMPARE
 from saat.ui.facets import VALUE_FACETS, is_not_worn_90d
 from saat.ui.filtering import NOT_WORN_FACET_KEY, FilterState, passes
 from saat.ui.grid_view import GridView
+from saat.ui import motion
 from saat.ui.sidebar import Sidebar
 from saat.ui.table_view import TableView
 from saat.ui.top_bar import (
@@ -187,7 +188,7 @@ class CollectionView(QWidget):
 
     def _on_view_changed(self, view: str) -> None:
         widget = {VIEW_GRID: self._grid_view, VIEW_TABLE: self._table_view, VIEW_CALENDAR: self._calendar_view}[view]
-        self._stack.setCurrentWidget(widget)
+        motion.fade_transition(self._stack, lambda: self._stack.setCurrentWidget(widget))
         if view == VIEW_CALENDAR:
             self._calendar_view.focus_grid()
         else:

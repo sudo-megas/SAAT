@@ -17,6 +17,7 @@ from saat.ui.compare_view import CompareView
 from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
+from saat.ui import motion
 from saat.ui.sellers_dialog import SellersDialog
 from saat.ui import theme
 from saat.ui.top_bar import SCOPE_WISHLIST
@@ -118,33 +119,39 @@ class MainWindow(QMainWindow):
             self._stack.setCurrentWidget(empty_state)
 
     def _show_detail(self, record: WatchRecord) -> None:
-        if self._detail_view is not None:
-            self._stack.removeWidget(self._detail_view)
-            self._detail_view.deleteLater()
+        def _apply() -> None:
+            if self._detail_view is not None:
+                self._stack.removeWidget(self._detail_view)
+                self._detail_view.deleteLater()
 
-        self._detail_view = DetailView(record, self._current_records(), self, sellers=self._sellers)
-        self._detail_view.back_requested.connect(self._show_collection)
-        self._detail_view.edit_requested.connect(self._show_edit_form)
-        self._detail_view.delete_requested.connect(self._show_delete_confirm)
-        self._detail_view.wore_today_requested.connect(self._on_wore_today)
-        self._detail_view.move_to_owned_requested.connect(self._on_move_to_owned)
-        self._stack.addWidget(self._detail_view)
-        self._stack.setCurrentWidget(self._detail_view)
+            self._detail_view = DetailView(record, self._current_records(), self, sellers=self._sellers)
+            self._detail_view.back_requested.connect(self._show_collection)
+            self._detail_view.edit_requested.connect(self._show_edit_form)
+            self._detail_view.delete_requested.connect(self._show_delete_confirm)
+            self._detail_view.wore_today_requested.connect(self._on_wore_today)
+            self._detail_view.move_to_owned_requested.connect(self._on_move_to_owned)
+            self._stack.addWidget(self._detail_view)
+            self._stack.setCurrentWidget(self._detail_view)
+
+        motion.fade_transition(self._stack, _apply)
 
     def _show_collection(self) -> None:
         if self._collection_view is not None:
-            self._stack.setCurrentWidget(self._collection_view)
+            motion.fade_transition(self._stack, lambda: self._stack.setCurrentWidget(self._collection_view))
 
     def _show_compare(self, records: list[WatchRecord]) -> None:
-        if self._compare_view is not None:
-            self._stack.removeWidget(self._compare_view)
-            self._compare_view.deleteLater()
+        def _apply() -> None:
+            if self._compare_view is not None:
+                self._stack.removeWidget(self._compare_view)
+                self._compare_view.deleteLater()
 
-        scope = self._collection_view.current_scope() if self._collection_view is not None else None
-        self._compare_view = CompareView(records, self, is_wishlist=(scope == SCOPE_WISHLIST))
-        self._compare_view.back_requested.connect(self._show_collection)
-        self._stack.addWidget(self._compare_view)
-        self._stack.setCurrentWidget(self._compare_view)
+            scope = self._collection_view.current_scope() if self._collection_view is not None else None
+            self._compare_view = CompareView(records, self, is_wishlist=(scope == SCOPE_WISHLIST))
+            self._compare_view.back_requested.connect(self._show_collection)
+            self._stack.addWidget(self._compare_view)
+            self._stack.setCurrentWidget(self._compare_view)
+
+        motion.fade_transition(self._stack, _apply)
 
     def _current_records(self) -> list[WatchRecord]:
         return self._collection_view.records if self._collection_view is not None else []
