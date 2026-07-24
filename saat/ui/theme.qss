@@ -11,6 +11,10 @@ QMainWindow {
     background: @plate@;
 }
 
+QDialog, QMessageBox {
+    background: @plate-high@;
+}
+
 QLabel {
     background: transparent;
 }
@@ -68,6 +72,12 @@ QPushButton[variant="primary"]:pressed {
     color: @text@;
 }
 
+QPushButton[variant="primary"]:disabled {
+    background: @plate@;
+    color: @text-muted@;
+    border-color: @rule@;
+}
+
 QPushButton[variant="link"] {
     background: transparent;
     color: @text-muted@;
@@ -83,6 +93,11 @@ QPushButton[variant="link"]:hover {
 
 QPushButton[variant="link"]:focus {
     color: @gilt@;
+}
+
+QPushButton[variant="link"]:disabled {
+    color: @text-muted@;
+    text-decoration: none;
 }
 
 QPushButton[variant="destructive"] {
@@ -110,22 +125,33 @@ QLineEdit {
     padding: 6px 8px;
     selection-background-color: @gilt@;
     selection-color: @plate@;
+    placeholder-text-color: @text-muted@;
 }
 
 QLineEdit:focus {
     border-color: @gilt@;
 }
 
+QLineEdit:disabled {
+    background: @plate@;
+    color: @text-muted@;
+    border-color: @rule@;
+}
+
 QScrollBar:vertical {
     background: @plate@;
-    width: 12px;
+    width: 6px;
     margin: 0;
+}
+
+QScrollBar:vertical:hover {
+    width: 10px;
 }
 
 QScrollBar::handle:vertical {
     background: @rule@;
     min-height: 24px;
-    border-radius: 5px;
+    border-radius: 3px;
 }
 
 QScrollBar::handle:vertical:hover {
@@ -138,14 +164,18 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 
 QScrollBar:horizontal {
     background: @plate@;
-    height: 12px;
+    height: 6px;
     margin: 0;
+}
+
+QScrollBar:horizontal:hover {
+    height: 10px;
 }
 
 QScrollBar::handle:horizontal {
     background: @rule@;
     min-width: 24px;
-    border-radius: 5px;
+    border-radius: 3px;
 }
 
 QScrollBar::handle:horizontal:hover {
@@ -154,6 +184,11 @@ QScrollBar::handle:horizontal:hover {
 
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0;
+}
+
+QScrollBar::corner {
+    background: @plate@;
+    border: none;
 }
 
 QWidget[class="top-bar"] {
@@ -236,6 +271,27 @@ QComboBox QAbstractItemView {
     selection-background-color: @rule@;
     selection-color: @text@;
     outline: none;
+}
+
+QListWidget {
+    background: @plate-high@;
+    color: @text@;
+    border: 1px solid @rule@;
+    border-radius: 3px;
+    outline: none;
+}
+
+QListWidget::item {
+    padding: 6px 8px;
+}
+
+QListWidget::item:selected {
+    background: @rule@;
+    color: @text@;
+}
+
+QListWidget::item:hover:!selected {
+    background: @plate@;
 }
 
 QFrame[class="watch-card"] {
@@ -350,6 +406,27 @@ QMenu::item {
 
 QMenu::item:selected {
     background: @rule@;
+}
+
+QMenu::indicator {
+    width: 14px;
+    height: 14px;
+    margin-left: 4px;
+    border: 1px solid @rule@;
+    border-radius: 3px;
+    background: @plate-high@;
+}
+
+QMenu::indicator:checked {
+    background: @gilt@;
+    border-color: @gilt@;
+}
+
+QToolTip {
+    background: @plate-high@;
+    color: @text@;
+    border: 1px solid @rule@;
+    padding: 4px 8px;
 }
 
 QLabel[class="detail-overline"] {
@@ -482,6 +559,10 @@ QTabBar::tab:hover:!selected {
     color: @text@;
 }
 
+QTabBar::tab:disabled {
+    color: @rule@;
+}
+
 QFrame[class="form-list-row"] {
     background: @plate-high@;
     border: 1px solid @rule@;
@@ -502,6 +583,93 @@ QDoubleSpinBox:focus, QSpinBox:focus, QDateEdit:focus {
 
 QDoubleSpinBox:disabled, QSpinBox:disabled, QDateEdit:disabled {
     color: @text-muted@;
+}
+
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 16px;
+    border-left: 1px solid @rule@;
+    border-bottom: 1px solid @rule@;
+    background: @plate@;
+}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 16px;
+    border-left: 1px solid @rule@;
+    background: @plate@;
+}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+    background: @rule@;
+}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-bottom: 4px solid @text-muted@;
+}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid @text-muted@;
+}
+
+QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled {
+    border-bottom-color: @rule@;
+}
+
+QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled {
+    border-top-color: @rule@;
+}
+
+/* QDateEdit's popup calendar (setCalendarPopup(True), form_fields.py) — a
+   QCalendarWidget with no selector of its own would otherwise render with
+   native OS chrome, a hard break from the plate palette. */
+QCalendarWidget QWidget {
+    background: @plate-high@;
+    color: @text@;
+}
+
+QCalendarWidget QToolButton {
+    background: transparent;
+    color: @text@;
+    border: none;
+    border-radius: 3px;
+    padding: 4px 8px;
+    font-weight: 600;
+}
+
+QCalendarWidget QToolButton:hover {
+    background: @rule@;
+}
+
+QCalendarWidget QToolButton::menu-indicator {
+    image: none;
+}
+
+QCalendarWidget QSpinBox {
+    background: @plate-high@;
+    color: @text@;
+    border: 1px solid @rule@;
+    border-radius: 3px;
+}
+
+QCalendarWidget QAbstractItemView {
+    background: @plate-high@;
+    color: @text@;
+    selection-background-color: @gilt@;
+    selection-color: @plate@;
+    gridline-color: @rule@;
+    outline: none;
 }
 
 QPlainTextEdit {
@@ -534,6 +702,15 @@ QCheckBox::indicator:checked {
 QCheckBox::indicator:indeterminate {
     background: @plate-high@;
     border-color: @text-muted@;
+}
+
+QCheckBox::indicator:disabled {
+    background: @plate@;
+    border-color: @rule@;
+}
+
+QCheckBox:disabled {
+    color: @text-muted@;
 }
 
 /* Qt QSS does not match ::indicator:focus (a sub-control + pseudo-state

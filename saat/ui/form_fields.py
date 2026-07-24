@@ -2,10 +2,12 @@ from collections.abc import Callable
 from datetime import date
 
 from PySide6.QtCore import QDate, Qt, Signal
+from PySide6.QtGui import QColor, QTextCharFormat
 from PySide6.QtWidgets import QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QHBoxLayout, QSpinBox, QWidget
 
 from saat.models import Watch
 from saat.storage import WatchRecord
+from saat.ui import theme
 from saat.ui.formatting import EM_DASH
 
 SENTINEL_DATE = QDate(1901, 1, 1)  # below any real watch-collection date; means "unset"
@@ -119,7 +121,24 @@ def optional_date_edit() -> QDateEdit:
     edit.setMinimumDate(SENTINEL_DATE)
     edit.setSpecialValueText(EM_DASH)
     edit.setDate(SENTINEL_DATE)
+    _mute_calendar_weekday_colors(edit.calendarWidget())
     return edit
+
+
+def _mute_calendar_weekday_colors(calendar) -> None:
+    """QCalendarWidget assigns each weekday column its own hard-coded
+    QTextCharFormat colour (a Qt default, e.g. red weekends) via a model
+    role that a stylesheet's `color` property can't reach -- left alone,
+    the popup shows a rainbow no matter what theme.qss says. Flatten every
+    weekday to the plate palette's one text colour instead."""
+    fmt = QTextCharFormat()
+    fmt.setForeground(QColor(theme.colors().text))
+    for day in (
+        Qt.DayOfWeek.Monday, Qt.DayOfWeek.Tuesday, Qt.DayOfWeek.Wednesday,
+        Qt.DayOfWeek.Thursday, Qt.DayOfWeek.Friday, Qt.DayOfWeek.Saturday,
+        Qt.DayOfWeek.Sunday,
+    ):
+        calendar.setWeekdayTextFormat(day, fmt)
 
 
 def date_value(edit: QDateEdit) -> date | None:
