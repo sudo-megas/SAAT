@@ -43,8 +43,14 @@ Non-negotiable. Do not improve past them.
    locations.
 3. **No database.** No SQLite, no ORM, no embedded server. Storage is plain files.
 4. **No network.** No API calls, no image fetching, no update checks, no telemetry. The
-   app never opens a socket. The single exception is handing a URL to the system browser
-   on explicit user click, which is a hand-off, not a request.
+   app never opens a network socket. The single exception is handing a URL to the system
+   browser on explicit user click, which is a hand-off, not a request. A second, narrower
+   exception, added in milestone 18: local-only IPC (`QLocalServer`/`QLocalSocket`, an
+   AF_UNIX socket on Linux) for single-instance enforcement — one process on this machine
+   signalling another, already running against the same `data_dir()`, to raise its window.
+   Nothing routable, nothing leaving the host; this is not the network the rule bans, it
+   exists so two launches against one collection cannot both write `watch.toml` files at
+   once.
 5. **Three dependencies:** `PySide6`, `tomlkit`, `Pillow`. Anything else needs written
    justification in the commit message.
 6. **Python 3.11+, PySide6 (Qt 6), native widgets.** No webview, no QtWebEngine, no HTML

@@ -58,6 +58,18 @@ class MainWindow(QMainWindow):
         self._load_and_show_collection()
         self._install_shortcuts()
 
+    def bring_to_front(self) -> None:
+        """Raise and focus this window regardless of its current state --
+        hidden, minimized, or merely behind another window. Used by a second
+        launch signalling the first instance (single_instance.py) and,
+        later, by the tray icon's own restore actions."""
+        if self.isMinimized():
+            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
+        if not self.isVisible():
+            self.show()
+        self.raise_()
+        self.activateWindow()
+
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         # The image viewer is a raised sibling of the QStackedWidget, not a

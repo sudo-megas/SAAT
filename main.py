@@ -20,7 +20,8 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from saat.config import Config
-from saat.paths import resource_dir
+from saat.paths import data_dir, resource_dir
+from saat.single_instance import SingleInstanceGuard
 from saat.ui.main_window import MainWindow
 from saat.ui.theme import MODE_DARK, apply_theme, load_bundled_fonts
 
@@ -30,12 +31,20 @@ def main() -> int:
     app.setApplicationName("SAAT")
     app.setWindowIcon(QIcon(str(resource_dir() / "resources" / "icon" / "saat.png")))
 
+    guard = SingleInstanceGuard(data_dir())
+    if not guard.try_become_primary():
+        # Another instance already owns this data_dir() and has been
+        # signalled to raise itself -- exit silently, no error dialog.
+        return 0
+
     load_bundled_fonts()
 
     config = Config()
     apply_theme(app, config.theme_mode() or MODE_DARK)
 
     window = MainWindow(config=config)
+    guard.raise_requested.connect(window.bring_to_front)
+    app.aboutToQuit.connect(guard.close)
     window.show()
 
     return app.exec()
