@@ -2,7 +2,7 @@ import zlib
 from datetime import date
 
 from PySide6.QtCore import QRect, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent
+from PySide6.QtGui import QColor, QFont, QPaintEvent, QPainter
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 
 from saat.storage import WatchRecord
@@ -13,6 +13,7 @@ from saat.ui.theme import SIZE_XS, resolve_fonts
 YEAR_CELL_SIZE = 9
 YEAR_CELL_GAP = 2
 YEAR_MONTH_LABEL_HEIGHT = 16
+COLOR_SWATCH_HEIGHT = 4
 
 
 def slug_chip_saturation_value() -> tuple[int, int]:
@@ -30,6 +31,27 @@ def slug_color(slug: str) -> QColor:
     hue = zlib.crc32(slug.encode("utf-8")) % 360
     saturation, value = slug_chip_saturation_value()
     return QColor.fromHsv(hue, saturation, value)
+
+
+class SlugColorBar(QWidget):
+    """A thin per-watch colour bar, reusing slug_color() — links whatever it
+    sits under to the same hue used everywhere else this watch (or its
+    comparison against others) is shown: compare-view column headers, and
+    now the identity accent on a watch's own detail page (SPEC.md §6:
+    identity, never state — never on grid cards or hover, which milestone
+    16 already owns)."""
+
+    def __init__(self, slug: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._slug = slug
+        self.setFixedHeight(COLOR_SWATCH_HEIGHT)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(slug_color(self._slug))
+        painter.drawRect(self.rect())
+        painter.end()
 
 
 class _YearMonthBlock(QWidget):

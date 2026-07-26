@@ -27,8 +27,9 @@ from saat.ui.strap_compat import CompatibleStrap, compatible_straps
 from saat.ui import icons, theme
 from saat.ui.theme import GROUP_SPACING, PAGE_MARGIN, SIZE_XS, resolve_fonts
 from saat.ui.wear_stats import days_since_worn, last_worn, longest_streak, times_worn_this_year
+from saat.ui.year_view import SlugColorBar
 
-PRIMARY_IMAGE_MAX = (480, 600)
+PRIMARY_IMAGE_MAX = (640, 800)
 THUMB_SIZE = 72
 STRAP_PHOTO_SIZE = 56
 MONTH_BLOCK_WIDTH = 56
@@ -587,7 +588,8 @@ def build_wear_section(watch: Watch) -> QWidget | None:
     return container
 
 
-def _build_header(watch: Watch) -> QWidget:
+def _build_header(record: WatchRecord) -> QWidget:
+    watch = record.watch
     container = QWidget()
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
@@ -604,6 +606,13 @@ def _build_header(watch: Watch) -> QWidget:
     title.setProperty("class", "detail-title")
     title.setWordWrap(True)
     layout.addWidget(title)
+
+    # SPEC.md §6: one hairline identity-colour accent per detail page, this
+    # watch's slug_color() -- the same hue the compare view and year view
+    # already use for it, just marking identity here rather than linking it
+    # to other watches. Identity, never state: unrelated to grid cards or
+    # hover, which milestone 16 already owns.
+    layout.addWidget(SlugColorBar(record.slug))
 
     meta_parts = []
     if watch.reference:
@@ -634,6 +643,59 @@ def _build_header(watch: Watch) -> QWidget:
         layout.addWidget(serial)
 
     return container
+
+
+# --- Hero: primary image composed with the brand/model header --------------
+
+HERO_TEXT_MIN_WIDTH = 320
+HERO_TEXT_MAX_WIDTH = 560  # a composed measure, not a column stretched edge-to-edge on a wide window
+HERO_TWO_COLUMN_THRESHOLD = PRIMARY_IMAGE_MAX[0] + GROUP_SPACING + HERO_TEXT_MIN_WIDTH
+
+
+class HeroSection(QWidget):
+    """The detail page's opening composition: the primary photo as the
+    page's subject, composed beside the brand/model header rather than
+    stacked above it as a separate, generic block — image on the left, the
+    text column vertically centred beside it, once there's room for both;
+    image on top, text beneath, when narrower. Same resize-driven idiom
+    SpecGroupsContainer already uses for its own column switch, just with
+    this section's own threshold. See SPEC.md §5.6."""
+
+    def __init__(self, record: WatchRecord, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.gallery = ImageGallery(record)
+        self._header = _build_header(record)
+        self._layout = QGridLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setHorizontalSpacing(GROUP_SPACING)
+        self._layout.setVerticalSpacing(GROUP_SPACING)
+        self._columns: int | None = None
+        self._relayout()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._relayout()
+
+    def _relayout(self) -> None:
+        columns = 2 if self.width() >= HERO_TWO_COLUMN_THRESHOLD else 1
+        if columns == self._columns:
+            return
+        self._columns = columns
+
+        self._layout.removeWidget(self.gallery)
+        self._layout.removeWidget(self._header)
+        if columns == 2:
+            self._header.setMaximumWidth(HERO_TEXT_MAX_WIDTH)
+            self._layout.addWidget(self.gallery, 0, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+            self._layout.addWidget(self._header, 0, 1, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+            self._layout.setColumnStretch(0, 0)
+            self._layout.setColumnStretch(1, 1)
+        else:
+            self._header.setMaximumWidth(16777215)  # Qt's own QWIDGETSIZE_MAX -- lift the two-column cap back off
+            self._layout.addWidget(self.gallery, 0, 0, Qt.AlignmentFlag.AlignLeft)
+            self._layout.addWidget(self._header, 1, 0)
+            self._layout.setColumnStretch(0, 1)
+            self._layout.setColumnStretch(1, 0)
 
 
 class DetailView(QScrollArea):
@@ -684,10 +746,9 @@ class DetailView(QScrollArea):
             maintenance_line.setProperty("class", "maintenance-due-line")
             layout.addWidget(maintenance_line)
 
-        layout.addWidget(_build_header(watch))
-        gallery = ImageGallery(record)
-        gallery.image_activated.connect(lambda index: self.image_viewer_requested.emit(gallery.images, index))
-        layout.addWidget(gallery)
+        hero = HeroSection(record)
+        hero.gallery.image_activated.connect(lambda index: self.image_viewer_requested.emit(hero.gallery.images, index))
+        layout.addWidget(hero)
 
         wear_section = build_wear_section(watch)
         if wear_section is not None:

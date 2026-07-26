@@ -15,7 +15,9 @@ from saat.models import Acquisition, Case, Dial, LogEntry, Maintenance, Movement
 from saat.sellers import Seller
 from saat.storage import create_watch, load_collection, save_watch
 from saat.ui.detail_view import (
+    HERO_TEXT_MAX_WIDTH,
     DetailView,
+    HeroSection,
     ImageGallery,
     SpecGroupsContainer,
     _acquisition_rows,
@@ -265,6 +267,41 @@ class StrapCompatibilityTests(unittest.TestCase):
 def _fake_record(watch: Watch):
     from saat.storage import WatchRecord
     return WatchRecord(slug="fake", path=Path("/nonexistent"), watch=watch)
+
+
+class HeroSectionTests(unittest.TestCase):
+    """SPEC.md §5.6: the hero's image+header composition switches between a
+    side-by-side and a stacked layout the same resize-driven way
+    SpecGroupsContainer already does for spec groups, just with its own
+    width threshold (image width + spacing + a readable text column)."""
+
+    def _hero(self) -> HeroSection:
+        return HeroSection(_fake_record(Watch(brand="Seiko", model="SARB033")))
+
+    def test_narrow_width_stacks_image_above_text(self) -> None:
+        hero = self._hero()
+        hero.resize(700, 900)
+        hero._relayout()
+        self.assertEqual(hero._columns, 1)
+        self.assertIsNotNone(hero._layout.itemAtPosition(1, 0))
+        self.assertIsNone(hero._layout.itemAtPosition(0, 1))
+
+    def test_wide_width_places_image_beside_text(self) -> None:
+        hero = self._hero()
+        hero.resize(1200, 900)
+        hero._relayout()
+        self.assertEqual(hero._columns, 2)
+        self.assertIsNotNone(hero._layout.itemAtPosition(0, 1))
+
+    def test_text_column_width_is_capped_only_in_two_column_mode(self) -> None:
+        hero = self._hero()
+        hero.resize(1200, 900)
+        hero._relayout()
+        self.assertEqual(hero._header.maximumWidth(), HERO_TEXT_MAX_WIDTH)
+
+        hero.resize(700, 900)
+        hero._relayout()
+        self.assertGreater(hero._header.maximumWidth(), HERO_TEXT_MAX_WIDTH)
 
 
 class SpecGroupsContainerTests(unittest.TestCase):

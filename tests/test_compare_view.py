@@ -12,10 +12,10 @@ from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 from saat.models import Case, Watch
 from saat.storage import create_watch, load_collection
 from saat.ui.case_silhouette import _TopDownSilhouette
-from saat.ui.compare_view import CompareView, _ColorSwatchBar
+from saat.ui.compare_view import CompareView
 from saat.ui.dimension_bars import _DimensionBarCell
 from saat.ui.minute_track import MinuteTrackHeader
-from saat.ui.year_view import slug_color
+from saat.ui.year_view import SlugColorBar, slug_color
 
 _app = QApplication.instance() or QApplication([])
 
@@ -90,7 +90,7 @@ class CompareViewTests(unittest.TestCase):
         records = load_collection(self.watches_dir)
 
         view = CompareView(records)
-        swatches = view.findChildren(_ColorSwatchBar)
+        swatches = view.findChildren(SlugColorBar)
         self.assertEqual(len(swatches), 2)
         self.assertEqual({s._slug for s in swatches}, {r.slug for r in records})
         for swatch in swatches:

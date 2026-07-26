@@ -2,14 +2,20 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication
 
+from saat.models import Watch
+from saat.storage import create_watch, load_collection
 from saat.ui import theme
+from saat.ui.detail_view import DetailView
 from saat.ui.theme import MODE_DARK, MODE_LIGHT
-from saat.ui.year_view import slug_chip_saturation_value
+from saat.ui.year_view import SlugColorBar, slug_chip_saturation_value, slug_color
 
 _app = QApplication.instance() or QApplication([])
 
@@ -140,6 +146,48 @@ class SlugChipContrastTests(unittest.TestCase):
                 worst = min(_contrast_ratio(chip, bg) for bg in backgrounds)
                 if worst < 3.0:
                     self.fail(f"hue={hue} sat={saturation} val={value} ({chip}) in {mode}: {worst:.2f}:1")
+
+
+class DetailViewIdentityAccentContrastTests(unittest.TestCase):
+    """SPEC.md §6: the detail page's identity-colour hairline (SlugColorBar,
+    beneath the title) reuses slug_color() -- already checked exhaustively
+    over all 360 hues by SlugChipContrastTests above, but that test only
+    ever exercises the colour math in isolation, never a real rendered
+    widget. This renders an actual DetailView, samples the bar's own pixel,
+    and confirms it's genuinely slug_color() (not some other value) and
+    genuinely clears 3:1 against the background it actually sits on."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-identity-accent-test-"))
+        self.watches_dir = self.tmp / "watches"
+        self.backups_dir = self.tmp / "backups"
+        self.watches_dir.mkdir()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        theme.set_mode(MODE_DARK)
+
+    def test_identity_bar_renders_the_watchs_slug_colour_at_3_to_1_in_both_modes(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        [record] = load_collection(self.watches_dir)
+
+        for mode in (MODE_DARK, MODE_LIGHT):
+            theme.set_mode(mode)
+            view = DetailView(record)
+            view.resize(1200, 900)
+            view.show()
+            QApplication.processEvents()
+
+            bar = view.findChild(SlugColorBar)
+            self.assertIsNotNone(bar)
+            sampled = bar.grab().toImage().pixelColor(bar.width() // 2, bar.height() // 2)
+            expected = slug_color(record.slug)
+
+            with self.subTest(mode=mode):
+                self.assertEqual(sampled.name(), expected.name())
+                ratio = _contrast_ratio(sampled.name(), theme.colors().plate)
+                self.assertGreaterEqual(ratio, 3.0, f"{sampled.name()} on {theme.colors().plate} in {mode}: {ratio:.2f}:1")
+            view.close()
 
 
 if __name__ == "__main__":
