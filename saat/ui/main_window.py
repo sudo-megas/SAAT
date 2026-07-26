@@ -17,6 +17,7 @@ from saat.ui.compare_view import CompareView
 from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
+from saat.ui.image_viewer import ImageViewerOverlay
 from saat.ui import motion
 from saat.ui.sellers_dialog import SellersDialog
 from saat.ui import theme
@@ -52,9 +53,21 @@ class MainWindow(QMainWindow):
         self._collection_view: CollectionView | None = None
         self._detail_view: DetailView | None = None
         self._compare_view: CompareView | None = None
+        self._image_viewer: ImageViewerOverlay | None = None
 
         self._load_and_show_collection()
         self._install_shortcuts()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        # The image viewer is a raised sibling of the QStackedWidget, not a
+        # page inside it -- Qt's own "current stack page fills the central
+        # widget" layout management doesn't reach it, so it needs the same
+        # geometry hand-tracking motion.fade_transition's transient overlay
+        # already does for its own short-lived pixmap snapshot, just kept
+        # alive for as long as the viewer stays open.
+        if self._image_viewer is not None:
+            self._image_viewer.setGeometry(self.rect())
 
     def _install_shortcuts(self) -> None:
         """SPEC.md §5.11. WindowShortcut (QShortcut's default context) only
@@ -71,25 +84,53 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence(Qt.Key.Key_Escape), self).activated.connect(self._on_escape)
 
     def _focus_search(self) -> None:
+        if self._image_viewer is not None:
+            return
         if self._collection_view is not None and self._stack.currentWidget() is self._collection_view:
             self._collection_view.focus_search()
 
     def _edit_current(self) -> None:
         # "Current watch" is the detail view's watch — routes to the exact
         # handler the detail page's own Edit button calls, not a parallel path.
+        if self._image_viewer is not None:
+            return
         if self._detail_view is not None and self._stack.currentWidget() is self._detail_view:
             self._show_edit_form(self._detail_view.record)
 
     def _wore_today_current(self) -> None:
+        if self._image_viewer is not None:
+            return
         if self._detail_view is not None and self._stack.currentWidget() is self._detail_view:
             self._on_wore_today(self._detail_view.record)
 
     def _on_escape(self) -> None:
+        if self._image_viewer is not None:
+            self._close_image_viewer()
+            return
         current = self._stack.currentWidget()
         if current is self._detail_view or current is self._compare_view:
             self._show_collection()
         elif current is self._collection_view and self._collection_view is not None:
             self._collection_view.clear_calendar_emphasis()
+
+    def _open_image_viewer(self, images: list[Path], start_index: int) -> None:
+        if self._image_viewer is not None:
+            self._close_image_viewer()
+        viewer = ImageViewerOverlay(images, start_index, self)
+        viewer.setGeometry(self.rect())
+        viewer.closed.connect(self._close_image_viewer)
+        self._image_viewer = viewer
+        viewer.show()
+        viewer.raise_()
+        viewer.setFocus()
+
+    def _close_image_viewer(self) -> None:
+        if self._image_viewer is None:
+            return
+        viewer = self._image_viewer
+        self._image_viewer = None
+        viewer.hide()
+        viewer.deleteLater()
 
     def _load_and_show_collection(self) -> None:
         while self._stack.count():
@@ -130,6 +171,7 @@ class MainWindow(QMainWindow):
             self._detail_view.delete_requested.connect(self._show_delete_confirm)
             self._detail_view.wore_today_requested.connect(self._on_wore_today)
             self._detail_view.move_to_owned_requested.connect(self._on_move_to_owned)
+            self._detail_view.image_viewer_requested.connect(self._open_image_viewer)
             self._stack.addWidget(self._detail_view)
             self._stack.setCurrentWidget(self._detail_view)
 
@@ -197,6 +239,16 @@ class MainWindow(QMainWindow):
         return self._sellers
 
     def _show_add_form(self) -> None:
+        # Mouse can't reach this while the image viewer covers the window --
+        # only Ctrl+N (a WindowShortcut, active regardless of focus) could
+        # otherwise open it over the overlay and then tear down the page
+        # underneath via _load_and_show_collection(), leaving the viewer
+        # orphaned above a rebuilt collection. Same blind spot as the four
+        # handlers guarded in _edit_current/_wore_today_current/_focus_search
+        # /_on_escape, just missed there since this one isn't a "current
+        # watch" action.
+        if self._image_viewer is not None:
+            return
         scope = self._collection_view.current_scope() if self._collection_view is not None else None
         default_status = "Wishlist" if scope == SCOPE_WISHLIST else None
         form = WatchForm(

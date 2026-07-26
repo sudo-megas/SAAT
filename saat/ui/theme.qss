@@ -469,10 +469,6 @@ QLabel[class="gallery-thumb"] {
     border-radius: 3px;
 }
 
-QLabel[class="gallery-thumb"][active="true"] {
-    border: 2px solid @gilt@;
-}
-
 QLabel[class="spec-row-label"] {
     color: @text-muted@;
     font-family: "@font-sans-condensed@";

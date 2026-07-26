@@ -2,6 +2,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import dataclasses
 import shutil
 import tempfile
 import unittest
@@ -12,9 +13,10 @@ from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
 from saat.models import Acquisition, Case, Dial, LogEntry, Maintenance, Movement, Strap, TimingEntry, Watch
 from saat.sellers import Seller
-from saat.storage import create_watch, load_collection
+from saat.storage import create_watch, load_collection, save_watch
 from saat.ui.detail_view import (
     DetailView,
+    ImageGallery,
     SpecGroupsContainer,
     _acquisition_rows,
     _build_log_group,
@@ -25,6 +27,7 @@ from saat.ui.detail_view import (
     _dial_rows,
     _movement_rows,
     _TimingSparkline,
+    _Thumbnail,
 )
 from saat.ui.formatting import EM_DASH
 from saat.ui.minute_track import MinuteTrackHeader
@@ -373,6 +376,92 @@ class DetailViewIntegrationTests(unittest.TestCase):
         view.move_to_owned_requested.connect(lambda r: received.append(r))
         self._button_labeled(view, "Mark as Owned").click()
         self.assertEqual([r.slug for r in received], [record.slug])
+
+
+class ImageViewerWiringTests(unittest.TestCase):
+    """SPEC.md §5.6: clicking the hero image or any gallery thumbnail opens
+    the full-screen viewer (image_viewer.py) at that photo — the old
+    click-to-promote gesture (SPEC.md's previous wording) is gone; choosing a
+    new primary photo is now exclusively an edit-form action."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-detail-viewer-test-"))
+        self.watches_dir = self.tmp / "watches"
+        self.backups_dir = self.tmp / "backups"
+        self.watches_dir.mkdir()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _watch_with_two_photos(self):
+        from PIL import Image
+
+        from saat.image_import import import_image
+
+        record = create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        images_dir = record.path / "images"
+        for name, color in [("a.jpg", (90, 70, 40)), ("b.jpg", (60, 60, 65))]:
+            source = self.tmp / name
+            Image.new("RGB", (400, 500), color).save(source)
+            import_image(source, images_dir, name)
+        record = save_watch(
+            self.backups_dir,
+            dataclasses.replace(record, watch=dataclasses.replace(record.watch, images=["a.jpg", "b.jpg"])),
+        )
+        return record
+
+    def test_clicking_the_primary_image_requests_the_viewer_at_index_zero(self) -> None:
+        record = self._watch_with_two_photos()
+        view = DetailView(record)
+        gallery = view.findChild(ImageGallery)
+        received = []
+        view.image_viewer_requested.connect(lambda images, index: received.append((images, index)))
+
+        gallery._primary.clicked.emit()
+
+        self.assertEqual(len(received), 1)
+        images, index = received[0]
+        self.assertEqual(index, 0)
+        self.assertEqual([p.name for p in images], ["a.jpg", "b.jpg"])
+
+    def test_clicking_the_second_thumbnail_requests_the_viewer_at_index_one(self) -> None:
+        record = self._watch_with_two_photos()
+        view = DetailView(record)
+        gallery = view.findChild(ImageGallery)
+        received = []
+        view.image_viewer_requested.connect(lambda images, index: received.append((images, index)))
+
+        thumbnails = [w for w in gallery.findChildren(_Thumbnail) if w is not gallery._primary]
+        self.assertEqual(len(thumbnails), 2)
+        thumbnails[1].clicked.emit()
+
+        self.assertEqual(len(received), 1)
+        self.assertEqual(received[0][1], 1)
+
+    def test_a_single_photo_watch_has_no_thumbnail_strip_but_the_primary_still_opens_the_viewer(self) -> None:
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        [record] = load_collection(self.watches_dir)
+        from PIL import Image
+
+        from saat.image_import import import_image
+
+        images_dir = record.path / "images"
+        source = self.tmp / "only.jpg"
+        Image.new("RGB", (400, 500), (10, 10, 10)).save(source)
+        import_image(source, images_dir, "only.jpg")
+        record = save_watch(
+            self.backups_dir, dataclasses.replace(record, watch=dataclasses.replace(record.watch, images=["only.jpg"])),
+        )
+
+        view = DetailView(record)
+        gallery = view.findChild(ImageGallery)
+        thumbnails = [w for w in gallery.findChildren(_Thumbnail) if w is not gallery._primary]
+        self.assertEqual(thumbnails, [])
+
+        received = []
+        view.image_viewer_requested.connect(lambda images, index: received.append((images, index)))
+        gallery._primary.clicked.emit()
+        self.assertEqual(len(received), 1)
 
 
 class MaintenanceDueLineTests(unittest.TestCase):

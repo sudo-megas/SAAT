@@ -185,5 +185,80 @@ class EscapeShortcutTests(UITestCase):
         self.assertIs(window.centralWidget().currentWidget(), collection_view)
 
 
+class ImageViewerOverlayGuardTests(UITestCase):
+    """The image viewer (saat/ui/image_viewer.py) is a raised sibling of the
+    stack, not a page inside it — _on_escape, _edit_current,
+    _wore_today_current, _focus_search and _show_add_form all key off
+    self._stack.currentWidget() or fire regardless of focus (Ctrl+N is a
+    WindowShortcut), so each needs its own guard against the overlay."""
+
+    def test_resize_keeps_the_overlay_geometry_synced_to_the_window(self) -> None:
+        window = self._window()
+        window._open_image_viewer([Path("/nonexistent/a.jpg")], 0)
+
+        window.resize(900, 650)
+        QApplication.processEvents()
+
+        self.assertEqual(window._image_viewer.geometry(), window.rect())
+
+    def test_escape_closes_the_overlay_instead_of_navigating_back(self) -> None:
+        window = self._window()
+        [record] = load_collection(self.watches_dir)
+        window._show_detail(record)
+        window._open_image_viewer([Path("/nonexistent/a.jpg")], 0)
+
+        window._on_escape()
+
+        self.assertIsNone(window._image_viewer)
+        self.assertIs(window.centralWidget().currentWidget(), window._detail_view)
+
+    def test_escape_with_no_overlay_open_still_navigates_back_as_before(self) -> None:
+        window = self._window()
+        [record] = load_collection(self.watches_dir)
+        window._show_detail(record)
+
+        window._on_escape()
+
+        self.assertIs(window.centralWidget().currentWidget(), window._collection_view)
+
+    def test_edit_current_is_a_no_op_while_the_overlay_is_open(self) -> None:
+        window = self._window()
+        [record] = load_collection(self.watches_dir)
+        window._show_detail(record)
+        window._open_image_viewer([Path("/nonexistent/a.jpg")], 0)
+
+        with patch.object(window, "_show_edit_form") as mock_edit:
+            window._edit_current()
+        mock_edit.assert_not_called()
+
+    def test_wore_today_current_is_a_no_op_while_the_overlay_is_open(self) -> None:
+        window = self._window()
+        [record] = load_collection(self.watches_dir)
+        window._show_detail(record)
+        window._open_image_viewer([Path("/nonexistent/a.jpg")], 0)
+
+        with patch.object(window, "_on_wore_today") as mock_wore:
+            window._wore_today_current()
+        mock_wore.assert_not_called()
+
+    def test_focus_search_is_a_no_op_while_the_overlay_is_open(self) -> None:
+        window = self._window()
+        window._open_image_viewer([Path("/nonexistent/a.jpg")], 0)
+        QApplication.processEvents()
+
+        window._focus_search()
+        QApplication.processEvents()
+
+        self.assertFalse(window._collection_view._top_bar._search_field.hasFocus())
+
+    def test_ctrl_n_is_a_no_op_while_the_overlay_is_open(self) -> None:
+        window = self._window()
+        window._open_image_viewer([Path("/nonexistent/a.jpg")], 0)
+
+        with patch.object(WatchForm, "exec") as mock_exec:
+            window._show_add_form()
+        mock_exec.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

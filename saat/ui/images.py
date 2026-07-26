@@ -1,5 +1,7 @@
+import io
 from pathlib import Path
 
+from PIL import Image, ImageOps
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
@@ -51,11 +53,38 @@ def cropped_pixmap(path: Path, width: int, height: int) -> QPixmap | None:
     return scaled.copy(x, y, width, height)
 
 
+def load_oriented_original(path: Path) -> QPixmap | None:
+    """The ORIGINAL file, corrected for EXIF orientation. A bare
+    QPixmap(str(path)) never applies EXIF orientation on its own —
+    QImageReader.autoTransform() defaults to false — so anything reading the
+    original itself (rather than cropped_pixmap's .thumbnails/ derivative,
+    already corrected once at generation time by image_import.py's own
+    Pillow step) needs the same correction applied at read time instead.
+    Shared by fit_pixmap below and the full-screen image viewer, so the fix
+    lives in exactly one place. Returns None for a missing or unreadable
+    file rather than raising — the caller's job is to show that plainly,
+    not crash."""
+    try:
+        with Image.open(path) as img:
+            img = ImageOps.exif_transpose(img)
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG")
+            data = buffer.getvalue()
+    except (OSError, ValueError):
+        return None
+    pixmap = QPixmap()
+    if not pixmap.loadFromData(data):
+        return None
+    return pixmap
+
+
 def fit_pixmap(path: Path, max_width: int, max_height: int) -> QPixmap | None:
     """Scaled to fit within max_width x max_height, preserving aspect ratio.
     Always the original — this is for the detail page's large image."""
-    pixmap = QPixmap(str(path))
-    if pixmap.isNull():
+    pixmap = load_oriented_original(path)
+    if pixmap is None:
         return None
     return pixmap.scaled(max_width, max_height, Qt.AspectRatioMode.KeepAspectRatio,
                           Qt.TransformationMode.SmoothTransformation)

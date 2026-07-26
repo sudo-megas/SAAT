@@ -1,5 +1,6 @@
 import calendar as cal
 from datetime import date, timedelta
+from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRect, QUrl, Qt, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QMouseEvent, QPainter, QPaintEvent, QPen
@@ -388,23 +389,27 @@ class _Thumbnail(QLabel):
 
 
 class ImageGallery(QWidget):
-    """Large primary image, thumbnail strip beneath, click to promote. See
-    SPEC.md §5.6. Promotion is session-only — persisting image order is an
-    add/edit-form concern (milestone 5)."""
+    """Large primary image, thumbnail strip beneath. Clicking either opens
+    the full-screen viewer (image_viewer.py) at that photo — choosing a
+    different photo as primary is now exclusively an edit-form action
+    (SPEC.md §5.7's Images tab), not a read-only detail-view gesture. See
+    SPEC.md §5.6."""
+
+    image_activated = Signal(int)
 
     def __init__(self, record: WatchRecord, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._images = list_images(record)
         self._record = record
-        self._current = 0
-        self._thumb_labels: list[QLabel] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
-        self._primary = QLabel()
+        self._primary = _Thumbnail()
         self._primary.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._primary.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._primary.clicked.connect(lambda: self._activate(0))
         layout.addWidget(self._primary, alignment=Qt.AlignmentFlag.AlignLeft)
 
         if len(self._images) > 1:
@@ -419,26 +424,26 @@ class ImageGallery(QWidget):
                 pixmap = cropped_pixmap(path, THUMB_SIZE, THUMB_SIZE)
                 if pixmap is not None:
                     thumb.setPixmap(pixmap)
-                thumb.clicked.connect(lambda i=index: self._promote(i))
-                self._thumb_labels.append(thumb)
+                thumb.clicked.connect(lambda i=index: self._activate(i))
                 strip.addWidget(thumb)
             strip.addStretch()
             layout.addLayout(strip)
 
         self._render_primary(watch=record.watch)
 
-    def _promote(self, index: int) -> None:
-        self._current = index
-        self._render_primary(watch=self._record.watch)
+    @property
+    def images(self) -> list[Path]:
+        return self._images
+
+    def _activate(self, index: int) -> None:
+        if self._images:
+            self.image_activated.emit(index)
 
     def _render_primary(self, watch: Watch) -> None:
         max_w, max_h = PRIMARY_IMAGE_MAX
         self._primary.setFixedSize(max_w, max_h)
 
-        if self._images:
-            pixmap = fit_pixmap(self._images[self._current], max_w, max_h)
-        else:
-            pixmap = None
+        pixmap = fit_pixmap(self._images[0], max_w, max_h) if self._images else None
 
         if pixmap is not None:
             self._primary.setPixmap(pixmap)
@@ -448,11 +453,6 @@ class ImageGallery(QWidget):
             diameter = fmt_number(watch.case.diameter_mm, " mm") if watch.case.diameter_mm is not None else EM_DASH
             lug = fmt_number(watch.case.lug_width_mm, " mm lugs") if watch.case.lug_width_mm is not None else EM_DASH
             self._primary.setText(f"{diameter}\n{lug}")
-
-        for i, thumb in enumerate(self._thumb_labels):
-            thumb.setProperty("active", i == self._current)
-            thumb.style().unpolish(thumb)
-            thumb.style().polish(thumb)
 
 
 # --- Two-column responsive group layout -------------------------------------
@@ -645,6 +645,7 @@ class DetailView(QScrollArea):
     delete_requested = Signal(object)
     wore_today_requested = Signal(object)
     move_to_owned_requested = Signal(object)
+    image_viewer_requested = Signal(object, int)  # list[Path], start index
 
     def __init__(
         self,
@@ -684,7 +685,9 @@ class DetailView(QScrollArea):
             layout.addWidget(maintenance_line)
 
         layout.addWidget(_build_header(watch))
-        layout.addWidget(ImageGallery(record))
+        gallery = ImageGallery(record)
+        gallery.image_activated.connect(lambda index: self.image_viewer_requested.emit(gallery.images, index))
+        layout.addWidget(gallery)
 
         wear_section = build_wear_section(watch)
         if wear_section is not None:
