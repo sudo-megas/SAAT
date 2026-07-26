@@ -5,16 +5,21 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from saat.paths import data_dir
+from saat.ui.watch_dial import WatchDialWidget
 
 
 class EmptyStateView(QWidget):
-    """The first screen the owner ever sees: no collection, no illustration, no noise."""
+    """The first screen the owner ever sees: a live watch dial above a quiet
+    line of copy -- a technical drawing in the app's own hairline vocabulary,
+    not the cartoon illustration SPEC.md §5.8 rules out."""
 
     add_watch_requested = Signal()
 
     def __init__(self, watches_dir: Path | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._watches_dir = watches_dir if watches_dir is not None else data_dir() / "watches"
+
+        dial = WatchDialWidget()
 
         heading = QLabel("Your collection is empty.")
         heading.setProperty("role", "empty-heading")
@@ -39,7 +44,7 @@ class EmptyStateView(QWidget):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(16)
-        for widget in (heading, body, add_button, open_folder):
+        for widget in (dial, heading, body, add_button, open_folder):
             layout.addWidget(widget, alignment=Qt.AlignmentFlag.AlignHCenter)
 
     def _open_watches_folder(self) -> None:
