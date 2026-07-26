@@ -1,10 +1,11 @@
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, Qt, Signal
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPaintEvent, QPainter
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from saat.paths import data_dir
+from saat.ui import perlage, theme
 from saat.ui.watch_dial import WatchDialWidget
 
 
@@ -50,3 +51,16 @@ class EmptyStateView(QWidget):
     def _open_watches_folder(self) -> None:
         self._watches_dir.mkdir(exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._watches_dir)))
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        # No existing background paint to preserve here (unlike Sidebar's
+        # QSS one) -- fill the plate backdrop by hand, then tile perlage on
+        # top of it. The dial widget paints its own opaque plate@ fill over
+        # whatever's behind its own bounding box, so it isn't competing with
+        # the texture underneath it.
+        colors = theme.colors()
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(colors.plate))
+        tile = perlage.render_perlage_tile(colors.plate, colors.rule)
+        painter.fillRect(self.rect(), QBrush(tile))
+        painter.end()

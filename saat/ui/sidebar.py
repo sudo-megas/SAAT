@@ -1,4 +1,5 @@
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QBrush, QPaintEvent, QPainter
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -13,7 +14,7 @@ from saat.storage import WatchRecord
 from saat.ui.collection_summary import compute_collection_summary, compute_wishlist_summary
 from saat.ui.facets import Facet, VALUE_FACETS, is_not_worn_90d
 from saat.ui.formatting import fmt_price
-from saat.ui import icons, motion
+from saat.ui import icons, motion, perlage, theme
 from saat.ui.theme import GROUP_SPACING, SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH
 
 NOT_WORN_LABEL = "Not worn in 90 days"
@@ -102,6 +103,17 @@ class Sidebar(QWidget):
         layout.addWidget(self._summary_footer)
 
         self.setFixedWidth(SIDEBAR_WIDTH)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        # QSS background/border first (WA_StyledBackground), then perlage
+        # layered on top -- the same "paint a custom layer over QSS chrome"
+        # idiom WatchCard's own paintEvent already uses for its hover wash.
+        super().paintEvent(event)
+        colors = theme.colors()
+        tile = perlage.render_perlage_tile(colors.plate_high, colors.rule)
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QBrush(tile))
+        painter.end()
 
     def _build_summary_footer(self, records: list[WatchRecord]) -> QWidget:
         summary = compute_collection_summary(records)

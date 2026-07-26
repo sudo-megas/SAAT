@@ -447,7 +447,23 @@ emphasis follows. It clears on Escape or on switching mode again, never on its o
 Opens in the main area with a back affordance — not a modal. This is where the owner
 spends time.
 
-- Large primary image, thumbnail strip beneath, click to promote.
+- The primary photo is the page's subject, not a field in a form: substantially large,
+  composed beside the brand/model header — image and a vertically-centred text column
+  side by side once there's room for both, image then text when narrower — rather than
+  stacked above it as two unrelated blocks. One hairline identity-colour accent, this
+  watch's own `slug_color()` (§5.5), sits directly beneath the title: the same hue the
+  compare view and year view already use to link a watch across screens, here marking
+  identity on its own page instead (§6). Identity, never state — unrelated to grid-card
+  borders or hover (§5.2).
+- Thumbnail strip beneath the primary photo. Clicking it, or the primary photo itself,
+  opens a full-screen image viewer — an in-window overlay, not a second top-level window
+  — showing the original file, never a cached thumbnail: fits to the window on open,
+  mouse wheel zooms, drag pans once larger than the viewport, double-click toggles fit
+  and 100%, Left/Right move through this watch's gallery, Escape closes. A quiet position
+  indicator in a corner and nothing else — no toolbar. A missing or unreadable file shows
+  a plain message rather than crashing or opening a blank screen. Choosing a different
+  primary photo is exclusively an edit-form action (§5.7) — a click here always opens the
+  viewer, never promotes.
 - Wear stats line: last worn, days since, times worn this year, longest streak. Plus a
   compact twelve-month strip of this watch's days only, hidden when it has never been
   worn.
@@ -483,10 +499,27 @@ A tabbed dialog mirroring the data model groups; the same dialog serves both ope
 
 ### 5.8 Empty states
 The collection empty state is the first screen the owner ever sees and, for a while, the
-most frequent. Give it real attention. Centred and quiet: a line stating the collection
-is empty, a sentence explaining that watches live in the `watches/` folder as editable
-TOML files, one primary button to add the first watch, and a secondary text link that
-opens `watches/` in the file manager. No illustration, no mascot, no exclamation marks.
+most frequent. Give it real attention. A `QPainter` watch dial is its centrepiece,
+showing the real current time: a hairline chapter ring of sixty ticks (longer every
+fifth — the minute track's vocabulary, reused for a circular face), hour and minute hands
+only — no second hand, since a sweeping hand would mean repainting an idle screen forever
+— a gilt centre pinion as the composition's only gilt, and lug blocks above and below so
+it reads as a wristwatch, not a wall clock. A single-shot timer re-arms itself to the
+exact next minute boundary on every tick, never a naive fixed 60-second interval, and
+runs only while the empty state is the visible page — started when it is shown, stopped
+the moment it isn't.
+
+Beneath the dial, the same quiet composition as before: a line stating the collection is
+empty, a sentence explaining that watches live in the `watches/` folder as editable TOML
+files, one primary button to add the first watch, and a secondary text link that opens
+`watches/` in the file manager. No exclamation marks. "No illustration, no mascot" was
+always aimed at cartoon clip-art standing in for content — a technical drawing in the
+app's own hairline vocabulary is identity, not decoration, exactly like the minute track
+this section now also uses.
+
+This composition belongs to the COLLECTION-empty state only. A view emptied by filters or
+search is a no-results state, not a welcome state, and keeps its previous plain treatment
+— so does an empty Wishlist scope. The calendar's own empty state, below, is unchanged.
 
 The calendar's empty state is simply an empty month — correct as-is, plus one muted line
 explaining that clicking a day records what was worn.
@@ -634,10 +667,36 @@ implies an ordering or a shared scale that doesn't exist; mixing units on one ax
 banned exactly as before, this vocabulary just now has more places it applies. Pie
 charts, gauges, progress rings and any charting dependency stay out of bounds everywhere
 in the app, the collection summary included (§5.10, unchanged: plain figures there too).
-The grid card's placeholder tile (§5.2, no photo yet) borrows the minute track's tick
-drawing once more, curved into a partial arc behind the case dimensions — this is card
-craft reusing the vocabulary above, like the rest of this paragraph, not a third home for
-the signature element itself, which stays at exactly the two locations named above.
+The grid card's placeholder tile (§5.2, no photo yet) and the empty state's watch dial
+(§5.8) both borrow the minute track's tick drawing again, curved into a partial arc or a
+full chapter ring — this is card craft and empty-state craft reusing the vocabulary
+above, like the rest of this paragraph, not a third and fourth home for the signature
+element itself, which stays at exactly the two locations named above.
+
+**Identity colour.** `slug_color()` (§5.5) may also mark identity: a single hairline
+accent on a watch's own detail page (§5.6), beneath its title. This is a different role
+from the same function's existing one — linking a watch across the compare view, year
+view and calendar Stats mode when several are shown together — identity here, rather
+than comparison. Either way, gilt's own rule is unchanged: colour here marks IDENTITY,
+never STATE, and never competes with gilt for the "interactive or active" role. It never
+appears on a grid card's border or hover state (§5.2) — that vocabulary belongs entirely
+to the card craft already established there.
+
+**Perlage.** A micro-texture of overlapping circular graining — the actual decorative
+finish applied to a real movement plate, and so authentic to the whole visual identity's
+own reference rather than decoration bolted on. Applied to exactly two surfaces: the
+sidebar background and the empty state backdrop, both low-content surfaces. Contrast
+ceiling: rendered over its surface, the single largest per-channel deviation from the
+bare surface colour, anywhere in the tile, must not exceed 3% (0.03 of the 0–255 channel
+range) — perceptible as texture, never as pattern, in both themes. This is a ceiling on
+the rendered result, not a hue or an opacity chosen in isolation, since overlapping grain
+elements compound past a single layer's own contribution. Pre-rendered once to a
+`QPixmap` and tiled (`QBrush`), never redrawn per paint event. Never extended to a
+genuinely text- or data-dense surface — a spec table, the calendar, the compare view —
+which is what "never behind body text" means in practice: the sidebar's own facet labels
+and summary figures, and the empty state's own heading and sentence, are the low-density
+exception that keeps the surface itself in bounds, not a ban on any text ever sharing
+space with it.
 
 **Motion.** State changes only — nothing animates on first paint. One duration (160ms)
 and one easing curve (`InOutCubic`), named as constants in `theme.py` alongside the
@@ -646,7 +705,11 @@ calendar mode changes, month/year navigation) cross-fade rather than slide; the 
 collapse/expand eases its width; a grid card's border eases between `--rule` and `--gilt`
 on hover, the same way, since QSS itself has no transition primitive. No reduced-motion
 setting: Qt exposes no such platform hint to honour on Linux, and 160ms is short enough
-that the gap doesn't need an escape hatch.
+that the gap doesn't need an escape hatch. This governs eased state-change transitions
+specifically — the named vocabulary above. The empty state's live dial (§5.8) is a
+deliberate, narrowly-scoped exception: a real-time readout of the actual clock, not an
+animation, and the only element in the app that updates on a timer rather than in
+response to a state change.
 
 **Spacing.** 8 px base unit. Card padding 16, group spacing 32, page margin 24. Table
 rows get 12 px vertical padding — a spec table crammed to 6 px is unreadable, and this

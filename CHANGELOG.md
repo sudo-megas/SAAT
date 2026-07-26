@@ -4,6 +4,35 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.0] - 2026-07-26
+
+### Added
+
+- The collection empty state now centres on a `QPainter` watch dial showing the real
+  current time — chapter ring, hour and minute hands, a gilt centre pinion, lug blocks
+  top and bottom — above the same quiet copy as before. The minute hand moves exactly on
+  the minute, and the clock only ever runs while the empty state is on screen.
+- A full-screen image viewer: click the detail page's primary photo or any gallery
+  thumbnail to open the original file (not a thumbnail) at fit-to-window, zoomable with
+  the mouse wheel and pannable by dragging once zoomed in, double-click to toggle 100%,
+  arrow keys to move through the gallery, Escape to close.
+- The detail page's primary photo is now substantially larger and composed beside the
+  brand/model header rather than stacked above it, with a hairline accent in the watch's
+  own colour beneath the title — the same hue already used to tell watches apart in the
+  compare view and calendar year view.
+- A perlage micro-texture — the same graining finish real movement plates carry — on the
+  sidebar background and the empty-state backdrop, at a contrast low enough to read as
+  texture rather than pattern in both themes.
+
+### Changed
+
+- Clicking a detail-page thumbnail now opens the full-screen viewer instead of promoting
+  it to the primary photo; choosing a different primary photo is still available, from
+  the edit form's Images tab.
+- Fixed a latent bug the image viewer surfaced: a photo's EXIF rotation tag (as most
+  phone cameras record) is now applied when displaying an original file, matching what
+  the gallery thumbnails already showed correctly.
+
 ## [1.5.0] - 2026-07-24
 
 ### Added
