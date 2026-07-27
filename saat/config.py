@@ -63,3 +63,29 @@ class Config:
 
     def set_theme_mode(self, mode: str) -> None:
         self.data.setdefault("theme", tomlkit.table())["mode"] = mode
+
+    def close_to_tray(self) -> bool:
+        """SPEC.md milestone 18 §8: default OFF. A user who has not opted in
+        must never lose their window, so absence of the key means False,
+        never a truthy default."""
+        tray = self.data.get("tray")
+        return bool(tray.get("close_to_tray", False)) if tray else False
+
+    def set_close_to_tray(self, value: bool) -> None:
+        self.data.setdefault("tray", tomlkit.table())["close_to_tray"] = value
+
+    def start_minimised(self) -> bool:
+        tray = self.data.get("tray")
+        return bool(tray.get("start_minimised", False)) if tray else False
+
+    def set_start_minimised(self, value: bool) -> None:
+        self.data.setdefault("tray", tomlkit.table())["start_minimised"] = value
+
+    def tray_hint_shown(self) -> bool:
+        """Whether the one-time 'still running in the tray' message has
+        already been shown -- SPEC.md milestone 18 §10: once, ever."""
+        tray = self.data.get("tray")
+        return bool(tray.get("hint_shown", False)) if tray else False
+
+    def set_tray_hint_shown(self, value: bool) -> None:
+        self.data.setdefault("tray", tomlkit.table())["hint_shown"] = value

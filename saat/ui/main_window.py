@@ -2,9 +2,9 @@ import dataclasses
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QStackedWidget
+from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QStackedWidget, QSystemTrayIcon
 
 from saat import __version__
 from saat.config import Config
@@ -22,11 +22,13 @@ from saat.ui import motion
 from saat.ui.sellers_dialog import SellersDialog
 from saat.ui import theme
 from saat.ui.top_bar import SCOPE_WISHLIST
+from saat.ui.tray import TrayController
 from saat.ui.watch_form import WatchForm
 from saat.wear import assign_worn, clear_worn, mark_worn_today
 
 MIN_SIZE = QSize(1100, 700)
 DEFAULT_SIZE = QSize(1600, 1000)
+TRAY_AVAILABILITY_POLL_MS = 3000
 
 
 class MainWindow(QMainWindow):
@@ -36,6 +38,7 @@ class MainWindow(QMainWindow):
         backups_dir: Path | None = None,
         config: Config | None = None,
         sellers_path: Path | None = None,
+        tray_available: bool | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle(f"SAAT v{__version__}")
@@ -55,14 +58,42 @@ class MainWindow(QMainWindow):
         self._compare_view: CompareView | None = None
         self._image_viewer: ImageViewerOverlay | None = None
 
+        # Capability detection before any UI (SPEC.md milestone 18 §5):
+        # checked once, here, and treated as authoritative for the rest of
+        # this window's life except for _poll_tray_availability's own
+        # narrow resilience carve-out.
+        self._tray_available = (
+            tray_available if tray_available is not None else QSystemTrayIcon.isSystemTrayAvailable()
+        )
+        self._tray: TrayController | None = None
+        self._tray_poll_timer: QTimer | None = None
+        if self._tray_available:
+            self._setup_tray()
+
         self._load_and_show_collection()
         self._install_shortcuts()
+
+    def _setup_tray(self) -> None:
+        self._tray = TrayController(window_visible_getter=self.isVisible, parent=self)
+        self._tray.show_hide_requested.connect(self._on_tray_show_hide)
+        self._tray.wore_today_requested.connect(self._on_wore_today)
+        self._tray.close_to_tray_toggled.connect(self._on_close_to_tray_toggled)
+        self._tray.start_minimised_toggled.connect(self._on_start_minimised_toggled)
+        self._tray.quit_requested.connect(self._quit)
+        self._tray.set_close_to_tray_checked(self._config.close_to_tray())
+        self._tray.set_start_minimised_checked(self._config.start_minimised())
+        self._tray.show()
+
+        self._tray_poll_timer = QTimer(self)
+        self._tray_poll_timer.setInterval(TRAY_AVAILABILITY_POLL_MS)
+        self._tray_poll_timer.timeout.connect(self._poll_tray_availability)
+        self._tray_poll_timer.start()
 
     def bring_to_front(self) -> None:
         """Raise and focus this window regardless of its current state --
         hidden, minimized, or merely behind another window. Used by a second
-        launch signalling the first instance (single_instance.py) and,
-        later, by the tray icon's own restore actions."""
+        launch signalling the first instance (single_instance.py) and by
+        the tray icon's own restore actions (left click, Show/Hide)."""
         if self.isMinimized():
             self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
         if not self.isVisible():
@@ -92,7 +123,10 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self._focus_search)
         QShortcut(QKeySequence("Ctrl+E"), self).activated.connect(self._edit_current)
         QShortcut(QKeySequence("Ctrl+W"), self).activated.connect(self._wore_today_current)
-        QShortcut(QKeySequence("Ctrl+Q"), self).activated.connect(self.close)
+        # Connects to _quit(), not self.close(): Ctrl+Q must always quit
+        # (SPEC.md §5.11), even with close-to-tray ON, when closeEvent
+        # itself would otherwise hide instead of accepting the close.
+        QShortcut(QKeySequence("Ctrl+Q"), self).activated.connect(self._quit)
         QShortcut(QKeySequence(Qt.Key.Key_Escape), self).activated.connect(self._on_escape)
 
     def _focus_search(self) -> None:
@@ -171,6 +205,8 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(empty_state)
             self._stack.setCurrentWidget(empty_state)
 
+        self._sync_tray_records()
+
     def _show_detail(self, record: WatchRecord) -> None:
         def _apply() -> None:
             if self._detail_view is not None:
@@ -232,6 +268,11 @@ class MainWindow(QMainWindow):
             refreshed = next((r for r in records if r.slug == self._detail_view.record.slug), None)
             if refreshed is not None:
                 self._show_detail(refreshed)
+        self._sync_tray_records()
+
+    def _sync_tray_records(self) -> None:
+        if self._tray is not None:
+            self._tray.set_records(self._current_records())
 
     def _on_theme_toggle(self) -> None:
         new_mode = theme.MODE_LIGHT if theme.current_mode() == theme.MODE_DARK else theme.MODE_DARK
@@ -331,6 +372,19 @@ class MainWindow(QMainWindow):
             self.setWindowState(Qt.WindowState.WindowMaximized)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        # Close-to-tray only intercepts the window-manager close button --
+        # Ctrl+Q and the tray menu's own Quit call _quit() directly and
+        # never reach this method, so both always quit regardless of the
+        # setting (SPEC.md milestone 18 §7's "Quit always quits").
+        if self._tray is not None and self._config.close_to_tray():
+            event.ignore()
+            self._hide_to_tray()
+            return
+
+        self._save_geometry()
+        super().closeEvent(event)
+
+    def _save_geometry(self) -> None:
         self._config.set_window_geometry({
             "width": self.width(),
             "height": self.height(),
@@ -339,4 +393,56 @@ class MainWindow(QMainWindow):
             "maximized": self.isMaximized(),
         })
         self._config.save()
-        super().closeEvent(event)
+
+    def _quit(self) -> None:
+        self._save_geometry()
+        QApplication.instance().quit()
+
+    def _hide_to_tray(self) -> None:
+        self.hide()
+        if self._tray is None:
+            return
+        # Once, ever (SPEC.md milestone 18 §10) -- and only actually
+        # persisted as shown when the host could deliver it, so a platform
+        # that can't show tray messages today doesn't burn the one chance
+        # a future session (a shell restart, a new tray host) might have.
+        if not self._config.tray_hint_shown() and self._tray.supports_messages():
+            self._tray.show_hint_message()
+            self._config.set_tray_hint_shown(True)
+            self._config.save()
+
+    def _on_tray_show_hide(self) -> None:
+        if self.isVisible():
+            self._hide_to_tray()
+        else:
+            self.bring_to_front()
+
+    def _on_close_to_tray_toggled(self, checked: bool) -> None:
+        self._config.set_close_to_tray(checked)
+        self._config.save()
+
+    def _on_start_minimised_toggled(self, checked: bool) -> None:
+        self._config.set_start_minimised(checked)
+        self._config.save()
+
+    def _poll_tray_availability(self) -> None:
+        """SPEC.md milestone 18 §9: if the tray disappears (shell restart,
+        compositor reload) while the window is hidden, a hidden window with
+        a dead tray is unreachable -- the single most important requirement
+        in the milestone. Restores the window and falls back to the same
+        shape a fresh no-tray launch would have for the rest of this run,
+        rather than leaving a half-torn-down tray around to reference
+        again."""
+        if self._tray is None or QSystemTrayIcon.isSystemTrayAvailable():
+            return
+
+        was_hidden = not self.isVisible()
+        tray = self._tray
+        self._tray = None
+        self._tray_available = False
+        if self._tray_poll_timer is not None:
+            self._tray_poll_timer.stop()
+        tray.hide()
+        tray.deleteLater()
+        if was_hidden:
+            self.bring_to_front()
