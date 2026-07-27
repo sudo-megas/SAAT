@@ -10,14 +10,26 @@ TRACK_HEIGHT = 10
 TICK_COUNT = 60  # a literal minute track: one tick per minute, five per second-mark
 
 
-def draw_minute_track(painter: QPainter, width: int, track_y: int, track_height: int, tick_count: int = TICK_COUNT) -> None:
+def draw_minute_track(
+    painter: QPainter,
+    width: int,
+    track_y: int,
+    track_height: int,
+    tick_count: int = TICK_COUNT,
+    color: str | None = None,
+) -> None:
     """The tick+rule vocabulary itself (SPEC.md §6's minute track): a
     hairline rule at track_y with fine perpendicular ticks above it, longer
     every fifth, the way a dial's chapter ring is printed. Shared by
     MinuteTrackHeader (detail-page spec groups) and calendar_stats.py's
     inter-section divider -- the signature's only two locations. Caller
-    owns the painter's pen/brush/antialiasing state before and after."""
-    painter.setPen(QPen(QColor(theme.colors().rule), 1))
+    owns the painter's pen/brush/antialiasing state before and after.
+
+    color overrides the live theme.colors().rule lookup -- milestone 19's
+    PDF export draws this same vocabulary with the paper palette's rule
+    color while the on-screen window keeps whatever mode is active,
+    without mutating any global theme state to do it."""
+    painter.setPen(QPen(QColor(color or theme.colors().rule), 1))
     painter.drawLine(0, track_y, width, track_y)
 
     safe_width = max(width, 1)

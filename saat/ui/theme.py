@@ -44,6 +44,25 @@ _LIGHT = Palette(
 )
 _PALETTES = {MODE_DARK: _DARK, MODE_LIGHT: _LIGHT}
 
+# A render target, not a theme (SPEC.md §9, milestone 19) — deliberately absent
+# from _PALETTES and unreachable through set_mode()/colors(), so nothing can
+# select it from the light/dark toggle and PDF rendering never has to mutate
+# the live window's global theme state to borrow it. Pure white rather than
+# _LIGHT's off-white plate, near-black text rather than _LIGHT's charcoal, and
+# a darker rule than _LIGHT's — screen contrast tuning doesn't guarantee a
+# hairline survives a home printer's reproduction. gilt/ruby are already
+# contrast-checked against a pure white plate_high (_LIGHT's own), so paper
+# reuses them rather than guessing fresh, unverified values.
+PAPER = Palette(
+    plate="#FFFFFF",
+    plate_high="#FFFFFF",
+    rule="#B0A992",
+    text="#1A1815",
+    text_muted="#5C5548",
+    gilt=_LIGHT.gilt,
+    ruby=_LIGHT.ruby,
+)
+
 _current_mode = MODE_DARK
 
 

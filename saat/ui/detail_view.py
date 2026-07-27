@@ -46,7 +46,7 @@ def _get_accuracy(m: Movement):
     return (m.accuracy_min, m.accuracy_max, m.accuracy_unit or "sec/day")
 
 
-def _movement_rows(watch: Watch) -> list[SpecRow]:
+def movement_rows(watch: Watch) -> list[SpecRow]:
     m = watch.movement
     # SPEC.md §4: power reserve vs. battery life — show one or the other, driven by kind.
     if m.kind in ("Quartz", "Solar"):
@@ -69,7 +69,7 @@ def _movement_rows(watch: Watch) -> list[SpecRow]:
 
 # --- Case -----------------------------------------------------------
 
-def _case_rows(watch: Watch) -> list[SpecRow]:
+def case_rows(watch: Watch) -> list[SpecRow]:
     c = watch.case
     return [
         spec_row("Diameter", c.diameter_mm, lambda v: fmt_number(v, " mm"), numeric=True),
@@ -88,7 +88,7 @@ def _case_rows(watch: Watch) -> list[SpecRow]:
 
 # --- Dial -----------------------------------------------------------
 
-def _dial_rows(watch: Watch) -> list[SpecRow]:
+def dial_rows(watch: Watch) -> list[SpecRow]:
     d = watch.dial
     return [
         spec_row("Colour", d.colour),
@@ -129,7 +129,12 @@ def _seller_row(seller_name: str | None, sellers: list[Seller]) -> SpecRow:
     return SpecRow("Seller", seller_name, widget=link)
 
 
-def _acquisition_rows(watch: Watch, sellers: list[Seller] | None = None) -> list[SpecRow]:
+def acquisition_rows_plain(watch: Watch) -> list[SpecRow]:
+    """Seller and URL as plain text rather than _seller_row/_url_row's
+    clickable QPushButton variants -- shared with saat.ui.export's PDF
+    renderer (milestone 19), which needs the same field list and order but
+    can't embed a clickable widget on a printed page. _acquisition_rows
+    below builds on this and swaps in the two link rows for on-screen use."""
     a = watch.acquisition
     price = (a.price, a.currency or "") if a.price is not None else None
     target_price = (a.target_price, a.currency or "") if a.target_price is not None else None
@@ -138,17 +143,28 @@ def _acquisition_rows(watch: Watch, sellers: list[Seller] | None = None) -> list
         spec_row("Price", price, fmt_price, numeric=True),
         spec_row("Target Price", target_price, fmt_price, numeric=True),
         spec_row("Target Date", a.target_date, fmt_date, numeric=True),
-        _seller_row(a.seller, sellers or []),
-        _url_row(a.url),
+        spec_row("Seller", a.seller),
+        spec_row("URL", a.url),
         spec_row("Condition", a.condition),
         spec_row("Box & Papers", a.box_and_papers, fmt_bool),
         spec_row("Warranty Until", a.warranty_until, fmt_date, numeric=True),
     ]
 
 
+def _acquisition_rows(watch: Watch, sellers: list[Seller] | None = None) -> list[SpecRow]:
+    a = watch.acquisition
+    rows = acquisition_rows_plain(watch)
+    for i, row in enumerate(rows):
+        if row.label == "Seller":
+            rows[i] = _seller_row(a.seller, sellers or [])
+        elif row.label == "URL":
+            rows[i] = _url_row(a.url)
+    return rows
+
+
 # --- Maintenance -----------------------------------------------------------
 
-def _maintenance_rows(watch: Watch) -> list[SpecRow]:
+def maintenance_rows(watch: Watch) -> list[SpecRow]:
     m = watch.maintenance
     return [
         spec_row("Service Interval", m.service_interval_years, lambda v: fmt_number(v, " y"), numeric=True),
@@ -801,13 +817,13 @@ class DetailView(QScrollArea):
     def _build_spec_groups(self, record: WatchRecord) -> list[QWidget]:
         watch = record.watch
         candidates = [
-            build_spec_group("Movement", _movement_rows(watch)),
-            build_spec_group("Case", _case_rows(watch)),
-            build_spec_group("Dial", _dial_rows(watch)),
+            build_spec_group("Movement", movement_rows(watch)),
+            build_spec_group("Case", case_rows(watch)),
+            build_spec_group("Dial", dial_rows(watch)),
             _build_straps_group(record),
             _build_strap_compat_group(record, self._all_records),
             build_spec_group("Acquisition", _acquisition_rows(watch, self._sellers)),
-            build_spec_group("Maintenance", _maintenance_rows(watch)),
+            build_spec_group("Maintenance", maintenance_rows(watch)),
             _build_log_group(watch),
             _build_timing_group(watch),
             _build_notes_group(watch),

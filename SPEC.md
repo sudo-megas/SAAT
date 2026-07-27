@@ -895,7 +895,14 @@ and document it.
 - Add a database, a settings GUI for the settings file, a plugin system, or a theme
   editor. The two fixed palettes in §6 and their single toggle are not a theme editor:
   no arbitrary colors, no user-saved palettes, no theme file import or export.
-- Add cloud sync, sharing, export, or a showcase mode.
+- Add cloud sync, sharing, or a showcase mode. **One narrow exception, added in milestone
+  19:** local document generation — rendering the current collection or wishlist to a PDF,
+  written to a path the user chooses via a save dialog. Nothing is transmitted anywhere;
+  the file never leaves the machine unless the user moves it there themselves, same as any
+  other file `saat` writes. This is not "export" in the sense the rule was written to ban:
+  no cloud sync, no sharing link, no showcase, no network call, no other output format
+  (CSV, JSON, HTML all remain banned). Named here explicitly so the exception is recorded,
+  not quietly introduced.
 - Fetch watch data, images or prices from anywhere.
 - Write files outside the application directory.
 - Create example, demo, sample, placeholder or test watches anywhere in `watches/`.

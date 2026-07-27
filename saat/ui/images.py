@@ -80,6 +80,33 @@ def load_oriented_original(path: Path) -> QPixmap | None:
     return pixmap
 
 
+def load_for_export(path: Path, max_long_edge: int = 1600) -> QPixmap | None:
+    """EXIF-corrected and downscaled to at most max_long_edge on its long
+    edge, re-encoded as JPEG rather than load_oriented_original's PNG --
+    milestone 19's PDF export embeds one of these per watch, and a whole
+    collection embedded losslessly at full resolution would make for an
+    unreasonably large document. On-screen viewing (the full-screen viewer,
+    the detail page) stays lossless via load_oriented_original; only the
+    PDF path trades a little quality for file size. Returns None for a
+    missing or unreadable file, same as load_oriented_original."""
+    try:
+        with Image.open(path) as img:
+            img = ImageOps.exif_transpose(img)
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            if max(img.width, img.height) > max_long_edge:
+                img.thumbnail((max_long_edge, max_long_edge), Image.LANCZOS)
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=85)
+            data = buffer.getvalue()
+    except (OSError, ValueError):
+        return None
+    pixmap = QPixmap()
+    if not pixmap.loadFromData(data):
+        return None
+    return pixmap
+
+
 def fit_pixmap(path: Path, max_width: int, max_height: int) -> QPixmap | None:
     """Scaled to fit within max_width x max_height, preserving aspect ratio.
     Always the original — this is for the detail page's large image."""

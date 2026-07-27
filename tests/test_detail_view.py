@@ -25,11 +25,12 @@ from saat.ui.detail_view import (
     _build_notes_group,
     _build_straps_group,
     _build_timing_group,
-    _case_rows,
-    _dial_rows,
-    _movement_rows,
     _TimingSparkline,
     _Thumbnail,
+    acquisition_rows_plain,
+    case_rows,
+    dial_rows,
+    movement_rows,
 )
 from saat.ui.formatting import EM_DASH
 from saat.ui.minute_track import MinuteTrackHeader
@@ -44,21 +45,21 @@ class RowBuilderTests(unittest.TestCase):
 
     def test_movement_shows_power_reserve_for_mechanical_kind(self) -> None:
         watch = Watch(brand="Seiko", model="SARB033", movement=Movement(kind="Automatic", power_reserve_hours=50, battery_life_years=3))
-        rows = {r.label: r for r in _movement_rows(watch)}
+        rows = {r.label: r for r in movement_rows(watch)}
         self.assertIn("Power Reserve", rows)
         self.assertNotIn("Battery Life", rows)
         self.assertEqual(rows["Power Reserve"].text, "50h")
 
     def test_movement_shows_battery_life_for_quartz_kind(self) -> None:
         watch = Watch(brand="Casio", model="F-91W", movement=Movement(kind="Quartz", power_reserve_hours=50, battery_life_years=3))
-        rows = {r.label: r for r in _movement_rows(watch)}
+        rows = {r.label: r for r in movement_rows(watch)}
         self.assertIn("Battery Life", rows)
         self.assertNotIn("Power Reserve", rows)
         self.assertEqual(rows["Battery Life"].text, "3y")
 
     def test_movement_all_fields_absent_render_em_dash(self) -> None:
         watch = Watch(brand="Seiko", model="SARB033")
-        rows = _movement_rows(watch)
+        rows = movement_rows(watch)
         self.assertTrue(all(r.text == EM_DASH for r in rows))
 
     def test_case_rows_cover_every_case_field(self) -> None:
@@ -67,7 +68,7 @@ class RowBuilderTests(unittest.TestCase):
             material="Stainless Steel", crystal="Hardlex", crown="Screw-down",
             bezel="Fixed", caseback="Solid", water_resistance_m=100, weight_g=120,
         ))
-        rows = {r.label: r.text for r in _case_rows(watch)}
+        rows = {r.label: r.text for r in case_rows(watch)}
         self.assertEqual(rows["Diameter"], "37.5 mm")
         self.assertEqual(rows["Water Resistance"], "100 m (10 bar)")
         self.assertEqual(rows["Material"], "Stainless Steel")
@@ -75,7 +76,7 @@ class RowBuilderTests(unittest.TestCase):
 
     def test_dial_rows_cover_every_dial_field(self) -> None:
         watch = Watch(brand="Seiko", model="SARB033", dial=Dial(colour="Cream", complications=["Date"]))
-        rows = {r.label: r.text for r in _dial_rows(watch)}
+        rows = {r.label: r.text for r in dial_rows(watch)}
         self.assertEqual(rows["Colour"], "Cream")
         self.assertEqual(rows["Complications"], "Date")
         self.assertEqual(rows["Lume"], EM_DASH)
@@ -147,15 +148,30 @@ class RowBuilderTests(unittest.TestCase):
         rows = {r.label: r.text for r in _acquisition_rows(watch, [Seller(name="Some Shop", url="https://example.com")])}
         self.assertEqual(rows["Seller"], EM_DASH)
 
+    def test_acquisition_rows_plain_never_carries_a_widget(self) -> None:
+        """saat.ui.export's PDF renderer (milestone 19) reuses this exact
+        field list for a printed page, where a clickable QPushButton makes
+        no sense -- even a seller matching a sellers.toml entry with a url
+        must come back as plain text here, unlike _acquisition_rows."""
+        watch = Watch(
+            brand="Seiko", model="SARB033",
+            acquisition=Acquisition(seller="Some Shop", url="https://example.com/listing"),
+        )
+        rows = {r.label: r for r in acquisition_rows_plain(watch)}
+        self.assertIsNone(rows["Seller"].widget)
+        self.assertEqual(rows["Seller"].text, "Some Shop")
+        self.assertIsNone(rows["URL"].widget)
+        self.assertEqual(rows["URL"].text, "https://example.com/listing")
+
 
 class SpecGroupVisibilityTests(unittest.TestCase):
     def test_fully_empty_group_is_hidden(self) -> None:
         watch = Watch(brand="Seiko", model="SARB033")
-        self.assertIsNone(build_spec_group("Movement", _movement_rows(watch)))
+        self.assertIsNone(build_spec_group("Movement", movement_rows(watch)))
 
     def test_partially_populated_group_shows_every_row(self) -> None:
         watch = Watch(brand="Seiko", model="SARB033", movement=Movement(caliber="6R15"))
-        group = build_spec_group("Movement", _movement_rows(watch))
+        group = build_spec_group("Movement", movement_rows(watch))
         self.assertIsNotNone(group)
 
     def test_straps_group_hidden_when_no_straps(self) -> None:
