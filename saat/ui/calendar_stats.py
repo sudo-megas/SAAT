@@ -1,6 +1,6 @@
 from datetime import date
 
-from PySide6.QtCore import QRect, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QRect, QT_TRANSLATE_NOOP, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -25,10 +25,12 @@ from saat.wear import (
     compute_period_stats,
 )
 
+# QT_TRANSLATE_NOOP-marked -- consumed via QCoreApplication.translate() in
+# StatsView.__init__ below, a dict-lookup (variable), not a literal.
 PERIOD_LABELS = {
-    PERIOD_MONTH: "This month",
-    PERIOD_YEAR: "This year",
-    PERIOD_ALL_TIME: "All time",
+    PERIOD_MONTH: QT_TRANSLATE_NOOP("CalendarStats", "This month"),
+    PERIOD_YEAR: QT_TRANSLATE_NOOP("CalendarStats", "This year"),
+    PERIOD_ALL_TIME: QT_TRANSLATE_NOOP("CalendarStats", "All time"),
 }
 
 BAR_HEIGHT = 6
@@ -45,7 +47,10 @@ def _section_heading(text: str) -> QLabel:
     uppercase. Stats mode's sections are NOT spec groups, so this heading
     itself stays plain rather than adopting MinuteTrackHeader wholesale
     (title-plus-track) — see _StatsSectionDivider below for where the
-    minute track's tick vocabulary separates one section from the next."""
+    minute track's tick vocabulary separates one section from the next.
+    .upper() stays plain Python in this sweep (Commit A) -- the Turkish
+    locale-casing fix for all twelve .upper() call sites lands together in
+    Commit C. `text` is already translated by the caller."""
     heading = QLabel(text.upper())
     heading.setProperty("class", "spec-row-label")
     heading.setObjectName("statsSectionHeading")  # distinguishes a section heading from other spec-row-label text (e.g. weekday letters), for tests
@@ -197,6 +202,10 @@ class _ChipSwatch(QWidget):
 
 
 class _WeekdayCell(QWidget):
+    """`label` comes from month_grid.py's WEEKDAY_LABELS -- both it and this
+    .upper() call are replaced by explicit QLocale(<active
+    language>).dayName() in Commit C, not this sweep."""
+
     def __init__(self, label: str, record: WatchRecord | None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -238,7 +247,7 @@ class StatsView(QWidget):
         period_row = QHBoxLayout()
         period_row.setContentsMargins(0, 0, 0, 0)
         for period in (PERIOD_MONTH, PERIOD_YEAR, PERIOD_ALL_TIME):
-            button = QPushButton(PERIOD_LABELS[period])
+            button = QPushButton(QCoreApplication.translate("CalendarStats", PERIOD_LABELS[period]))
             button.setCheckable(True)
             button.clicked.connect(lambda _checked, p=period: self._set_period(p))
             self._period_buttons[period] = button
@@ -292,7 +301,7 @@ class StatsView(QWidget):
                 item.widget().deleteLater()
 
         if stats.watch_count == 0:
-            self._empty_message.setText("No watches to show stats for.")
+            self._empty_message.setText(self.tr("No watches to show stats for."))
             self._empty_message.setVisible(True)
             self._sections_container.setVisible(False)
             return
@@ -326,7 +335,7 @@ class StatsView(QWidget):
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
-        layout.addWidget(_section_heading("Rotation"))
+        layout.addWidget(_section_heading(self.tr("Rotation")))
         for record, days_worn, share in stats.rotation:
             row = _RotationRow(record, days_worn, share, scale, stats.even_split)
             row.clicked.connect(self.watch_clicked.emit)
@@ -340,7 +349,7 @@ class StatsView(QWidget):
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
-        layout.addWidget(_section_heading("Not worn in this period"))
+        layout.addWidget(_section_heading(self.tr("Not worn in this period")))
         for record in stats.not_worn:
             label = QLabel(_display_name(record))
             label.setProperty("class", "spec-row-value")
@@ -352,14 +361,22 @@ class StatsView(QWidget):
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
-        layout.addWidget(_section_heading("Coverage"))
+        layout.addWidget(_section_heading(self.tr("Coverage")))
 
         coverage_pct = stats.days_recorded / stats.period_days if stats.period_days else 0.0
-        layout.addWidget(_figure_row("Days recorded", f"{stats.days_recorded} / {stats.period_days} ({coverage_pct:.0%})"))
+        layout.addWidget(
+            _figure_row(self.tr("Days recorded"), f"{stats.days_recorded} / {stats.period_days} ({coverage_pct:.0%})")
+        )
 
         if stats.deltas is not None:
             days_delta, watches_delta = stats.deltas
-            layout.addWidget(_figure_row("Vs. last period", f"{days_delta:+d} days · {watches_delta:+d} watches"))
+            # "days"/"watches" stay hardcoded English here in this sweep --
+            # same Commit C pluralization deferral as run_length/longest_gap
+            # below (English-only plural forms baked into an f-string,
+            # needs Qt's %n mechanism, not a plain tr() wrap).
+            layout.addWidget(
+                _figure_row(self.tr("Vs. last period"), f"{days_delta:+d} days · {watches_delta:+d} watches")
+            )
         return container
 
     def _build_weekday_section(self, stats: PeriodStats) -> QWidget | None:
@@ -369,7 +386,7 @@ class StatsView(QWidget):
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
-        layout.addWidget(_section_heading("Weekday"))
+        layout.addWidget(_section_heading(self.tr("Weekday")))
 
         strip = QHBoxLayout()
         strip.setContentsMargins(0, 0, 0, 0)
@@ -393,12 +410,17 @@ class StatsView(QWidget):
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
-        layout.addWidget(_section_heading("Streaks"))
+        layout.addWidget(_section_heading(self.tr("Streaks")))
 
+        # day/days stays hardcoded English in this sweep (Commit A) -- Qt's
+        # %n plural mechanism lands in Commit C alongside sidebar.py's and
+        # detail_view.py's equivalent hand-rolled pluralization.
         if run_length > 0:
             days_word = "day" if run_length == 1 else "days"
-            layout.addWidget(_figure_row("Longest run", f"{run_length} {days_word} · {_display_name(run_record)}"))
+            layout.addWidget(
+                _figure_row(self.tr("Longest run"), f"{run_length} {days_word} · {_display_name(run_record)}")
+            )
         if stats.longest_gap > 0:
             days_word = "day" if stats.longest_gap == 1 else "days"
-            layout.addWidget(_figure_row("Longest gap", f"{stats.longest_gap} {days_word}"))
+            layout.addWidget(_figure_row(self.tr("Longest gap"), f"{stats.longest_gap} {days_word}"))
         return container

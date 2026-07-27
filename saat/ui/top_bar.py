@@ -1,6 +1,6 @@
 import math
 
-from PySide6.QtCore import QPointF, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QPointF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPainterPath, QPen
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
@@ -97,30 +97,30 @@ class TopBar(QWidget):
         self._scope = SCOPE_COLLECTION
         self._sort_descending = False
 
-        self._collection_button = QPushButton("Collection")
+        self._collection_button = QPushButton(self.tr("Collection"))
         self._collection_button.setCheckable(True)
         icons.set_checkable_icon(self._collection_button, "collection")
-        self._wishlist_button = QPushButton("Wishlist")
+        self._wishlist_button = QPushButton(self.tr("Wishlist"))
         self._wishlist_button.setCheckable(True)
         icons.set_checkable_icon(self._wishlist_button, "star")
         self._collection_button.clicked.connect(lambda: self._set_scope(SCOPE_COLLECTION))
         self._wishlist_button.clicked.connect(lambda: self._set_scope(SCOPE_WISHLIST))
 
         self._search_field = QLineEdit()
-        self._search_field.setPlaceholderText("Search brand, model, reference, caliber, tags…")
+        self._search_field.setPlaceholderText(self.tr("Search brand, model, reference, caliber, tags…"))
         self._search_field.setMinimumWidth(120)
         self._search_field.addAction(
             icons.icon("search", theme.colors().text_muted), QLineEdit.ActionPosition.LeadingPosition
         )
         self._search_field.textChanged.connect(self.search_changed.emit)
 
-        self._grid_button = QPushButton("Grid")
+        self._grid_button = QPushButton(self.tr("Grid"))
         self._grid_button.setCheckable(True)
         icons.set_checkable_icon(self._grid_button, "grid")
-        self._table_button = QPushButton("Table")
+        self._table_button = QPushButton(self.tr("Table"))
         self._table_button.setCheckable(True)
         icons.set_checkable_icon(self._table_button, "table")
-        self._calendar_button = QPushButton("Calendar")
+        self._calendar_button = QPushButton(self.tr("Calendar"))
         self._calendar_button.setCheckable(True)
         icons.set_checkable_icon(self._calendar_button, "calendar")
         self._grid_button.clicked.connect(lambda: self._set_view(VIEW_GRID))
@@ -134,17 +134,28 @@ class TopBar(QWidget):
 
         self._sort_direction_button = QPushButton()
         self._sort_direction_button.setProperty("variant", "link")
-        self._sort_direction_button.setToolTip("Sort ascending")
+        self._sort_direction_button.setToolTip(self.tr("Sort ascending"))
         self._sort_direction_button.clicked.connect(self._toggle_sort_direction)
         self._refresh_sort_direction_icon()
 
         self._preset_combo = QComboBox()
-        self._preset_combo.addItem(PRESET_DEFAULT)
+        # Milestone 21: text is the translated label, itemData is the
+        # canonical value -- same split as form_fields.py's enum combos.
+        # PRESET_DEFAULT/GROUP_ORDER's values are what collection_view.py's
+        # _on_preset_changed() compares against and looks COLUMN_PRESETS up
+        # by; the old currentTextChanged.connect(...emit) emitted display
+        # text directly, which would have silently broken that lookup the
+        # moment this combo's items became translated (every non-English
+        # preset selection would have quietly fallen back to the default
+        # columns instead of applying the chosen preset).
+        self._preset_combo.addItem(self.tr("Default"), PRESET_DEFAULT)
         for group in GROUP_ORDER:
-            self._preset_combo.addItem(group)
-        self._preset_combo.currentTextChanged.connect(self.preset_changed.emit)
+            self._preset_combo.addItem(QCoreApplication.translate("Columns", group), group)
+        self._preset_combo.currentIndexChanged.connect(
+            lambda i: self.preset_changed.emit(self._preset_combo.itemData(i))
+        )
 
-        add_button = QPushButton("Add watch")
+        add_button = QPushButton(self.tr("Add watch"))
         add_button.setProperty("variant", "primary")
         icons.set_icon(add_button, "add", color_role="plate")
         add_button.clicked.connect(self.add_watch_requested.emit)
@@ -155,12 +166,12 @@ class TopBar(QWidget):
         self._compare_button.setVisible(False)
 
         self._export_button = QPushButton()
-        self._export_button.setToolTip("Export to PDF (Ctrl+P)")
+        self._export_button.setToolTip(self.tr("Export to PDF (Ctrl+P)"))
         icons.set_icon(self._export_button, "export")
         self._export_button.clicked.connect(self.export_requested.emit)
 
         self._pick_button = QPushButton()
-        self._pick_button.setToolTip("Pick a watch for today")
+        self._pick_button.setToolTip(self.tr("Pick a watch for today"))
         icons.set_icon(self._pick_button, "pick")
         self._pick_button.clicked.connect(self.pick_requested.emit)
 
@@ -213,7 +224,7 @@ class TopBar(QWidget):
         """SPEC.md §5.4: 'Select two to four watches.' Hidden below the
         minimum rather than shown disabled — a conditional action, not a
         permanent control."""
-        self._compare_button.setText(f"Compare ({count})")
+        self._compare_button.setText(self.tr("Compare ({count})").format(count=count))
         self._compare_button.setVisible(count >= MIN_COMPARE)
 
     def set_export_enabled(self, enabled: bool) -> None:
@@ -265,7 +276,7 @@ class TopBar(QWidget):
     def _refresh_sort_direction_icon(self) -> None:
         name = "sort-desc" if self._sort_descending else "sort-asc"
         icons.set_icon(self._sort_direction_button, name)
-        self._sort_direction_button.setToolTip("Sort descending" if self._sort_descending else "Sort ascending")
+        self._sort_direction_button.setToolTip(self.tr("Sort descending") if self._sort_descending else self.tr("Sort ascending"))
 
     def _set_scope(self, scope: str) -> None:
         self._scope = scope
@@ -293,7 +304,8 @@ class TopBar(QWidget):
         self._sort_combo.blockSignals(True)
         self._sort_combo.clear()
         for key in WISHLIST_SORT_OPTIONS if is_wishlist else SORT_OPTIONS:
-            self._sort_combo.addItem(f"Sort: {COLUMNS_BY_KEY[key].label}", key)
+            label = QCoreApplication.translate("Columns", COLUMNS_BY_KEY[key].label)
+            self._sort_combo.addItem(self.tr("Sort: {label}").format(label=label), key)
         self._sort_combo.blockSignals(False)
         self._sort_descending = False
         self._refresh_sort_direction_icon()

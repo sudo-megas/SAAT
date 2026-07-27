@@ -2,7 +2,7 @@ import calendar as cal
 from datetime import date, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import QPointF, QRect, QUrl, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QPointF, QRect, QUrl, Qt, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QMouseEvent, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import (
     QFrame,
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from saat.models import LogEntry, Movement, Strap, TimingEntry, Watch
 from saat.sellers import Seller, find_seller
 from saat.storage import WatchRecord
+from saat.ui.form_fields import enum_label
 from saat.ui.formatting import EM_DASH, fmt_accuracy, fmt_bool, fmt_bph, fmt_date, fmt_list, fmt_number, fmt_price, fmt_water_resistance, is_empty
 from saat.ui.images import cropped_pixmap, fit_pixmap, list_images
 from saat.ui.maintenance import maintenance_due_text
@@ -50,20 +51,26 @@ def movement_rows(watch: Watch) -> list[SpecRow]:
     m = watch.movement
     # SPEC.md §4: power reserve vs. battery life — show one or the other, driven by kind.
     if m.kind in ("Quartz", "Solar"):
-        reserve_row = spec_row("Battery Life", m.battery_life_years, lambda v: fmt_number(v, "y"), numeric=True)
+        reserve_row = spec_row(
+            QCoreApplication.translate("DetailView", "Battery Life"), m.battery_life_years,
+            lambda v: fmt_number(v, "y"), numeric=True,
+        )
     else:
-        reserve_row = spec_row("Power Reserve", m.power_reserve_hours, lambda v: fmt_number(v, "h"), numeric=True)
+        reserve_row = spec_row(
+            QCoreApplication.translate("DetailView", "Power Reserve"), m.power_reserve_hours,
+            lambda v: fmt_number(v, "h"), numeric=True,
+        )
 
     return [
-        spec_row("Caliber", m.caliber),
-        spec_row("Kind", m.kind),
+        spec_row(QCoreApplication.translate("DetailView", "Caliber"), m.caliber),
+        spec_row(QCoreApplication.translate("DetailView", "Kind"), m.kind, enum_label),
         reserve_row,
-        spec_row("Accuracy", _get_accuracy(m), fmt_accuracy, numeric=True),
-        spec_row("Jewels", m.jewels, str, numeric=True),
-        spec_row("Frequency", m.bph, fmt_bph, numeric=True),
-        spec_row("Hacking", m.hacking, fmt_bool),
-        spec_row("Handwinding", m.handwinding, fmt_bool),
-        spec_row("Origin", m.origin),
+        spec_row(QCoreApplication.translate("DetailView", "Accuracy"), _get_accuracy(m), fmt_accuracy, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Jewels"), m.jewels, str, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Frequency"), m.bph, fmt_bph, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Hacking"), m.hacking, fmt_bool),
+        spec_row(QCoreApplication.translate("DetailView", "Handwinding"), m.handwinding, fmt_bool),
+        spec_row(QCoreApplication.translate("DetailView", "Origin"), m.origin),
     ]
 
 
@@ -72,30 +79,34 @@ def movement_rows(watch: Watch) -> list[SpecRow]:
 def case_rows(watch: Watch) -> list[SpecRow]:
     c = watch.case
     return [
-        spec_row("Diameter", c.diameter_mm, lambda v: fmt_number(v, " mm"), numeric=True),
-        spec_row("Lug-to-Lug", c.lug_to_lug_mm, lambda v: fmt_number(v, " mm"), numeric=True),
-        spec_row("Thickness", c.thickness_mm, lambda v: fmt_number(v, " mm"), numeric=True),
-        spec_row("Lug Width", c.lug_width_mm, lambda v: fmt_number(v, " mm"), numeric=True),
-        spec_row("Material", c.material),
-        spec_row("Crystal", c.crystal),
-        spec_row("Crown", c.crown),
-        spec_row("Bezel", c.bezel),
-        spec_row("Caseback", c.caseback),
-        spec_row("Water Resistance", c.water_resistance_m, fmt_water_resistance, numeric=True),
-        spec_row("Weight", c.weight_g, lambda v: fmt_number(v, " g"), numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Diameter"), c.diameter_mm, lambda v: fmt_number(v, " mm"), numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Lug-to-Lug"), c.lug_to_lug_mm, lambda v: fmt_number(v, " mm"), numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Thickness"), c.thickness_mm, lambda v: fmt_number(v, " mm"), numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Lug Width"), c.lug_width_mm, lambda v: fmt_number(v, " mm"), numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Material"), c.material, enum_label),
+        spec_row(QCoreApplication.translate("DetailView", "Crystal"), c.crystal, enum_label),
+        spec_row(QCoreApplication.translate("DetailView", "Crown"), c.crown, enum_label),
+        spec_row(QCoreApplication.translate("DetailView", "Bezel"), c.bezel, enum_label),
+        spec_row(QCoreApplication.translate("DetailView", "Caseback"), c.caseback, enum_label),
+        spec_row(QCoreApplication.translate("DetailView", "Water Resistance"), c.water_resistance_m, fmt_water_resistance, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Weight"), c.weight_g, lambda v: fmt_number(v, " g"), numeric=True),
     ]
 
 
 # --- Dial -----------------------------------------------------------
 
+def _fmt_translated_list(values: list[str]) -> str:
+    return fmt_list([enum_label(v) for v in values])
+
+
 def dial_rows(watch: Watch) -> list[SpecRow]:
     d = watch.dial
     return [
-        spec_row("Colour", d.colour),
-        spec_row("Material", d.material),
-        spec_row("Indices", d.indices),
-        spec_row("Lume", d.lume),
-        spec_row("Complications", d.complications, fmt_list),
+        spec_row(QCoreApplication.translate("DetailView", "Colour"), d.colour),
+        spec_row(QCoreApplication.translate("DetailView", "Material"), d.material),
+        spec_row(QCoreApplication.translate("DetailView", "Indices"), d.indices, enum_label),
+        spec_row(QCoreApplication.translate("DetailView", "Lume"), d.lume),
+        spec_row(QCoreApplication.translate("DetailView", "Complications"), d.complications, _fmt_translated_list),
     ]
 
 
@@ -103,12 +114,12 @@ def dial_rows(watch: Watch) -> list[SpecRow]:
 
 def _url_row(url: str | None) -> SpecRow:
     if is_empty(url):
-        return SpecRow("URL", EM_DASH)
+        return SpecRow(QCoreApplication.translate("DetailView", "URL"), EM_DASH)
     link = QPushButton(url)
     link.setProperty("variant", "link")
     link.setCursor(Qt.CursorShape.PointingHandCursor)
     link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
-    return SpecRow("URL", url, widget=link)
+    return SpecRow(QCoreApplication.translate("DetailView", "URL"), url, widget=link)
 
 
 def _seller_row(seller_name: str | None, sellers: list[Seller]) -> SpecRow:
@@ -118,15 +129,15 @@ def _seller_row(seller_name: str | None, sellers: list[Seller]) -> SpecRow:
     A non-matching or url-less seller renders as plain text, same as any
     other string field."""
     if is_empty(seller_name):
-        return SpecRow("Seller", EM_DASH)
+        return SpecRow(QCoreApplication.translate("DetailView", "Seller"), EM_DASH)
     matched = find_seller(sellers, seller_name)
     if matched is None or is_empty(matched.url):
-        return SpecRow("Seller", seller_name)
+        return SpecRow(QCoreApplication.translate("DetailView", "Seller"), seller_name)
     link = QPushButton(seller_name)
     link.setProperty("variant", "link")
     link.setCursor(Qt.CursorShape.PointingHandCursor)
     link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(matched.url)))
-    return SpecRow("Seller", seller_name, widget=link)
+    return SpecRow(QCoreApplication.translate("DetailView", "Seller"), seller_name, widget=link)
 
 
 def acquisition_rows_plain(watch: Watch) -> list[SpecRow]:
@@ -134,30 +145,45 @@ def acquisition_rows_plain(watch: Watch) -> list[SpecRow]:
     clickable QPushButton variants -- shared with saat.ui.export's PDF
     renderer (milestone 19), which needs the same field list and order but
     can't embed a clickable widget on a printed page. _acquisition_rows
-    below builds on this and swaps in the two link rows for on-screen use."""
+    below builds on this and swaps in the two link rows for on-screen use.
+    Labels are translated here -- safe since _acquisition_rows() below no
+    longer inspects row.label to find Seller/URL, it uses the canonical,
+    never-translated _ACQUISITION_FIELD_ORDER list instead."""
     a = watch.acquisition
     price = (a.price, a.currency or "") if a.price is not None else None
     target_price = (a.target_price, a.currency or "") if a.target_price is not None else None
     return [
-        spec_row("Acquired", a.date, fmt_date, numeric=True),
-        spec_row("Price", price, fmt_price, numeric=True),
-        spec_row("Target Price", target_price, fmt_price, numeric=True),
-        spec_row("Target Date", a.target_date, fmt_date, numeric=True),
-        spec_row("Seller", a.seller),
-        spec_row("URL", a.url),
-        spec_row("Condition", a.condition),
-        spec_row("Box & Papers", a.box_and_papers, fmt_bool),
-        spec_row("Warranty Until", a.warranty_until, fmt_date, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Acquired"), a.date, fmt_date, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Price"), price, fmt_price, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Target Price"), target_price, fmt_price, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Target Date"), a.target_date, fmt_date, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Seller"), a.seller),
+        spec_row(QCoreApplication.translate("DetailView", "URL"), a.url),
+        spec_row(QCoreApplication.translate("DetailView", "Condition"), a.condition, enum_label),
+        spec_row(QCoreApplication.translate("DetailView", "Box & Papers"), a.box_and_papers, fmt_bool),
+        spec_row(QCoreApplication.translate("DetailView", "Warranty Until"), a.warranty_until, fmt_date, numeric=True),
     ]
+
+
+# Milestone 21: the field order acquisition_rows_plain() builds in, kept as
+# its own canonical (never-translated) list so _acquisition_rows() below can
+# swap in the clickable Seller/URL rows by *position* rather than by
+# inspecting row.label -- once labels are translated, row.label no longer
+# equals "Seller"/"URL", so a label-string comparison would silently stop
+# matching under any non-English UI and the link rows would never render.
+_ACQUISITION_FIELD_ORDER = [
+    "Acquired", "Price", "Target Price", "Target Date", "Seller", "URL",
+    "Condition", "Box & Papers", "Warranty Until",
+]
 
 
 def _acquisition_rows(watch: Watch, sellers: list[Seller] | None = None) -> list[SpecRow]:
     a = watch.acquisition
     rows = acquisition_rows_plain(watch)
-    for i, row in enumerate(rows):
-        if row.label == "Seller":
+    for i, field in enumerate(_ACQUISITION_FIELD_ORDER):
+        if field == "Seller":
             rows[i] = _seller_row(a.seller, sellers or [])
-        elif row.label == "URL":
+        elif field == "URL":
             rows[i] = _url_row(a.url)
     return rows
 
@@ -167,8 +193,8 @@ def _acquisition_rows(watch: Watch, sellers: list[Seller] | None = None) -> list
 def maintenance_rows(watch: Watch) -> list[SpecRow]:
     m = watch.maintenance
     return [
-        spec_row("Service Interval", m.service_interval_years, lambda v: fmt_number(v, " y"), numeric=True),
-        spec_row("Battery Due", m.battery_due, fmt_date, numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Service Interval"), m.service_interval_years, lambda v: fmt_number(v, " y"), numeric=True),
+        spec_row(QCoreApplication.translate("DetailView", "Battery Due"), m.battery_due, fmt_date, numeric=True),
     ]
 
 
@@ -197,7 +223,7 @@ def _build_strap_card(record: WatchRecord, strap: Strap) -> QWidget:
 
     text_col = QVBoxLayout()
     text_col.setSpacing(2)
-    title_parts = [p for p in (strap.material, strap.colour) if p]
+    title_parts = [p for p in (enum_label(strap.material) if strap.material else None, strap.colour) if p]
     title = QLabel(" · ".join(title_parts) if title_parts else EM_DASH)
     title.setProperty("class", "strap-title")
     text_col.addWidget(title)
@@ -206,7 +232,7 @@ def _build_strap_card(record: WatchRecord, strap: Strap) -> QWidget:
     if strap.width_mm is not None:
         detail_parts.append(fmt_number(strap.width_mm, " mm"))
     if strap.clasp:
-        detail_parts.append(strap.clasp)
+        detail_parts.append(enum_label(strap.clasp))
     detail = QLabel(" · ".join(detail_parts) if detail_parts else EM_DASH)
     detail.setProperty("muted", True)
     text_col.addWidget(detail)
@@ -214,7 +240,9 @@ def _build_strap_card(record: WatchRecord, strap: Strap) -> QWidget:
     row.addLayout(text_col, 1)
 
     if strap.fitted:
-        badge = QLabel("FITTED")
+        # .upper() would be redundant here since the source text is already
+        # uppercase -- no Commit C casing concern for this one literal.
+        badge = QLabel(QCoreApplication.translate("DetailView", "FITTED"))
         badge.setProperty("class", "fitted-badge")
         row.addWidget(badge, 0, Qt.AlignmentFlag.AlignVCenter)
 
@@ -229,7 +257,7 @@ def _build_straps_group(record: WatchRecord) -> QWidget | None:
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)
-    layout.addWidget(MinuteTrackHeader("Straps"))
+    layout.addWidget(MinuteTrackHeader(QCoreApplication.translate("DetailView", "Straps")))
     for strap in watch.straps:
         layout.addWidget(_build_strap_card(record, strap))
     return container
@@ -241,7 +269,7 @@ def _build_strap_compat_entry(match: CompatibleStrap) -> QWidget:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(4)
 
-    owner = QLabel(f"{match.record.watch.brand} {match.record.watch.model}")
+    owner = QLabel(f"{match.record.watch.brand} {match.record.watch.model}")  # user data, not translatable
     owner.setProperty("muted", True)
     layout.addWidget(owner)
     layout.addWidget(_build_strap_card(match.record, match.strap))
@@ -258,7 +286,7 @@ def _build_strap_compat_group(record: WatchRecord, all_records: list[WatchRecord
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)
-    layout.addWidget(MinuteTrackHeader("Compatible Straps"))
+    layout.addWidget(MinuteTrackHeader(QCoreApplication.translate("DetailView", "Compatible Straps")))
     for match in matches:
         layout.addWidget(_build_strap_compat_entry(match))
     return container
@@ -272,7 +300,7 @@ def _build_log_row(entry: LogEntry) -> QWidget:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(2)
 
-    header_parts = [p for p in (fmt_date(entry.date) if entry.date else None, entry.kind) if p]
+    header_parts = [p for p in (fmt_date(entry.date) if entry.date else None, enum_label(entry.kind) if entry.kind else None) if p]
     header = QLabel(" · ".join(header_parts) if header_parts else EM_DASH)
     header.setProperty("class", "log-entry-header")
     layout.addWidget(header)
@@ -293,7 +321,7 @@ def _build_log_group(watch: Watch) -> QWidget | None:
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(10)
-    layout.addWidget(MinuteTrackHeader("Log"))
+    layout.addWidget(MinuteTrackHeader(QCoreApplication.translate("DetailView", "Log")))
     entries = sorted(watch.log, key=lambda e: e.date or date.min, reverse=True)
     for entry in entries:
         layout.addWidget(_build_log_row(entry))
@@ -351,7 +379,7 @@ def _build_timing_row(entry: TimingEntry) -> QWidget:
     parts = [p for p in (
         fmt_date(entry.date) if entry.date else None,
         f"{entry.deviation_sec:+g} sec" if entry.deviation_sec is not None else None,
-        entry.position,
+        enum_label(entry.position) if entry.position else None,
     ) if p]
     label = QLabel(" · ".join(parts) if parts else EM_DASH)
     label.setProperty("class", "timing-row")
@@ -365,7 +393,7 @@ def _build_timing_group(watch: Watch) -> QWidget | None:
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(6)
-    layout.addWidget(MinuteTrackHeader("Timing"))
+    layout.addWidget(MinuteTrackHeader(QCoreApplication.translate("DetailView", "Timing")))
 
     valid_readings = [e for e in watch.timing if e.date is not None and e.deviation_sec is not None]
     if len(valid_readings) >= MIN_SPARKLINE_READINGS:
@@ -386,7 +414,7 @@ def _build_notes_group(watch: Watch) -> QWidget | None:
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)
-    layout.addWidget(MinuteTrackHeader("Notes"))
+    layout.addWidget(MinuteTrackHeader(QCoreApplication.translate("DetailView", "Notes")))
     label = QLabel(watch.notes)
     label.setTextFormat(Qt.TextFormat.PlainText)
     label.setWordWrap(True)
@@ -521,6 +549,11 @@ class SpecGroupsContainer(QWidget):
 # --- Wear -----------------------------------------------------------
 
 def _wear_stats_text(watch: Watch) -> str:
+    # Milestone 21 Commit C, not this sweep: three hand-rolled English-only
+    # plurals in one string -- needs Qt's %n mechanism (and, since this
+    # builds a single QLabel from several counts at once, likely restructured
+    # into several self.tr("%n ...", "", n) pieces joined together, not one
+    # template string with three independent %n slots).
     last = last_worn(watch)
     days = days_since_worn(watch)
     times = times_worn_this_year(watch)
@@ -576,6 +609,11 @@ class _TwelveMonthStrip(QWidget):
                     painter.drawLine(tick_x, 2, tick_x, MONTH_BLOCK_HEIGHT - 2)
 
             painter.setPen(QColor(theme.colors().text_muted))
+            # Milestone 21 Commit C, not this sweep: strftime("%b") reads the
+            # process C locale (always English here, since nothing calls
+            # locale.setlocale()) -- replaced by explicit
+            # QLocale(<active language>).standaloneMonthName(month,
+            # QLocale.FormatType.ShortFormat), never QLocale.system().
             painter.drawText(QRect(x, MONTH_BLOCK_HEIGHT, MONTH_BLOCK_WIDTH, 16),
                               Qt.AlignmentFlag.AlignHCenter, date(year, month, 1).strftime("%b"))
             x += MONTH_BLOCK_WIDTH + 4
@@ -632,14 +670,17 @@ def _build_header(record: WatchRecord) -> QWidget:
 
     meta_parts = []
     if watch.reference:
-        meta_parts.append(f"Ref. {watch.reference}")
+        meta_parts.append(QCoreApplication.translate("DetailView", "Ref. {reference}").format(reference=watch.reference))
+    # "Translation happens only at display time" applies to every display
+    # surface, not only the edit-time combo box -- same enum_label() used by
+    # table cells (columns.py) and PDF export.
     if watch.style:
-        meta_parts.append(watch.style)
+        meta_parts.append(enum_label(watch.style))
     if watch.group:
-        meta_parts.append(watch.group)
-    meta_parts.append(watch.status)
+        meta_parts.append(enum_label(watch.group))
+    meta_parts.append(enum_label(watch.status))
     if watch.storage:
-        meta_parts.append(f"Storage: {watch.storage}")
+        meta_parts.append(QCoreApplication.translate("DetailView", "Storage: {storage}").format(storage=watch.storage))
     if watch.rating is not None:
         meta_parts.append("★" * watch.rating + "☆" * (5 - watch.rating))
     meta = QLabel(" · ".join(meta_parts))
@@ -648,13 +689,13 @@ def _build_header(record: WatchRecord) -> QWidget:
     layout.addWidget(meta)
 
     if watch.tags:
-        tags = QLabel("Tags: " + fmt_list(watch.tags))
+        tags = QLabel(QCoreApplication.translate("DetailView", "Tags: {tags}").format(tags=fmt_list(watch.tags)))
         tags.setProperty("muted", True)
         tags.setWordWrap(True)
         layout.addWidget(tags)
 
     if watch.serial:
-        serial = QLabel(f"Serial {watch.serial}")
+        serial = QLabel(QCoreApplication.translate("DetailView", "Serial {serial}").format(serial=watch.serial))
         serial.setProperty("muted", True)
         layout.addWidget(serial)
 
@@ -747,7 +788,7 @@ class DetailView(QScrollArea):
         layout.setContentsMargins(PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN)
         layout.setSpacing(GROUP_SPACING)
 
-        back_button = QPushButton("Back")
+        back_button = QPushButton(self.tr("Back"))
         back_button.setObjectName("back-button")
         back_button.setProperty("variant", "link")
         back_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -770,7 +811,7 @@ class DetailView(QScrollArea):
         if wear_section is not None:
             layout.addWidget(wear_section)
 
-        wore_today_button = QPushButton("Wore this today")
+        wore_today_button = QPushButton(self.tr("Wore this today"))
         icons.set_icon(wore_today_button, "wore-today")
         wore_today_button.clicked.connect(lambda: self.wore_today_requested.emit(record))
         layout.addWidget(wore_today_button, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -797,16 +838,16 @@ class DetailView(QScrollArea):
         if record.watch.status == "Wishlist":
             # SPEC.md §5.12: one action, no dialog — not "primary"-styled,
             # since SPEC.md §5.1 reserves that weight for "Add watch" alone.
-            mark_owned_button = QPushButton("Mark as Owned")
+            mark_owned_button = QPushButton(self.tr("Mark as Owned"))
             mark_owned_button.clicked.connect(lambda: self.move_to_owned_requested.emit(record))
             row_layout.addWidget(mark_owned_button)
 
-        edit_button = QPushButton("Edit")
+        edit_button = QPushButton(self.tr("Edit"))
         icons.set_icon(edit_button, "edit")
         edit_button.clicked.connect(lambda: self.edit_requested.emit(record))
         row_layout.addWidget(edit_button)
 
-        delete_button = QPushButton("Delete")
+        delete_button = QPushButton(self.tr("Delete"))
         delete_button.setProperty("variant", "destructive")
         icons.set_icon(delete_button, "delete", color_role="text")
         delete_button.clicked.connect(lambda: self.delete_requested.emit(record))
@@ -816,14 +857,18 @@ class DetailView(QScrollArea):
 
     def _build_spec_groups(self, record: WatchRecord) -> list[QWidget]:
         watch = record.watch
+        # These group titles are a separate, independently-maintained set
+        # from columns.py's GROUP_ORDER (registered under context "Columns")
+        # -- same English words in places, but translating one does not
+        # cover the other, so each gets its own "DetailView"-context entry.
         candidates = [
-            build_spec_group("Movement", movement_rows(watch)),
-            build_spec_group("Case", case_rows(watch)),
-            build_spec_group("Dial", dial_rows(watch)),
+            build_spec_group(self.tr("Movement"), movement_rows(watch)),
+            build_spec_group(self.tr("Case"), case_rows(watch)),
+            build_spec_group(self.tr("Dial"), dial_rows(watch)),
             _build_straps_group(record),
             _build_strap_compat_group(record, self._all_records),
-            build_spec_group("Acquisition", _acquisition_rows(watch, self._sellers)),
-            build_spec_group("Maintenance", maintenance_rows(watch)),
+            build_spec_group(self.tr("Acquisition"), _acquisition_rows(watch, self._sellers)),
+            build_spec_group(self.tr("Maintenance"), maintenance_rows(watch)),
             _build_log_group(watch),
             _build_timing_group(watch),
             _build_notes_group(watch),

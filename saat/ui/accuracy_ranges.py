@@ -1,4 +1,4 @@
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QCoreApplication, QRect, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -25,6 +25,10 @@ def _section_heading(text: str) -> QLabel:
     deliberately not a MinuteTrackHeader. Kept local rather than shared
     since it's a single QLabel construction, not worth a cross-module
     import for."""
+    # Milestone 21 Commit C, not this sweep: .upper() is ASCII-only and
+    # wrong for Turkish -- QLocale(<active language>).toUpper() lands in
+    # Commit C alongside minute_track.py's identical fix. text is already
+    # translated by the caller.
     heading = QLabel(text.upper())
     heading.setProperty("class", "spec-row-label")
     return heading
@@ -119,7 +123,7 @@ def build_accuracy_section(records: list[WatchRecord]) -> QWidget | None:
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(4)
-    layout.addWidget(_section_heading("Accuracy Range"))
+    layout.addWidget(_section_heading(QCoreApplication.translate("AccuracyRanges", "Accuracy Range")))
     for entry in entries:
         layout.addWidget(_AccuracyRow(entry, axis_min, axis_max))
     return container

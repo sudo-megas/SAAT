@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QCoreApplication, Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from saat.storage import WatchRecord
@@ -52,7 +52,7 @@ class CompareView(QScrollArea):
         layout.setContentsMargins(PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN)
         layout.setSpacing(GROUP_SPACING)
 
-        back_button = QPushButton("Back")
+        back_button = QPushButton(self.tr("Back"))
         back_button.setObjectName("back-button")
         back_button.setProperty("variant", "link")
         back_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -85,10 +85,15 @@ class CompareView(QScrollArea):
 
         row_index = 1
         for group in build_compare_groups(records):
-            grid.addWidget(MinuteTrackHeader(group.title), row_index, 0, 1, num_columns)
+            # group.title/row.label are canonical GROUP_ORDER/Column.label
+            # values from columns.py, same "Columns" translation context
+            # table_view.py's headers and top_bar.py's sort/preset combos use.
+            grid.addWidget(
+                MinuteTrackHeader(QCoreApplication.translate("Columns", group.title)), row_index, 0, 1, num_columns
+            )
             row_index += 1
             for row in group.rows:
-                label = QLabel(row.label)
+                label = QLabel(QCoreApplication.translate("Columns", row.label))
                 label.setProperty("class", "spec-row-label")
                 grid.addWidget(label, row_index, 0, Qt.AlignmentFlag.AlignTop)
 

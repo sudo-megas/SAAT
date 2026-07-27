@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Qt, Signal
 from PySide6.QtGui import QBrush, QPaintEvent, QPainter
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -13,11 +13,26 @@ from PySide6.QtWidgets import (
 from saat.storage import WatchRecord
 from saat.ui.collection_summary import compute_collection_summary, compute_wishlist_summary
 from saat.ui.facets import Facet, VALUE_FACETS, is_not_worn_90d
+from saat.ui.form_fields import ENUM_CHOICES_CONTEXT
 from saat.ui.formatting import fmt_price
 from saat.ui import icons, motion, perlage, theme
 from saat.ui.theme import GROUP_SPACING, SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH
 
-NOT_WORN_LABEL = "Not worn in 90 days"
+# QT_TRANSLATE_NOOP-marked, same reason as every other module-level constant
+# in this sweep -- consumed via QCoreApplication.translate("Sidebar", ...)
+# below, never as a bare self.tr(NOT_WORN_LABEL) (a variable, invisible to
+# lupdate).
+NOT_WORN_LABEL = QT_TRANSLATE_NOOP("Sidebar", "Not worn in 90 days")
+
+
+def _facet_value_label(facet: Facet, value: str) -> str:
+    """The checkbox TEXT is translated when the facet's values are enum*
+    vocabulary; the checkbox's identity -- the dict key in
+    Sidebar._checkboxes, and everything active_facets()/update_counts()
+    look up by -- always stays the canonical `value` itself. Same
+    display/data split as form_fields.py's combo boxes, just for a
+    checkbox instead of a combo item."""
+    return QCoreApplication.translate(ENUM_CHOICES_CONTEXT, value) if facet.translate_values else value
 
 
 class Sidebar(QWidget):
@@ -39,14 +54,14 @@ class Sidebar(QWidget):
         self._checkboxes: dict[tuple[str, str], QCheckBox] = {}
         self._not_worn_checkbox: QCheckBox | None = None
 
-        self._toggle_button = QPushButton("Hide filters")
+        self._toggle_button = QPushButton(self.tr("Hide filters"))
         self._toggle_button.setProperty("variant", "link")
         icons.set_icon(self._toggle_button, "sidebar")
         self._toggle_button.clicked.connect(self._toggle_collapsed)
 
         self._clear_filters_button = QPushButton()
         self._clear_filters_button.setProperty("variant", "link")
-        self._clear_filters_button.setToolTip("Clear filters")
+        self._clear_filters_button.setToolTip(self.tr("Clear filters"))
         icons.set_icon(self._clear_filters_button, "clear-filters")
         self._clear_filters_button.clicked.connect(self._clear_all_filters)
         self._clear_filters_button.setVisible(False)
@@ -72,7 +87,7 @@ class Sidebar(QWidget):
         # worn" once wear tracking excludes non-Owned watches — the facet
         # would carry zero filtering value there.
         if not is_wishlist and any(is_not_worn_90d(w) for w in valid_watches):
-            checkbox = QCheckBox(NOT_WORN_LABEL)
+            checkbox = QCheckBox(QCoreApplication.translate("Sidebar", NOT_WORN_LABEL))
             checkbox.toggled.connect(lambda _checked: self._on_facet_toggled())
             self._not_worn_checkbox = checkbox
             groups_layout.addWidget(checkbox)
@@ -128,6 +143,9 @@ class Sidebar(QWidget):
         rule.setProperty("class", "sidebar-summary-rule")
         layout.addWidget(rule)
 
+        # Milestone 21 Commit C, not this sweep: English-only singular/plural
+        # -- Turkish and Japanese pluralize differently, so this needs Qt's
+        # self.tr("%n watch(es)", "", n) mechanism, not a plain tr() wrap.
         count_text = "1 watch" if summary.total == 1 else f"{summary.total} watches"
         count_label = QLabel(count_text)
         layout.addWidget(count_label)
@@ -162,6 +180,9 @@ class Sidebar(QWidget):
         rule.setProperty("class", "sidebar-summary-rule")
         layout.addWidget(rule)
 
+        # Milestone 21 Commit C, not this sweep: English-only singular/plural
+        # -- Turkish and Japanese pluralize differently, so this needs Qt's
+        # self.tr("%n watch(es)", "", n) mechanism, not a plain tr() wrap.
         count_text = "1 watch" if summary.total == 1 else f"{summary.total} watches"
         count_label = QLabel(count_text)
         layout.addWidget(count_label)
@@ -176,11 +197,11 @@ class Sidebar(QWidget):
 
         if summary.has_any_target_date:
             if summary.due_next_12_months_by_currency:
-                due_text = "Due within 12mo: " + " · ".join(
+                due_text = self.tr("Due within 12mo: ") + " · ".join(
                     fmt_price((total, currency)) for currency, total in summary.due_next_12_months_by_currency
                 )
             else:
-                due_text = "Due within 12mo: 0"
+                due_text = self.tr("Due within 12mo: 0")
             due = QLabel(due_text)
             due.setProperty("muted", True)
             due.setWordWrap(True)
@@ -194,12 +215,16 @@ class Sidebar(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        heading = QLabel(facet.label.upper())
+        # .upper() stays plain Python here in Commit A -- Turkish locale
+        # casing (dotless-I) needs a coordinated fix across all twelve
+        # .upper() call sites in the codebase, done as one pass in Commit C
+        # alongside the other language-dependent-text correctness fixes.
+        heading = QLabel(QCoreApplication.translate("Facets", facet.label).upper())
         heading.setProperty("class", "spec-row-label")
         layout.addWidget(heading)
 
         for value in values:
-            checkbox = QCheckBox(value)
+            checkbox = QCheckBox(_facet_value_label(facet, value))
             checkbox.toggled.connect(lambda _checked: self._on_facet_toggled())
             self._checkboxes[(facet.key, value)] = checkbox
             layout.addWidget(checkbox)
@@ -234,14 +259,17 @@ class Sidebar(QWidget):
         self._on_facet_toggled()
 
     def update_counts(self, counts: dict[str, dict[str, int]], not_worn_count: int) -> None:
+        facets_by_key = {facet.key: facet for facet in VALUE_FACETS}
         for (facet_key, value), checkbox in self._checkboxes.items():
-            checkbox.setText(f"{value} ({counts.get(facet_key, {}).get(value, 0)})")
+            label = _facet_value_label(facets_by_key[facet_key], value)
+            checkbox.setText(f"{label} ({counts.get(facet_key, {}).get(value, 0)})")
         if self._not_worn_checkbox is not None:
-            self._not_worn_checkbox.setText(f"{NOT_WORN_LABEL} ({not_worn_count})")
+            not_worn_label = QCoreApplication.translate("Sidebar", NOT_WORN_LABEL)
+            self._not_worn_checkbox.setText(f"{not_worn_label} ({not_worn_count})")
 
     def _toggle_collapsed(self) -> None:
         self._collapsed = not self._collapsed
-        self._toggle_button.setText("Show filters" if self._collapsed else "Hide filters")
+        self._toggle_button.setText(self.tr("Show filters") if self._collapsed else self.tr("Hide filters"))
         self._scroll.setVisible(not self._collapsed)
         self._summary_footer.setVisible(not self._collapsed)
         motion.animate_width(self, SIDEBAR_COLLAPSED_WIDTH if self._collapsed else SIDEBAR_WIDTH)

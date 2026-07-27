@@ -4,6 +4,8 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+from PySide6.QtCore import QLocale
+
 from saat.models import LogEntry, Movement, Strap, TimingEntry, Watch
 from saat.storage import (
     BACKUP_KEEP,
@@ -62,6 +64,27 @@ class SlugTests(unittest.TestCase):
         self.assertEqual(unique_slug("Seiko", "SARB033", existing), "seiko-sarb033-2")
         existing.add("seiko-sarb033-2")
         self.assertEqual(unique_slug("Seiko", "SARB033", existing), "seiko-sarb033-3")
+
+    def test_slug_identical_across_en_tr_ja_locale(self) -> None:
+        """Milestone 21: Turkish locale casing famously maps I to a dotless
+        ı, so any Qt/ICU-side lowercasing could produce a different folder
+        name for the same brand+model depending on active language.
+        slugify() only ever uses plain Python str.lower(), which is not
+        locale-sensitive -- but a test that never changes locale state
+        proves nothing, so this actually flips QLocale.setDefault() between
+        assertions to guard against a future regression (e.g. a refactor
+        that swaps in a Qt-aware casing call) rather than just document
+        today's accident."""
+        brand, model = "İstanbul Işıklı", "Model I"  # the Turkish dotless-I case
+        original_default = QLocale()
+        results: dict[QLocale.Language, str] = {}
+        try:
+            for lang in (QLocale.Language.English, QLocale.Language.Turkish, QLocale.Language.Japanese):
+                QLocale.setDefault(QLocale(lang))
+                results[lang] = slugify(brand, model)
+        finally:
+            QLocale.setDefault(original_default)
+        self.assertEqual(len(set(results.values())), 1, results)
 
 
 class RoundTripTests(StorageTestCase):

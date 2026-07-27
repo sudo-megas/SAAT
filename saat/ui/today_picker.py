@@ -142,7 +142,7 @@ class TodayPickerDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Pick for me")
+        self.setWindowTitle(self.tr("Pick for me"))
         self._records = records
         self._mode = mode
         self._on_mode_changed = on_mode_changed
@@ -156,7 +156,7 @@ class TodayPickerDialog(QDialog):
         layout.setSpacing(16)
 
         if not self._owned:
-            message = QLabel("No owned watches to pick from yet.")
+            message = QLabel(self.tr("No owned watches to pick from yet."))
             message.setProperty("muted", True)
             message.setAlignment(Qt.AlignmentFlag.AlignCenter)
             message.setWordWrap(True)
@@ -166,10 +166,14 @@ class TodayPickerDialog(QDialog):
 
         if len(self._owned) == 1:
             only = self._owned[0]
-            label = QLabel(f"Only one watch to wear: {only.watch.brand} {only.watch.model}.")
+            label = QLabel(
+                self.tr("Only one watch to wear: {brand} {model}.").format(
+                    brand=only.watch.brand, model=only.watch.model
+                )
+            )
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setWordWrap(True)
-            button = QPushButton("Wore this today")
+            button = QPushButton(self.tr("Wore this today"))
             button.setProperty("variant", "primary")
             button.clicked.connect(lambda: self._confirm(only))
             layout.addWidget(label)
@@ -178,9 +182,9 @@ class TodayPickerDialog(QDialog):
             return
 
         toggle_row = QHBoxLayout()
-        self._random_button = QPushButton("Random")
+        self._random_button = QPushButton(self.tr("Random"))
         self._random_button.setCheckable(True)
-        self._weighted_button = QPushButton("Weighted")
+        self._weighted_button = QPushButton(self.tr("Weighted"))
         self._weighted_button.setCheckable(True)
         for button, target_mode in ((self._random_button, MODE_RANDOM), (self._weighted_button, MODE_WEIGHTED)):
             button.clicked.connect(lambda _checked, m=target_mode: self._set_mode(m))
@@ -208,9 +212,9 @@ class TodayPickerDialog(QDialog):
         layout.addStretch(1)
 
         button_row = QHBoxLayout()
-        self._reroll_button = QPushButton("Re-roll")
+        self._reroll_button = QPushButton(self.tr("Re-roll"))
         self._reroll_button.clicked.connect(self._roll)
-        self._wore_today_button = QPushButton("Wore this today")
+        self._wore_today_button = QPushButton(self.tr("Wore this today"))
         self._wore_today_button.setProperty("variant", "primary")
         self._wore_today_button.setEnabled(False)
         self._wore_today_button.clicked.connect(self._on_wore_today_clicked)

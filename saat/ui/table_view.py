@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QCoreApplication, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QMenu, QTableWidget, QTableWidgetItem
 
@@ -68,7 +68,9 @@ class TableView(QTableWidget):
     def _render(self) -> None:
         self.setSortingEnabled(False)
         self.setColumnCount(len(self._column_keys))
-        self.setHorizontalHeaderLabels([COLUMNS_BY_KEY[k].label for k in self._column_keys])
+        self.setHorizontalHeaderLabels(
+            [QCoreApplication.translate("Columns", COLUMNS_BY_KEY[k].label) for k in self._column_keys]
+        )
         self.setRowCount(len(self._records))
 
         for row, record in enumerate(self._records):
@@ -98,7 +100,7 @@ class TableView(QTableWidget):
         self.setSortingEnabled(True)
 
     def _render_error_row(self, row: int, record: WatchRecord) -> None:
-        item = _SortableItem(f"⚠ Couldn't load {record.slug}", record.slug)
+        item = _SortableItem(self.tr("⚠ Couldn't load {slug}").format(slug=record.slug), record.slug)
         item.setToolTip(record.load_error or "")
         item.setData(Qt.ItemDataRole.UserRole, record)
         self.setItem(row, 0, item)
@@ -137,11 +139,11 @@ class TableView(QTableWidget):
     def _show_header_menu(self, pos) -> None:
         menu = QMenu(self)
         for group in GROUP_ORDER:
-            submenu = menu.addMenu(group)
+            submenu = menu.addMenu(QCoreApplication.translate("Columns", group))
             for column in COLUMNS:
                 if column.group != group:
                     continue
-                action = submenu.addAction(column.label)
+                action = submenu.addAction(QCoreApplication.translate("Columns", column.label))
                 action.setCheckable(True)
                 action.setChecked(column.key in self._column_keys)
                 action.toggled.connect(lambda checked, k=column.key: self._toggle_column(k, checked))

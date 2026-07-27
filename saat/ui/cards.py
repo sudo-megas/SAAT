@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QPushButton, QVBoxLayou
 
 from saat.models import Watch
 from saat.storage import WatchRecord
+from saat.ui.form_fields import enum_label
 from saat.ui.formatting import EM_DASH, fmt_price
 from saat.ui import icons, theme
 from saat.ui.images import cropped_pixmap, first_image
@@ -310,7 +311,7 @@ class WatchCard(QFrame):
         else:
             watch = record.watch
             diameter = f"{watch.case.diameter_mm:g} mm" if watch.case.diameter_mm else "—"
-            lug = f"{watch.case.lug_width_mm} mm lugs" if watch.case.lug_width_mm else "—"
+            lug = self.tr("{value:g} mm lugs").format(value=watch.case.lug_width_mm) if watch.case.lug_width_mm else "—"
             label = _CardPlaceholder(f"{diameter}\n{lug}", QSize(CARD_WIDTH, IMAGE_HEIGHT))
 
         container = QWidget()
@@ -329,7 +330,7 @@ class WatchCard(QFrame):
             dot.move(CARD_WIDTH - MAINTENANCE_DOT_SIZE - CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
             dot.show()
 
-        self._checkbox = QCheckBox("Compare", container)
+        self._checkbox = QCheckBox(self.tr("Compare"), container)
         self._checkbox.setProperty("class", "card-compare-checkbox")
         self._checkbox.setChecked(compare_selected)
         self._checkbox.move(CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
@@ -339,7 +340,7 @@ class WatchCard(QFrame):
         self._checkbox.setVisible(compare_selected)
 
         if is_owned:
-            self._wore_today_bar = QPushButton("Wore this today", container)
+            self._wore_today_bar = QPushButton(self.tr("Wore this today"), container)
             self._wore_today_bar.setProperty("class", "card-wore-today-bar")
             # Fixed light icon colour, matching the class's own fixed dark
             # scrim (theme.qss) — this overlay sits on an arbitrary photo,
@@ -378,7 +379,7 @@ class WatchCard(QFrame):
         title.setProperty("class", "card-title")
         title.setWordWrap(True)
 
-        meta_parts = [p for p in (watch.style, watch.movement.kind) if p]
+        meta_parts = [enum_label(p) for p in (watch.style, watch.movement.kind) if p]
         meta = QLabel(" · ".join(meta_parts) if meta_parts else "—")
         meta.setProperty("muted", True)
         meta.setProperty("class", "card-meta")
@@ -396,7 +397,7 @@ class WatchCard(QFrame):
         layout.setSpacing(6)
         layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        badge = QLabel(f"⚠ Couldn't load {record.slug}")
+        badge = QLabel(self.tr("⚠ Couldn't load {slug}").format(slug=record.slug))
         badge.setProperty("class", "card-error-badge")
         badge.setWordWrap(True)
 
