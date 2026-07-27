@@ -38,6 +38,13 @@ a = Analysis(
         ('saat/resources/fonts', 'resources/fonts'),
         ('saat/resources/icon', 'resources/icon'),
         ('saat/resources/icons', 'resources/icons'),
+        # Only .qm files are ever present here (see .gitignore) -- the .ts
+        # sources this directory also holds in the working tree are the
+        # lupdate-maintained originals, never read at runtime. qtbase_*.qm
+        # (Qt's own dialog-chrome strings) needs no entry here: PyInstaller's
+        # PySide6 hook bundles it automatically, since QtCore always pulls
+        # translations=["qt", "qtbase"] in as a transitive dependency.
+        ('saat/resources/i18n', 'resources/i18n'),
     ],
     hiddenimports=[],
     hookspath=[],
