@@ -22,22 +22,24 @@ class EmptyStateView(QWidget):
 
         dial = WatchDialWidget()
 
-        heading = QLabel("Your collection is empty.")
+        heading = QLabel(self.tr("Your collection is empty."))
         heading.setProperty("role", "empty-heading")
         heading.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         body = QLabel(
-            "Watches live in the watches/ folder as editable TOML files.\n"
-            "Add your first one to get started."
+            self.tr(
+                "Watches live in the watches/ folder as editable TOML files.\n"
+                "Add your first one to get started."
+            )
         )
         body.setProperty("muted", True)
         body.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        add_button = QPushButton("Add watch")
+        add_button = QPushButton(self.tr("Add watch"))
         add_button.setProperty("variant", "primary")
         add_button.clicked.connect(self.add_watch_requested.emit)
 
-        open_folder = QPushButton("Open watches/ folder")
+        open_folder = QPushButton(self.tr("Open watches/ folder"))
         open_folder.setProperty("variant", "link")
         open_folder.setCursor(Qt.CursorShape.PointingHandCursor)
         open_folder.clicked.connect(self._open_watches_folder)

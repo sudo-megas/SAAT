@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
+from PySide6.QtCore import QCoreApplication, QTranslator
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from saat.models import Acquisition, Case, Movement, Strap, Watch
@@ -253,6 +254,71 @@ class WatchFormBuildTests(UITestCase):
         watch = form.saved_watch()
         self.assertEqual(watch.worn, [date(2024, 1, 1), date(2024, 1, 2)])
         self.assertEqual(watch.nickname, "Edited")
+
+
+class _FakeEnumTranslator(QTranslator):
+    """Stands in for a real saat_tr.qm/saat_ja.qm (Commit B) -- proves the
+    display/storage split (form_fields.py's combo_value()/set_combo_value())
+    holds under ANY installed translator, without needing real translations
+    to exist yet. Returning None (not "") for an unmapped source text tells
+    Qt's translation fallback "not handled here", which correctly resolves
+    back to the untranslated source string -- confirmed empirically before
+    writing this test."""
+
+    _MAP = {"Diver": "XX_Diver_XX", "Owned": "XX_Owned_XX"}
+
+    def translate(self, context, source_text, disambiguation=None, n=-1):
+        if context == "EnumChoices" and source_text in self._MAP:
+            return self._MAP[source_text]
+        return None
+
+
+class NonEnglishStorageSafetyTests(UITestCase):
+    """Milestone 21, Commit A's whole reason for existing: a watch saved
+    while the UI displays translated enum labels must still store the
+    canonical English value, byte-for-byte identical to one saved in
+    English -- SPEC.md's "a Turkish combo box shows 'Dalgıç' and writes
+    'Diver'" rule. This exercises the actual combo → combo_value() → save
+    path (test_storage.py's SlugTests have no QApplication and can't see a
+    currentText() leak; this must go through the real widget)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self._translator = _FakeEnumTranslator()
+        QApplication.instance().installTranslator(self._translator)
+        self.addCleanup(QApplication.instance().removeTranslator, self._translator)
+
+    def test_combo_displays_translated_label_but_saves_canonical_value(self) -> None:
+        form = WatchForm(records=[], record=None)
+        # Prove the label really is translated under this UI language --
+        # otherwise the save-side assertion below would pass vacuously.
+        style_labels = [form._style.itemText(i) for i in range(form._style.count())]
+        self.assertIn("XX_Diver_XX", style_labels)
+        self.assertNotIn("Diver", style_labels)
+
+        index = form._style.findText("XX_Diver_XX")
+        form._style.setCurrentIndex(index)
+        form._status.setCurrentIndex(form._status.findText("XX_Owned_XX"))
+        form._brand.setText("Seiko")
+        form._model.setText("SARB033")
+        form._on_save()
+
+        watch = form.saved_watch()
+        self.assertEqual(watch.style, "Diver")
+        self.assertEqual(watch.status, "Owned")
+
+    def test_watch_saved_under_translated_ui_reloads_identically_under_english(self) -> None:
+        form = WatchForm(records=[], record=None)
+        form._brand.setText("Seiko")
+        form._model.setText("SARB033")
+        form._style.setCurrentIndex(form._style.findText("XX_Diver_XX"))
+        form._on_save()
+        translated_watch = create_watch(self.watches_dir, self.backups_dir, form.saved_watch())
+
+        QApplication.instance().removeTranslator(self._translator)
+        [reloaded] = load_collection(self.watches_dir)
+        self.assertEqual(reloaded.watch.style, translated_watch.watch.style)
+        self.assertEqual(reloaded.watch.style, "Diver")
 
 
 class EditSavePreservesCommentsTests(UITestCase):

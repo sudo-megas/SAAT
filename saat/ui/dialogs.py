@@ -1,3 +1,4 @@
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QVBoxLayout, QWidget
 
 from saat.models import Watch
@@ -11,13 +12,14 @@ class DeleteConfirmDialog(QDialog):
 
     def __init__(self, watch: Watch, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Delete watch")
+        self.setWindowTitle(self.tr("Delete watch"))
         self._model = watch.model
 
         layout = QVBoxLayout(self)
         message = QLabel(
-            f'This moves "{watch.brand} {watch.model}" to backups/deleted/. '
-            f'Type the model name ("{watch.model}") to confirm.'
+            self.tr('This moves "{brand} {model}" to backups/deleted/. Type the model name ("{model}") to confirm.').format(
+                brand=watch.brand, model=watch.model
+            )
         )
         message.setWordWrap(True)
         layout.addWidget(message)
@@ -29,7 +31,7 @@ class DeleteConfirmDialog(QDialog):
         buttons = QDialogButtonBox()
         cancel_button = buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
         cancel_button.clicked.connect(self.reject)
-        self._delete_button = QPushButton("Delete")
+        self._delete_button = QPushButton(self.tr("Delete"))
         self._delete_button.setProperty("variant", "destructive")
         self._delete_button.setEnabled(False)
         self._delete_button.clicked.connect(self.accept)
@@ -43,11 +45,15 @@ class DeleteConfirmDialog(QDialog):
 def confirm_discard_changes(parent: QWidget | None) -> bool:
     """SPEC.md §5.7: closing with unsaved changes prompts."""
     box = QMessageBox(parent)
-    box.setWindowTitle("Discard changes?")
-    box.setText("You have unsaved changes. Discard them?")
-    discard_button = box.addButton("Discard", QMessageBox.ButtonRole.DestructiveRole)
+    box.setWindowTitle(QCoreApplication.translate("Dialogs", "Discard changes?"))
+    box.setText(QCoreApplication.translate("Dialogs", "You have unsaved changes. Discard them?"))
+    discard_button = box.addButton(
+        QCoreApplication.translate("Dialogs", "Discard"), QMessageBox.ButtonRole.DestructiveRole
+    )
     discard_button.setProperty("variant", "destructive")
-    cancel_button = box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+    cancel_button = box.addButton(
+        QCoreApplication.translate("Dialogs", "Cancel"), QMessageBox.ButtonRole.RejectRole
+    )
     box.setDefaultButton(cancel_button)
     box.exec()
     return box.clickedButton() is discard_button

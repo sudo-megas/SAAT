@@ -80,18 +80,18 @@ class TrayController(QObject):
         self._icon.activated.connect(self._on_activated)
 
         self._menu = QMenu()
-        self._show_hide_action = self._menu.addAction("Hide")
+        self._show_hide_action = self._menu.addAction(self.tr("Hide"))
         self._show_hide_action.triggered.connect(self.show_hide_requested)
 
-        self._wore_today_menu = self._menu.addMenu("Wore today")
+        self._wore_today_menu = self._menu.addMenu(self.tr("Wore today"))
 
         self._menu.addSeparator()
 
-        self._close_to_tray_action = self._menu.addAction("Close to tray")
+        self._close_to_tray_action = self._menu.addAction(self.tr("Close to tray"))
         self._close_to_tray_action.setCheckable(True)
         self._close_to_tray_action.toggled.connect(self.close_to_tray_toggled)
 
-        self._start_minimised_action = self._menu.addAction("Start minimised")
+        self._start_minimised_action = self._menu.addAction(self.tr("Start minimised"))
         self._start_minimised_action.setCheckable(True)
         self._start_minimised_action.toggled.connect(self.start_minimised_toggled)
 
@@ -100,12 +100,12 @@ class TrayController(QObject):
         # itself to start at boot is incoherent.
         self._start_at_login_action = None
         if autostart_available:
-            self._start_at_login_action = self._menu.addAction("Start at login")
+            self._start_at_login_action = self._menu.addAction(self.tr("Start at login"))
             self._start_at_login_action.setCheckable(True)
             self._start_at_login_action.toggled.connect(self.start_at_login_toggled)
 
         self._menu.addSeparator()
-        quit_action = self._menu.addAction("Quit")
+        quit_action = self._menu.addAction(self.tr("Quit"))
         quit_action.triggered.connect(self.quit_requested)
 
         self._menu.aboutToShow.connect(self._refresh_menu)
@@ -132,7 +132,7 @@ class TrayController(QObject):
     def show_hint_message(self) -> None:
         self._icon.showMessage(
             "SAAT",
-            "Still running in the tray. Click the icon to bring the window back.",
+            self.tr("Still running in the tray. Click the icon to bring the window back."),
             QSystemTrayIcon.MessageIcon.Information,
         )
 
@@ -143,7 +143,7 @@ class TrayController(QObject):
             self.show_hide_requested.emit()
 
     def _refresh_menu(self) -> None:
-        self._show_hide_action.setText("Hide" if self._window_visible_getter() else "Show")
+        self._show_hide_action.setText(self.tr("Hide") if self._window_visible_getter() else self.tr("Show"))
         self._rebuild_wore_today_menu()
         if self._start_at_login_action is not None:
             # Reflects reality read fresh every time the menu opens (SPEC.md
@@ -160,7 +160,7 @@ class TrayController(QObject):
         ranked = sorted(owned, key=_wore_today_sort_key)[:MAX_WORE_TODAY_ENTRIES]
 
         if not ranked:
-            empty_action = self._wore_today_menu.addAction("No owned watches")
+            empty_action = self._wore_today_menu.addAction(self.tr("No owned watches"))
             empty_action.setEnabled(False)
             return
 

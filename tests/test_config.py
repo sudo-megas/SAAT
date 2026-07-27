@@ -31,6 +31,31 @@ class PickerConfigTests(ConfigTestCase):
         self.assertEqual(Config(config.path).picker_mode(), "weighted")
 
 
+class LanguageConfigTests(ConfigTestCase):
+    """Milestone 21: absent means English, never "follow system" -- the app
+    never reads QLocale.system()/LANG/LC_ALL to choose a UI language, so an
+    absent key must resolve to English at the call site, the same
+    None-means-default shape as theme_mode()/picker_mode()."""
+
+    def test_language_defaults_to_none(self) -> None:
+        self.assertIsNone(self._config().language())
+
+    def test_language_round_trips(self) -> None:
+        config = self._config()
+        config.set_language("tr")
+        config.save()
+        self.assertEqual(Config(config.path).language(), "tr")
+
+    def test_language_is_independent_of_theme_mode(self) -> None:
+        config = self._config()
+        config.set_theme_mode("light")
+        config.set_language("ja")
+        config.save()
+        reloaded = Config(config.path)
+        self.assertEqual(reloaded.theme_mode(), "light")
+        self.assertEqual(reloaded.language(), "ja")
+
+
 class TrayConfigTests(ConfigTestCase):
     """SPEC.md milestone 18 §8/§10: close_to_tray and start_minimised default
     OFF -- a user who hasn't opted in must never lose their window -- and

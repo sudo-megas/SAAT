@@ -24,7 +24,7 @@ class SellersDialog(QDialog):
 
     def __init__(self, sellers: list[Seller], backups_dir: Path, path: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Manage sellers")
+        self.setWindowTitle(self.tr("Manage sellers"))
         self.resize(560, 420)
         self._backups_dir = backups_dir
         self._path = path
@@ -42,16 +42,16 @@ class SellersDialog(QDialog):
 
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        form.addRow("Name *", self._name)
-        form.addRow("URL", self._url)
-        form.addRow("City", self._city)
-        form.addRow("Notes", self._notes)
+        form.addRow(self.tr("Name *"), self._name)
+        form.addRow(self.tr("URL"), self._url)
+        form.addRow(self.tr("City"), self._city)
+        form.addRow(self.tr("Notes"), self._notes)
 
-        new_button = QPushButton("New")
+        new_button = QPushButton(self.tr("New"))
         new_button.clicked.connect(self._on_new)
-        save_button = QPushButton("Save")
+        save_button = QPushButton(self.tr("Save"))
         save_button.clicked.connect(self._on_save)
-        self._delete_button = QPushButton("Delete")
+        self._delete_button = QPushButton(self.tr("Delete"))
         self._delete_button.setProperty("variant", "destructive")
         self._delete_button.clicked.connect(self._on_delete)
 
@@ -71,7 +71,7 @@ class SellersDialog(QDialog):
         body.addWidget(self._list, 1)
         body.addWidget(right_widget, 1)
 
-        close_button = QPushButton("Close")
+        close_button = QPushButton(self.tr("Close"))
         close_button.clicked.connect(self.accept)
 
         layout = QVBoxLayout(self)
@@ -116,7 +116,7 @@ class SellersDialog(QDialog):
     def _on_save(self) -> None:
         name = self._name.text().strip()
         if not name:
-            QMessageBox.warning(self, "Name required", "A seller needs a name.")
+            QMessageBox.warning(self, self.tr("Name required"), self.tr("A seller needs a name."))
             return
         seller = Seller(
             name=name,

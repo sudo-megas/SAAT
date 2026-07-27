@@ -1,4 +1,4 @@
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QCoreApplication, QRect, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPaintEvent
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
@@ -23,6 +23,10 @@ def _mono_font() -> QFont:
 def _section_heading(text: str) -> QLabel:
     """See case_silhouette.py's identical helper — not a spec group, so
     deliberately not a MinuteTrackHeader."""
+    # Milestone 21 Commit C, not this sweep: .upper() is ASCII-only and
+    # wrong for Turkish -- QLocale(<active language>).toUpper() lands in
+    # Commit C alongside minute_track.py's identical fix. text is already
+    # translated by the caller.
     heading = QLabel(text.upper())
     heading.setProperty("class", "spec-row-label")
     return heading
@@ -85,7 +89,7 @@ def build_dimension_bars_section(records: list[WatchRecord], is_wishlist: bool =
     outer = QVBoxLayout(container)
     outer.setContentsMargins(0, 0, 0, 0)
     outer.setSpacing(8)
-    outer.addWidget(_section_heading("Dimensions"))
+    outer.addWidget(_section_heading(QCoreApplication.translate("DimensionBars", "Dimensions")))
 
     grid_widget = QWidget()
     grid = QGridLayout(grid_widget)
@@ -97,7 +101,7 @@ def build_dimension_bars_section(records: list[WatchRecord], is_wishlist: bool =
 
     metrics = QFontMetrics(_mono_font())
     for row_index, row in enumerate(rows):
-        label = QLabel(row.label)
+        label = QLabel(QCoreApplication.translate("Columns", row.label))
         label.setProperty("class", "spec-row-label")
         grid.addWidget(label, row_index, 0, Qt.AlignmentFlag.AlignVCenter)
 

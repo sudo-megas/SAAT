@@ -322,17 +322,20 @@ class MainWindow(QMainWindow):
 
         records = self._collection_view.visible_records()
         if not any(r.watch is not None for r in records):
-            QMessageBox.information(self, "SAAT", "There is nothing to export in the current view.")
+            QMessageBox.information(self, "SAAT", self.tr("There is nothing to export in the current view."))
             return
 
         is_wishlist = self._collection_view.current_scope() == SCOPE_WISHLIST
-        document_title = "SAAT Wishlist" if is_wishlist else "SAAT Collection"
+        # Flows straight into the rendered PDF's title/footer text
+        # (export_pdf()'s document_title param) -- part of the sweep like
+        # pdf_renderer.py's own strings, not left in English.
+        document_title = self.tr("SAAT Wishlist") if is_wishlist else self.tr("SAAT Collection")
 
         documents_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
         default_name = f"SAAT-collection-{date.today():%d-%m-%Y}.pdf"
         default_path = str(Path(documents_dir) / default_name) if documents_dir else default_name
 
-        path_str, _ = QFileDialog.getSaveFileName(self, "Export to PDF", default_path, "PDF files (*.pdf)")
+        path_str, _ = QFileDialog.getSaveFileName(self, self.tr("Export to PDF"), default_path, self.tr("PDF files (*.pdf)"))
         if not path_str:
             return
 
@@ -341,7 +344,7 @@ class MainWindow(QMainWindow):
         try:
             export_pdf(Path(path_str), records, is_wishlist, document_title)
         except Exception as exc:
-            QMessageBox.critical(self, "SAAT", f"Could not export the PDF: {exc}")
+            QMessageBox.critical(self, "SAAT", self.tr("Could not export the PDF: {error}").format(error=exc))
         finally:
             QApplication.restoreOverrideCursor()
             self._collection_view.set_export_enabled(True)
@@ -510,7 +513,7 @@ class MainWindow(QMainWindow):
             else:
                 autostart.disable()
         except Exception as exc:
-            QMessageBox.critical(self, "SAAT", f"Could not update the autostart entry: {exc}")
+            QMessageBox.critical(self, "SAAT", self.tr("Could not update the autostart entry: {error}").format(error=exc))
 
     def should_start_hidden(self, started_via_autostart: bool) -> bool:
         """SPEC.md milestone 18 §15: 'Start minimised' only ever affects an

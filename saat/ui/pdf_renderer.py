@@ -21,13 +21,14 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtCore import QLocale, QMarginsF, QPointF, QRectF, Qt
+from PySide6.QtCore import QCoreApplication, QLocale, QMarginsF, QPointF, QRectF, Qt, QT_TRANSLATE_NOOP
 from PySide6.QtGui import QColor, QFont, QPageSize, QPainter, QPainterPath, QPdfWriter
 
 from saat.models import Watch
 from saat.storage import WatchRecord
 from saat.ui import theme
 from saat.ui.detail_view import acquisition_rows_plain, case_rows, dial_rows, maintenance_rows, movement_rows
+from saat.ui.form_fields import enum_label
 from saat.ui.export import (
     FOOTER_HEIGHT_PT,
     GROUP_HEADER_HEIGHT_PT,
@@ -107,17 +108,17 @@ class _RenderGroup:
 def _strap_lines(watch: Watch) -> list[str]:
     lines = []
     for strap in watch.straps:
-        title_parts = [p for p in (strap.material, strap.colour) if p]
+        title_parts = [p for p in (enum_label(strap.material) if strap.material else None, strap.colour) if p]
         title = " · ".join(title_parts) if title_parts else EM_DASH
         if strap.fitted:
-            title += "  (fitted)"
+            title += QCoreApplication.translate("PdfRenderer", "  (fitted)")
         lines.append(title)
 
         detail_parts = []
         if strap.width_mm is not None:
             detail_parts.append(fmt_number(strap.width_mm, " mm"))
         if strap.clasp:
-            detail_parts.append(strap.clasp)
+            detail_parts.append(enum_label(strap.clasp))
         lines.append(" · ".join(detail_parts) if detail_parts else EM_DASH)
     return lines
 
@@ -126,7 +127,7 @@ def _log_lines(watch: Watch) -> list[str]:
     entries = sorted(watch.log, key=lambda e: e.date or date.min, reverse=True)
     lines = []
     for entry in entries:
-        header_parts = [p for p in (fmt_date(entry.date) if entry.date else None, entry.kind) if p]
+        header_parts = [p for p in (fmt_date(entry.date) if entry.date else None, enum_label(entry.kind) if entry.kind else None) if p]
         lines.append(" · ".join(header_parts) if header_parts else EM_DASH)
         lines.extend(wrap_notes(entry.note or ""))
     return lines
@@ -141,7 +142,7 @@ def _timing_lines(watch: Watch) -> list[str]:
             for p in (
                 fmt_date(entry.date) if entry.date else None,
                 f"{entry.deviation_sec:+g} sec" if entry.deviation_sec is not None else None,
-                entry.position,
+                enum_label(entry.position) if entry.position else None,
             )
             if p
         ]
@@ -174,20 +175,20 @@ def build_render_groups(record: WatchRecord) -> list[_RenderGroup]:
         if any(row.text != EM_DASH for row in rows):
             groups.append(_RenderGroup(title, "spec", rows))
 
-    add_spec("Movement", movement_rows(watch))
-    add_spec("Case", case_rows(watch))
-    add_spec("Dial", dial_rows(watch))
+    add_spec(QCoreApplication.translate("PdfRenderer", "Movement"), movement_rows(watch))
+    add_spec(QCoreApplication.translate("PdfRenderer", "Case"), case_rows(watch))
+    add_spec(QCoreApplication.translate("PdfRenderer", "Dial"), dial_rows(watch))
     if watch.straps:
-        groups.append(_RenderGroup("Straps", "lines", _strap_lines(watch)))
-    add_spec("Acquisition", acquisition_rows_plain(watch))
-    add_spec("Maintenance", maintenance_rows(watch))
+        groups.append(_RenderGroup(QCoreApplication.translate("PdfRenderer", "Straps"), "lines", _strap_lines(watch)))
+    add_spec(QCoreApplication.translate("PdfRenderer", "Acquisition"), acquisition_rows_plain(watch))
+    add_spec(QCoreApplication.translate("PdfRenderer", "Maintenance"), maintenance_rows(watch))
     if watch.log:
-        groups.append(_RenderGroup("Log", "lines", _log_lines(watch)))
+        groups.append(_RenderGroup(QCoreApplication.translate("PdfRenderer", "Log"), "lines", _log_lines(watch)))
     if watch.timing:
-        groups.append(_RenderGroup("Timing", "lines", _timing_lines(watch)))
+        groups.append(_RenderGroup(QCoreApplication.translate("PdfRenderer", "Timing"), "lines", _timing_lines(watch)))
     notes_lines = wrap_notes(watch.notes or "")
     if notes_lines:
-        groups.append(_RenderGroup("Notes", "lines", notes_lines))
+        groups.append(_RenderGroup(QCoreApplication.translate("PdfRenderer", "Notes"), "lines", notes_lines))
 
     return groups
 
@@ -301,7 +302,9 @@ def _draw_page_furniture(painter: QPainter, page_index: int, plan: ExportPlan, d
     footer_rect = _rect(PAGE_MARGIN_PT, height_pt - PAGE_MARGIN_PT, width_pt - 2 * PAGE_MARGIN_PT, FOOTER_HEIGHT_PT)
     painter.setFont(_footer_font())
     painter.setPen(QColor(theme.PAPER.text_muted))
-    text = f"{document_title}  ·  {generation_date}  ·  {page_index + 1} of {plan.page_count}"
+    text = QCoreApplication.translate("PdfRenderer", "{title}  ·  {date}  ·  {page} of {total}").format(
+        title=document_title, date=generation_date, page=page_index + 1, total=plan.page_count
+    )
     painter.drawText(footer_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, text)
 
 
@@ -315,7 +318,18 @@ def _content_rect_pt(plan: ExportPlan) -> tuple[float, float, float]:
 
 # --- Summary page -----------------------------------------------------------
 
-_SUMMARY_COLUMNS = ("Brand", "Model", "Reference", "Serial", "Value")
+# QT_TRANSLATE_NOOP-marked, not self.tr()/QCoreApplication.translate() --
+# lupdate can't see a translated value reached via the zip() loop variable
+# below, only a literal typed at the call site (same reason as columns.py's
+# GROUP_ORDER). Values stay canonical English at runtime; the render loop
+# translates via QCoreApplication.translate("PdfRenderer", label).
+_SUMMARY_COLUMNS = (
+    QT_TRANSLATE_NOOP("PdfRenderer", "Brand"),
+    QT_TRANSLATE_NOOP("PdfRenderer", "Model"),
+    QT_TRANSLATE_NOOP("PdfRenderer", "Reference"),
+    QT_TRANSLATE_NOOP("PdfRenderer", "Serial"),
+    QT_TRANSLATE_NOOP("PdfRenderer", "Value"),
+)
 _SUMMARY_WIDTHS = (0.22, 0.28, 0.18, 0.17, 0.15)
 
 
@@ -332,8 +346,15 @@ def _draw_summary_table_header(painter: QPainter, left: float, width: float, y: 
     painter.setFont(_label_font())
     painter.setPen(QColor(theme.PAPER.text_muted))
     for label, x, col_width in zip(_SUMMARY_COLUMNS, xs, widths):
+        # Compared against the canonical (untranslated) label, before
+        # translation below -- label stays "Value" at runtime regardless of
+        # UI language, so this keeps matching under any translator.
         align = Qt.AlignmentFlag.AlignRight if label == "Value" else Qt.AlignmentFlag.AlignLeft
-        painter.drawText(_rect(x, y, col_width, SUMMARY_HEADER_HEIGHT_PT), align | Qt.AlignmentFlag.AlignVCenter, label.upper())
+        # Milestone 21 Commit C, not this sweep: .upper() is ASCII-only and
+        # wrong for Turkish -- QLocale(<active language>).toUpper() lands in
+        # Commit C alongside minute_track.py's identical fix.
+        translated = QCoreApplication.translate("PdfRenderer", label).upper()
+        painter.drawText(_rect(x, y, col_width, SUMMARY_HEADER_HEIGHT_PT), align | Qt.AlignmentFlag.AlignVCenter, translated)
     rule_y = y + SUMMARY_HEADER_HEIGHT_PT - 2
     painter.setPen(QColor(theme.PAPER.rule))
     painter.drawLine(_point(left, rule_y), _point(left + width, rule_y))
@@ -366,11 +387,22 @@ def _draw_summary_page(
 
         painter.setFont(_body_font())
         painter.setPen(QColor(theme.PAPER.text_muted))
-        painter.drawText(_rect(left, y, width, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"Generated {generation_date}")
+        painter.drawText(
+            _rect(left, y, width, 14),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            QCoreApplication.translate("PdfRenderer", "Generated {date}").format(date=generation_date),
+        )
         y += 18
 
         value_text = ", ".join(f"{amount:,.2f} {currency}" for currency, amount in plan.value_by_currency) or EM_DASH
-        item_word = "item" if plan.item_count == 1 else "items"
+        # Milestone 21 Commit C, not this sweep: hand-rolled English-only
+        # singular/plural -- needs Qt's %n mechanism, same as sidebar.py's
+        # watch count and calendar_stats.py's day count.
+        item_word = (
+            QCoreApplication.translate("PdfRenderer", "item")
+            if plan.item_count == 1
+            else QCoreApplication.translate("PdfRenderer", "items")
+        )
         painter.drawText(
             _rect(left, y, width, 14),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
@@ -400,7 +432,7 @@ def _draw_identity_block(painter: QPainter, left: float, width: float, y: float,
 
     detail_parts = [p for p in (watch.reference, watch.nickname) if p]
     detail_line = " · ".join(detail_parts) if detail_parts else EM_DASH
-    serial_line = f"Serial {watch.serial}" if watch.serial else None
+    serial_line = QCoreApplication.translate("PdfRenderer", "Serial {serial}").format(serial=watch.serial) if watch.serial else None
 
     painter.setFont(_body_font())
     painter.setPen(QColor(theme.PAPER.text_muted))
@@ -459,7 +491,10 @@ def _draw_placeholder(painter: QPainter, left: float, top: float, width: float, 
     painter.restore()
 
     diameter = f"{watch.case.diameter_mm:g} mm" if watch.case.diameter_mm else EM_DASH
-    lug = f"{watch.case.lug_width_mm} mm lugs" if watch.case.lug_width_mm else EM_DASH
+    lug = (
+        QCoreApplication.translate("PdfRenderer", "{value} mm lugs").format(value=watch.case.lug_width_mm)
+        if watch.case.lug_width_mm else EM_DASH
+    )
     painter.setFont(_body_font())
     painter.setPen(QColor(theme.PAPER.text_muted))
     painter.drawText(_rect(left, top, width, height), Qt.AlignmentFlag.AlignCenter, f"{diameter}\n{lug}")
@@ -510,9 +545,18 @@ def _draw_lines(painter: QPainter, lines: list[str], left: float, width: float, 
 def _draw_group_slice(
     painter: QPainter, group_slice: GroupSlice, render_group: "_RenderGroup", left: float, width: float, y: float
 ) -> None:
-    title = group_slice.title if group_slice.start_line == 0 else f"{group_slice.title} (continued)"
+    # group_slice.title is already translated (it flows from
+    # build_render_groups()'s QCoreApplication.translate() call through
+    # GroupContent/GroupSlice unchanged) -- only the "(continued)" template
+    # itself needs its own translation, not a second pass over the title.
+    title = (
+        group_slice.title if group_slice.start_line == 0
+        else QCoreApplication.translate("PdfRenderer", "{title} (continued)").format(title=group_slice.title)
+    )
     painter.setFont(_label_font())
     painter.setPen(QColor(theme.PAPER.text_muted))
+    # Milestone 21 Commit C, not this sweep: same .upper() deferral as
+    # _draw_summary_table_header() above.
     painter.drawText(_rect(left, y, width, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, title.upper())
 
     # draw_minute_track always starts its rule/ticks at x=0 in whatever

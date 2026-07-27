@@ -1,6 +1,8 @@
 from datetime import date
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 EM_DASH = "—"
 
 
@@ -30,7 +32,11 @@ def fmt_list(value: list) -> str:
 
 
 def fmt_bool(value: bool) -> str:
-    return "Yes" if value else "No"
+    return (
+        QCoreApplication.translate("Formatting", "Yes")
+        if value
+        else QCoreApplication.translate("Formatting", "No")
+    )
 
 
 def fmt_water_resistance(value: int) -> str:

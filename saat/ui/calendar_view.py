@@ -363,18 +363,23 @@ class CalendarView(QWidget):
         self._week_proposal: dict[date, WatchRecord] | None = None
 
         self._prev_button = QPushButton()
-        self._prev_button.setToolTip("Previous month")
+        self._prev_button.setToolTip(self.tr("Previous month"))
         icons.set_icon(self._prev_button, "prev-month")
         self._prev_button.clicked.connect(self._go_previous)
         self._next_button = QPushButton()
-        self._next_button.setToolTip("Next month")
+        self._next_button.setToolTip(self.tr("Next month"))
         icons.set_icon(self._next_button, "next-month")
         self._next_button.clicked.connect(self._go_next)
-        self._today_button = QPushButton("Today")
+        self._today_button = QPushButton(self.tr("Today"))
         icons.set_icon(self._today_button, "today")
         self._today_button.clicked.connect(self._go_today)
 
         self._month_combo = QComboBox()
+        # Milestone 21 Commit C, not this sweep: calendar.month_name reads
+        # the process C locale (always English, since nothing calls
+        # locale.setlocale()) -- one of three independent month-name
+        # mechanisms replaced by explicit QLocale(<active
+        # language>).standaloneMonthName(), never QLocale.system().
         self._month_combo.addItems(cal.month_name[1:])
         self._month_combo.currentIndexChanged.connect(self._on_month_combo_changed)
         self._year_spinbox = QSpinBox()
@@ -383,10 +388,10 @@ class CalendarView(QWidget):
         self._week_range_label = QLabel()
         self._week_range_label.setProperty("class", "spec-row-label")
 
-        self._month_button = QPushButton("Month")
-        self._week_button = QPushButton("Week")
-        self._year_button = QPushButton("Year")
-        self._stats_button = QPushButton("Stats")
+        self._month_button = QPushButton(self.tr("Month"))
+        self._week_button = QPushButton(self.tr("Week"))
+        self._year_button = QPushButton(self.tr("Year"))
+        self._stats_button = QPushButton(self.tr("Stats"))
         for button, mode, icon_name in (
             (self._month_button, _MODE_MONTH, "calendar"),
             (self._week_button, _MODE_WEEK, "week"),
@@ -432,11 +437,11 @@ class CalendarView(QWidget):
         self._week_grid = _MonthGrid()
         self._week_grid.range_chosen.connect(self._on_week_range_chosen)
 
-        self._roll_week_button = QPushButton("Roll the week")
+        self._roll_week_button = QPushButton(self.tr("Roll the week"))
         self._roll_week_button.clicked.connect(self._on_roll_week)
-        self._week_dismiss_button = QPushButton("Dismiss")
+        self._week_dismiss_button = QPushButton(self.tr("Dismiss"))
         self._week_dismiss_button.clicked.connect(self._on_dismiss_week)
-        self._week_accept_all_button = QPushButton("Accept all")
+        self._week_accept_all_button = QPushButton(self.tr("Accept all"))
         self._week_accept_all_button.setProperty("variant", "primary")
         self._week_accept_all_button.clicked.connect(self._on_accept_week)
 
@@ -613,6 +618,11 @@ class CalendarView(QWidget):
         self._week_grid.apply_proposed(proposed_days)
 
         start, end = days[0].day, days[-1].day
+        # Milestone 21 Commit C, not this sweep: strftime("%b") reads the
+        # process C locale -- same deferral as _TwelveMonthStrip
+        # (detail_view.py) and year_view.py, replaced by explicit
+        # QLocale(<active language>).standaloneMonthName(), never
+        # QLocale.system().
         self._week_range_label.setText(f"{start.strftime('%b %-d')} – {end.strftime('%b %-d, %Y')}")
 
         has_proposal = bool(self._week_proposal)
@@ -625,6 +635,10 @@ class CalendarView(QWidget):
         distinct_worn = {r.slug for r in in_month.values()}
         valid_count = len([r for r in self._records if r.watch is not None])
         not_worn = max(valid_count - len(distinct_worn), 0)
+        # Milestone 21 Commit C, not this sweep: three hand-rolled
+        # English-only plurals (also wrong at exactly 1, English grammar
+        # aside) -- needs Qt's %n mechanism, same as sidebar.py's watch
+        # count and calendar_stats.py's day count.
         return f"{days_recorded} days recorded  ·  {len(distinct_worn)} watches worn  ·  {not_worn} not worn this month"
 
     def _on_range_chosen(self, dates: list[date]) -> None:

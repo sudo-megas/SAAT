@@ -4,6 +4,12 @@ from datetime import date, timedelta
 
 from saat.selection import week_dates
 
+# Milestone 21 Commit C, not this sweep: replaced by explicit
+# QLocale(<active language>).dayName(weekday, QLocale.FormatType.ShortFormat)
+# at its two call sites (calendar_view.py, calendar_stats.py) rather than
+# QT_TRANSLATE_NOOP+.ts translation -- weekday names are exactly what
+# QLocale already provides natively per language, with no hand-maintained
+# word list needed.
 WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 

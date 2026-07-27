@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -50,20 +50,117 @@ from saat.ui.form_fields import (
 from saat.ui.images_tab import ImagesTab
 from saat.ui.list_editors import LogEditor, StringListEditor, StrapsEditor, TimingEditor
 
-GROUP_SUGGESTIONS = ["Seiko Group", "Casio", "Swatch Group", "Citizen Group", "Micro Brand", "Independent", "Other"]
-STYLE_SUGGESTIONS = ["Field", "Pilot", "Diver", "Dress", "Sport", "Chronograph", "GMT", "Racing", "Skeleton", "Digital", "Other"]
-STATUS_OPTIONS = ["Owned", "Incoming", "Wishlist", "Sold", "Gifted"]
-MOVEMENT_KIND_SUGGESTIONS = ["Automatic", "Manual", "Automatic + Handwinding", "Quartz", "Solar", "Mecha-quartz", "Kinetic"]
-QUARTZ_LIKE_KINDS = ("Quartz", "Solar")
-ACCURACY_UNIT_OPTIONS = ["sec/day", "sec/month"]
-CASE_MATERIAL_SUGGESTIONS = ["Stainless Steel", "Titanium", "Bronze", "Ceramic", "Resin", "Silicone", "Gold-plated"]
-CRYSTAL_SUGGESTIONS = ["Sapphire", "Mineral", "Hardlex", "Acrylic", "Sapphire-coated"]
-CROWN_SUGGESTIONS = ["Screw-down", "Push-pull", "Screw-down + guards"]
-BEZEL_SUGGESTIONS = ["Fixed", "Unidirectional", "Bidirectional", "Tachymeter", "GMT", "None"]
-CASEBACK_SUGGESTIONS = ["Solid", "Exhibition", "Engraved"]
-INDICES_SUGGESTIONS = ["Applied", "Printed", "Arabic", "Roman", "Mixed", "Inverted", "None"]
-COMPLICATIONS_SUGGESTIONS = ["Date", "Day-Date", "GMT", "Chronograph", "Power Reserve", "Moonphase", "Open-Heart", "Small Seconds", "Alarm"]
-CONDITION_OPTIONS = ["New", "Pre-owned"]
+# Each suggestion/option is QT_TRANSLATE_NOOP-marked so pyside6-lupdate can
+# find it -- lupdate does static text matching only, not dataflow analysis,
+# so a bare self.tr(value) at the point these are consumed (a loop variable,
+# not a literal) would silently extract nothing. The values themselves stay
+# canonical English at runtime (NOOP is a passthrough); translation happens
+# via QCoreApplication.translate("EnumChoices", value) wherever a label is
+# actually rendered (form_fields.py's combo builders, and any other display
+# site for the same values). Never edit these lists' *values* — only what
+# QT_TRANSLATE_NOOP wraps them for extraction; storage.py/wear.py and others
+# compare against these same strings verbatim.
+GROUP_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Seiko Group"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Casio"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Swatch Group"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Citizen Group"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Micro Brand"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Independent"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Other"),
+]
+STYLE_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Field"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Pilot"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Diver"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Dress"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Sport"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Chronograph"),
+    QT_TRANSLATE_NOOP("EnumChoices", "GMT"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Racing"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Skeleton"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Digital"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Other"),
+]
+STATUS_OPTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Owned"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Incoming"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Wishlist"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Sold"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Gifted"),
+]
+MOVEMENT_KIND_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Automatic"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Manual"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Automatic + Handwinding"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Quartz"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Solar"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Mecha-quartz"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Kinetic"),
+]
+QUARTZ_LIKE_KINDS = ("Quartz", "Solar")  # canonical-value comparison, never translated
+ACCURACY_UNIT_OPTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "sec/day"),
+    QT_TRANSLATE_NOOP("EnumChoices", "sec/month"),
+]
+CASE_MATERIAL_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Stainless Steel"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Titanium"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Bronze"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Ceramic"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Resin"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Silicone"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Gold-plated"),
+]
+CRYSTAL_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Sapphire"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Mineral"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Hardlex"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Acrylic"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Sapphire-coated"),
+]
+CROWN_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Screw-down"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Push-pull"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Screw-down + guards"),
+]
+BEZEL_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Fixed"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Unidirectional"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Bidirectional"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Tachymeter"),
+    QT_TRANSLATE_NOOP("EnumChoices", "GMT"),
+    QT_TRANSLATE_NOOP("EnumChoices", "None"),
+]
+CASEBACK_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Solid"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Exhibition"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Engraved"),
+]
+INDICES_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Applied"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Printed"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Arabic"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Roman"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Mixed"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Inverted"),
+    QT_TRANSLATE_NOOP("EnumChoices", "None"),
+]
+COMPLICATIONS_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Date"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Day-Date"),
+    QT_TRANSLATE_NOOP("EnumChoices", "GMT"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Chronograph"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Power Reserve"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Moonphase"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Open-Heart"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Small Seconds"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Alarm"),
+]
+CONDITION_OPTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "New"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Pre-owned"),
+]
 
 _TRACKABLE_TYPES = (QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox, QCheckBox, QLineEdit, QPlainTextEdit)
 
@@ -93,21 +190,21 @@ class WatchForm(QDialog):
         # status to Wishlist — otherwise it saves as Owned and immediately
         # vanishes from the scope it was just added from.
         watch = record.watch if record is not None else Watch(brand="", model="", status=default_status or "Owned")
-        self.setWindowTitle("Edit watch" if record is not None else "Add watch")
+        self.setWindowTitle(self.tr("Edit watch") if record is not None else self.tr("Add watch"))
         self.resize(820, 680)
 
         self._tabs = QTabWidget()
-        self._tabs.addTab(self._build_identity_tab(watch), "Identity")
-        self._tabs.addTab(self._build_images_tab(record), "Images")
-        self._tabs.addTab(self._build_movement_tab(watch), "Movement")
-        self._tabs.addTab(self._build_case_tab(watch), "Case")
-        self._tabs.addTab(self._build_dial_tab(watch), "Dial")
-        self._tabs.addTab(self._build_straps_tab(watch), "Straps")
-        self._tabs.addTab(self._build_acquisition_tab(watch), "Acquisition")
-        self._tabs.addTab(self._build_maintenance_tab(watch), "Maintenance")
-        self._tabs.addTab(self._build_log_tab(watch), "Log")
-        self._tabs.addTab(self._build_timing_tab(watch), "Timing")
-        self._tabs.addTab(self._build_notes_tab(watch), "Notes")
+        self._tabs.addTab(self._build_identity_tab(watch), self.tr("Identity"))
+        self._tabs.addTab(self._build_images_tab(record), self.tr("Images"))
+        self._tabs.addTab(self._build_movement_tab(watch), self.tr("Movement"))
+        self._tabs.addTab(self._build_case_tab(watch), self.tr("Case"))
+        self._tabs.addTab(self._build_dial_tab(watch), self.tr("Dial"))
+        self._tabs.addTab(self._build_straps_tab(watch), self.tr("Straps"))
+        self._tabs.addTab(self._build_acquisition_tab(watch), self.tr("Acquisition"))
+        self._tabs.addTab(self._build_maintenance_tab(watch), self.tr("Maintenance"))
+        self._tabs.addTab(self._build_log_tab(watch), self.tr("Log"))
+        self._tabs.addTab(self._build_timing_tab(watch), self.tr("Timing"))
+        self._tabs.addTab(self._build_notes_tab(watch), self.tr("Notes"))
 
         # Case's lug width seeds a newly-added strap's default width_mm (§4).
         self._straps_editor.set_default_width_mm(int_value(self._lug_width_mm))
@@ -199,7 +296,7 @@ class WatchForm(QDialog):
         self._style = suggested_combo(STYLE_SUGGESTIONS, self._existing(lambda w: w.style))
         set_combo_value(self._style, watch.style)
         self._status = fixed_combo(STATUS_OPTIONS, allow_blank=False)
-        self._status.setCurrentText(watch.status)
+        set_combo_value(self._status, watch.status)
         self._storage = QLineEdit(watch.storage or "")
         self._rating = optional_int_spin(0, 5)
         set_int_value(self._rating, watch.rating)
@@ -207,17 +304,17 @@ class WatchForm(QDialog):
         self._tags.set_values(watch.tags)
 
         return self._form_tab([
-            ("Brand *", self._brand),
-            ("Model *", self._model),
-            ("Reference", self._reference),
-            ("Nickname", self._nickname),
-            ("Serial", self._serial),
-            ("Group", self._group),
-            ("Style", self._style),
-            ("Status", self._status),
-            ("Storage", self._storage),
-            ("Rating", self._rating),
-            ("Tags", self._tags),
+            (self.tr("Brand *"), self._brand),
+            (self.tr("Model *"), self._model),
+            (self.tr("Reference"), self._reference),
+            (self.tr("Nickname"), self._nickname),
+            (self.tr("Serial"), self._serial),
+            (self.tr("Group"), self._group),
+            (self.tr("Style"), self._style),
+            (self.tr("Status"), self._status),
+            (self.tr("Storage"), self._storage),
+            (self.tr("Rating"), self._rating),
+            (self.tr("Tags"), self._tags),
         ])
 
     # --- Images -----------------------------------------------------------
@@ -250,7 +347,7 @@ class WatchForm(QDialog):
         reserve_layout.setContentsMargins(0, 0, 0, 0)
         reserve_layout.addWidget(self._power_reserve_hours)
         reserve_layout.addWidget(self._battery_life_years)
-        self._kind.currentTextChanged.connect(self._update_reserve_visibility)
+        self._kind.currentTextChanged.connect(lambda _: self._update_reserve_visibility())
 
         self._accuracy_min = optional_double_spin(-9999, 9999, decimals=0, suffix=" sec")
         set_double_value(self._accuracy_min, m.accuracy_min)
@@ -261,9 +358,9 @@ class WatchForm(QDialog):
         accuracy_row = QWidget()
         accuracy_layout = QHBoxLayout(accuracy_row)
         accuracy_layout.setContentsMargins(0, 0, 0, 0)
-        accuracy_layout.addWidget(QLabel("min"))
+        accuracy_layout.addWidget(QLabel(self.tr("min")))
         accuracy_layout.addWidget(self._accuracy_min)
-        accuracy_layout.addWidget(QLabel("max"))
+        accuracy_layout.addWidget(QLabel(self.tr("max")))
         accuracy_layout.addWidget(self._accuracy_max)
         accuracy_layout.addWidget(self._accuracy_unit)
 
@@ -277,22 +374,22 @@ class WatchForm(QDialog):
         set_bool_value(self._handwinding, m.handwinding)
         self._origin = QLineEdit(m.origin or "")
 
-        self._update_reserve_visibility(self._kind.currentText())
+        self._update_reserve_visibility()
 
         return self._form_tab([
-            ("Caliber", self._caliber),
-            ("Kind", self._kind),
-            ("Power Reserve / Battery Life", reserve_row),
-            ("Accuracy", accuracy_row),
-            ("Jewels", self._jewels),
-            ("Frequency", self._bph),
-            ("Hacking", self._hacking),
-            ("Handwinding", self._handwinding),
-            ("Origin", self._origin),
+            (self.tr("Caliber"), self._caliber),
+            (self.tr("Kind"), self._kind),
+            (self.tr("Power Reserve / Battery Life"), reserve_row),
+            (self.tr("Accuracy"), accuracy_row),
+            (self.tr("Jewels"), self._jewels),
+            (self.tr("Frequency"), self._bph),
+            (self.tr("Hacking"), self._hacking),
+            (self.tr("Handwinding"), self._handwinding),
+            (self.tr("Origin"), self._origin),
         ])
 
-    def _update_reserve_visibility(self, kind: str) -> None:
-        quartz_like = kind in QUARTZ_LIKE_KINDS
+    def _update_reserve_visibility(self) -> None:
+        quartz_like = combo_value(self._kind) in QUARTZ_LIKE_KINDS
         self._power_reserve_hours.setVisible(not quartz_like)
         self._battery_life_years.setVisible(quartz_like)
 
@@ -324,17 +421,17 @@ class WatchForm(QDialog):
         set_double_value(self._weight_g, c.weight_g)
 
         return self._form_tab([
-            ("Diameter", self._diameter_mm),
-            ("Lug-to-Lug", self._lug_to_lug_mm),
-            ("Thickness", self._thickness_mm),
-            ("Lug Width", self._lug_width_mm),
-            ("Material", self._case_material),
-            ("Crystal", self._crystal),
-            ("Crown", self._crown),
-            ("Bezel", self._bezel),
-            ("Caseback", self._caseback),
-            ("Water Resistance", self._water_resistance),
-            ("Weight", self._weight_g),
+            (self.tr("Diameter"), self._diameter_mm),
+            (self.tr("Lug-to-Lug"), self._lug_to_lug_mm),
+            (self.tr("Thickness"), self._thickness_mm),
+            (self.tr("Lug Width"), self._lug_width_mm),
+            (self.tr("Material"), self._case_material),
+            (self.tr("Crystal"), self._crystal),
+            (self.tr("Crown"), self._crown),
+            (self.tr("Bezel"), self._bezel),
+            (self.tr("Caseback"), self._caseback),
+            (self.tr("Water Resistance"), self._water_resistance),
+            (self.tr("Weight"), self._weight_g),
         ])
 
     # --- Dial -----------------------------------------------------------
@@ -350,11 +447,11 @@ class WatchForm(QDialog):
         self._complications.set_values(d.complications)
 
         return self._form_tab([
-            ("Colour", self._dial_colour),
-            ("Material", self._dial_material),
-            ("Indices", self._indices),
-            ("Lume", self._lume),
-            ("Complications", self._complications),
+            (self.tr("Colour"), self._dial_colour),
+            (self.tr("Material"), self._dial_material),
+            (self.tr("Indices"), self._indices),
+            (self.tr("Lume"), self._lume),
+            (self.tr("Complications"), self._complications),
         ])
 
     # --- Straps -----------------------------------------------------------
@@ -362,7 +459,7 @@ class WatchForm(QDialog):
     def _build_straps_tab(self, watch: Watch) -> QWidget:
         self._straps_editor = StrapsEditor(self._existing(lambda w: [s.material for s in w.straps if s.material]))
         self._straps_editor.set_values(watch.straps)
-        return self._form_tab([("Straps", self._straps_editor)])
+        return self._form_tab([(self.tr("Straps"), self._straps_editor)])
 
     # --- Acquisition -----------------------------------------------------------
 
@@ -384,9 +481,11 @@ class WatchForm(QDialog):
         # SPEC.md §3/§4: an enum*-style combo — sellers.toml entries plus
         # every seller value already used in the collection, plus free
         # text — same pattern as group/style/case material etc.
-        self._seller = suggested_combo([s.name for s in self._sellers], self._existing(lambda w: w.acquisition.seller))
+        self._seller = suggested_combo(
+            [s.name for s in self._sellers], self._existing(lambda w: w.acquisition.seller), translate=False
+        )
         set_combo_value(self._seller, a.seller)
-        manage_sellers_button = QPushButton("Manage sellers…")
+        manage_sellers_button = QPushButton(self.tr("Manage sellers…"))
         manage_sellers_button.setProperty("variant", "link")
         manage_sellers_button.setCursor(Qt.CursorShape.PointingHandCursor)
         manage_sellers_button.clicked.connect(self._on_manage_sellers)
@@ -405,16 +504,16 @@ class WatchForm(QDialog):
         set_date_value(self._warranty_until, a.warranty_until)
 
         return self._form_tab([
-            ("Acquired", self._acquired_date),
-            ("Price", self._price),
-            ("Target Price", self._target_price),
-            ("Target Date", self._target_date),
-            ("Currency", self._currency),
-            ("Seller", seller_row),
-            ("URL", self._url),
-            ("Condition", self._condition),
-            ("Box & Papers", self._box_and_papers),
-            ("Warranty Until", self._warranty_until),
+            (self.tr("Acquired"), self._acquired_date),
+            (self.tr("Price"), self._price),
+            (self.tr("Target Price"), self._target_price),
+            (self.tr("Target Date"), self._target_date),
+            (self.tr("Currency"), self._currency),
+            (self.tr("Seller"), seller_row),
+            (self.tr("URL"), self._url),
+            (self.tr("Condition"), self._condition),
+            (self.tr("Box & Papers"), self._box_and_papers),
+            (self.tr("Warranty Until"), self._warranty_until),
         ])
 
     def _on_manage_sellers(self) -> None:
@@ -426,7 +525,10 @@ class WatchForm(QDialog):
             return
         self._sellers = self._manage_sellers()
         refresh_combo_options(
-            self._seller, [s.name for s in self._sellers], self._existing(lambda w: w.acquisition.seller)
+            self._seller,
+            [s.name for s in self._sellers],
+            self._existing(lambda w: w.acquisition.seller),
+            translate=False,
         )
 
     # --- Maintenance -----------------------------------------------------------
@@ -439,8 +541,8 @@ class WatchForm(QDialog):
         set_date_value(self._battery_due, m.battery_due)
 
         return self._form_tab([
-            ("Service Interval", self._service_interval_years),
-            ("Battery Due", self._battery_due),
+            (self.tr("Service Interval"), self._service_interval_years),
+            (self.tr("Battery Due"), self._battery_due),
         ])
 
     # --- Log / Timing / Notes -----------------------------------------------------------
@@ -448,17 +550,17 @@ class WatchForm(QDialog):
     def _build_log_tab(self, watch: Watch) -> QWidget:
         self._log_editor = LogEditor()
         self._log_editor.set_values(watch.log)
-        return self._form_tab([("Log", self._log_editor)])
+        return self._form_tab([(self.tr("Log"), self._log_editor)])
 
     def _build_timing_tab(self, watch: Watch) -> QWidget:
         self._timing_editor = TimingEditor()
         self._timing_editor.set_values(watch.timing)
-        return self._form_tab([("Timing", self._timing_editor)])
+        return self._form_tab([(self.tr("Timing"), self._timing_editor)])
 
     def _build_notes_tab(self, watch: Watch) -> QWidget:
         self._notes = QPlainTextEdit(watch.notes or "")
-        self._notes.setPlaceholderText("Notes")
-        return self._form_tab([("Notes", self._notes)])
+        self._notes.setPlaceholderText(self.tr("Notes"))
+        return self._form_tab([(self.tr("Notes"), self._notes)])
 
     # --- save / cancel -----------------------------------------------------------
 
@@ -472,7 +574,7 @@ class WatchForm(QDialog):
             serial=self._serial.text().strip() or None,
             group=combo_value(self._group),
             style=combo_value(self._style),
-            status=self._status.currentText(),
+            status=combo_value(self._status),
             storage=self._storage.text().strip() or None,
             rating=int_value(self._rating),
             tags=self._tags.values(),
@@ -538,7 +640,7 @@ class WatchForm(QDialog):
         # SPEC.md §5.7: saving with only brand and model filled must succeed;
         # validation blocks nothing else.
         if not self._brand.text().strip() or not self._model.text().strip():
-            QMessageBox.warning(self, "Missing required fields", "Brand and model are required.")
+            QMessageBox.warning(self, self.tr("Missing required fields"), self.tr("Brand and model are required."))
             return
         self._saved_watch = self._build_watch()
         self.accept()

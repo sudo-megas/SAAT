@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from datetime import date
 
-from PySide6.QtCore import QDate, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QDate, Qt, Signal
 from PySide6.QtGui import QColor, QTextCharFormat
 from PySide6.QtWidgets import QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QHBoxLayout, QSpinBox, QWidget
 
@@ -12,10 +12,29 @@ from saat.ui.formatting import EM_DASH
 
 SENTINEL_DATE = QDate(1901, 1, 1)  # below any real watch-collection date; means "unset"
 
+# Context shared by every enum*-suggestion/option list (watch_form.py,
+# list_editors.py) -- QT_TRANSLATE_NOOP-marked at definition, looked up here
+# by value. One context so translators work through one list rather than
+# seventeen fragmented ones.
+ENUM_CHOICES_CONTEXT = "EnumChoices"
+
+
+def enum_label(value: str) -> str:
+    """Translated display label for a canonical enum* value -- the read-side
+    counterpart to the combo boxes' write-side split (combo_value()/
+    set_combo_value()). Use anywhere an enum* field (see the QT_TRANSLATE_NOOP
+    lists in watch_form.py/list_editors.py) is *displayed* outside a combo
+    box: table cells, detail-page rows, PDF export, compare view. "Translation
+    happens only at display time" applies to every display surface, not only
+    the edit-time combo -- never call this on brand/model/nickname/seller/
+    tags/notes or any other free-typed, non-enum field."""
+    return QCoreApplication.translate(ENUM_CHOICES_CONTEXT, value)
+
 
 def existing_values(records: list[WatchRecord], getter: Callable[[Watch], object]) -> list[str]:
     """Distinct non-empty values already used elsewhere in the collection, for
-    an enum* field's suggestion list. See SPEC.md §4."""
+    an enum* field's suggestion list. See SPEC.md §4. Always canonical
+    English (read straight from disk) -- never translated."""
     values: set[str] = set()
     for record in records:
         if record.watch is None:
@@ -28,18 +47,42 @@ def existing_values(records: list[WatchRecord], getter: Callable[[Watch], object
     return sorted(values)
 
 
-def suggested_combo(suggestions: list[str], existing: list[str]) -> QComboBox:
+def _populate_enum_items(combo: QComboBox, suggestions: list[str], existing: list[str], translate: bool) -> None:
+    """Shared item-building for suggested_combo/refresh_combo_options:
+    canonical value always in itemData (what combo_value()/set_combo_value()
+    read/write), translated label only for values that are actual `enum*`
+    suggestions -- and only when `translate` is set (seller names are
+    proper nouns harvested from sellers.toml, not fixed vocabulary, so they
+    pass through `suggestions` too but must never be translated). `existing`
+    values are harvested from disk (already canonical English) and are
+    never translated either way -- and dedup happens on the canonical
+    value, before labels are built, so a suggestion and an on-disk value
+    that are the same thing never render as two items under different
+    labels."""
+    canonical = list(dict.fromkeys([*suggestions, *existing]))
+    suggestion_set = set(suggestions)
+    combo.addItem("", "")
+    for value in canonical:
+        label = enum_label(value) if translate and value in suggestion_set else value
+        combo.addItem(label, value)
+
+
+def suggested_combo(suggestions: list[str], existing: list[str], translate: bool = True) -> QComboBox:
     """An enum* field: editable, offering the spec's suggested values plus
-    every value already used elsewhere in the collection, plus free text."""
+    every value already used elsewhere in the collection, plus free text.
+    Item text is the translated display label; item data (and whatever
+    combo_value() returns) is always the canonical English value. Pass
+    `translate=False` when `suggestions` are proper nouns rather than fixed
+    enum vocabulary (e.g. seller names) -- never eligible for translation."""
     combo = QComboBox()
     combo.setEditable(True)
-    options = list(dict.fromkeys([*suggestions, *existing]))
-    combo.addItem("")
-    combo.addItems(options)
+    _populate_enum_items(combo, suggestions, existing, translate)
     return combo
 
 
-def refresh_combo_options(combo: QComboBox, suggestions: list[str], existing: list[str]) -> None:
+def refresh_combo_options(
+    combo: QComboBox, suggestions: list[str], existing: list[str], translate: bool = True
+) -> None:
     """Repopulates a suggested_combo's dropdown items in place, preserving
     whatever text is currently typed/selected — for when the suggestion
     source (e.g. sellers.toml, after the manage-sellers dialog closes)
@@ -48,29 +91,43 @@ def refresh_combo_options(combo: QComboBox, suggestions: list[str], existing: li
     current_text = combo.currentText()
     combo.blockSignals(True)
     combo.clear()
-    options = list(dict.fromkeys([*suggestions, *existing]))
-    combo.addItem("")
-    combo.addItems(options)
+    _populate_enum_items(combo, suggestions, existing, translate)
     combo.setCurrentText(current_text)
     combo.blockSignals(False)
 
 
-def fixed_combo(options: list[str], allow_blank: bool = True) -> QComboBox:
-    """A plain (non-suggested) enum field: a closed set, no free text."""
+def fixed_combo(options: list[str], allow_blank: bool = True, translate: bool = True) -> QComboBox:
+    """A plain (non-suggested) enum field: a closed set, no free text. Item
+    text is the translated label and item data is the canonical value when
+    `translate` is set (the default, for real enum* fields); pass
+    `translate=False` for closed sets that aren't translatable words at all
+    (e.g. WaterResistanceField's "m"/"bar"/"atm" unit abbreviations), which
+    keeps plain addItems() behaviour."""
     combo = QComboBox()
     if allow_blank:
-        combo.addItem("")
-    combo.addItems(options)
+        combo.addItem("", "")
+    if translate:
+        for value in options:
+            combo.addItem(enum_label(value), value)
+    else:
+        combo.addItems(options)
     return combo
 
 
 def combo_value(combo: QComboBox) -> str | None:
+    data = combo.currentData()
+    if data is not None and data != "":
+        return data
     text = combo.currentText().strip()
     return text or None
 
 
 def set_combo_value(combo: QComboBox, value: str | None) -> None:
-    combo.setCurrentText(value or "")
+    index = combo.findData(value) if value else -1
+    if index >= 0:
+        combo.setCurrentIndex(index)
+    else:
+        combo.setCurrentText(value or "")
 
 
 def optional_int_spin(minimum: int, maximum: int, suffix: str = "") -> QSpinBox:
@@ -185,7 +242,7 @@ class WaterResistanceField(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self._value = optional_int_spin(0, 2000)
-        self._unit = fixed_combo(["m", "bar", "atm"], allow_blank=False)
+        self._unit = fixed_combo(["m", "bar", "atm"], allow_blank=False, translate=False)
         layout.addWidget(self._value)
         layout.addWidget(self._unit)
         self._value.valueChanged.connect(lambda _: self.changed.emit())

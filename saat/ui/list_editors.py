@@ -10,6 +10,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
+
 from saat.models import LogEntry, Strap, TimingEntry
 from saat.ui import icons
 from saat.ui.form_fields import (
@@ -28,10 +30,42 @@ from saat.ui.form_fields import (
     suggested_combo,
 )
 
-LOG_KIND_OPTIONS = ["Service", "Battery", "Regulation", "Strap Swap", "Note"]
-TIMING_POSITION_OPTIONS = ["Dial Up", "Dial Down", "Crown Up", "Crown Down", "Crown Left", "Worn"]
-STRAP_MATERIAL_SUGGESTIONS = ["Leather", "Calf Leather", "Nylon", "NATO", "Silicone", "Rubber", "FKM", "Canvas", "Steel Bracelet", "Mesh"]
-STRAP_CLASP_SUGGESTIONS = ["Pin Buckle", "Deployant", "Butterfly", "Ratcheting"]
+# See watch_form.py's identical comment: QT_TRANSLATE_NOOP marks each literal
+# for extraction (lupdate can't see a translated value reached via a loop
+# variable); values stay canonical English at runtime.
+LOG_KIND_OPTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Service"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Battery"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Regulation"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Strap Swap"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Note"),
+]
+TIMING_POSITION_OPTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Dial Up"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Dial Down"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Crown Up"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Crown Down"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Crown Left"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Worn"),
+]
+STRAP_MATERIAL_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Leather"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Calf Leather"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Nylon"),
+    QT_TRANSLATE_NOOP("EnumChoices", "NATO"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Silicone"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Rubber"),
+    QT_TRANSLATE_NOOP("EnumChoices", "FKM"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Canvas"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Steel Bracelet"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Mesh"),
+]
+STRAP_CLASP_SUGGESTIONS = [
+    QT_TRANSLATE_NOOP("EnumChoices", "Pin Buckle"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Deployant"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Butterfly"),
+    QT_TRANSLATE_NOOP("EnumChoices", "Ratcheting"),
+]
 
 
 def _remove_button() -> QPushButton:
@@ -39,7 +73,7 @@ def _remove_button() -> QPushButton:
     button.setProperty("variant", "link")
     button.setFixedWidth(28)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
-    button.setToolTip("Remove")
+    button.setToolTip(QCoreApplication.translate("ListEditors", "Remove"))
     icons.set_icon(button, "remove")
     return button
 
@@ -73,7 +107,7 @@ class StringListEditor(QWidget):
             self._input = suggested_combo(suggestions, [])
         else:
             self._input = QLineEdit()
-        add_button = QPushButton("Add")
+        add_button = QPushButton(self.tr("Add"))
         add_button.clicked.connect(self._add_current)
         input_row.addWidget(self._input, 1)
         input_row.addWidget(add_button)
@@ -85,7 +119,8 @@ class StringListEditor(QWidget):
 
     def _current_text(self) -> str:
         if isinstance(self._input, QComboBox):
-            return self._input.currentText().strip()
+            value = combo_value(self._input)
+            return value.strip() if value else ""
         return self._input.text().strip()
 
     def _clear_input(self) -> None:
@@ -146,18 +181,23 @@ class StrapRow(QFrame):
         self.material = suggested_combo(STRAP_MATERIAL_SUGGESTIONS, existing_materials)
         self.material.setEditable(True)
         self.colour = QLineEdit()
-        self.colour.setPlaceholderText("Colour")
+        self.colour.setPlaceholderText(self.tr("Colour"))
         self.width_mm = optional_int_spin(0, 30, suffix=" mm")
         if default_width_mm is not None:
             set_int_value(self.width_mm, default_width_mm)
         self.clasp = suggested_combo(STRAP_CLASP_SUGGESTIONS, [])
-        self.fitted = QPushButton("Fitted")
+        self.fitted = QPushButton(self.tr("Fitted"))
         self.fitted.setCheckable(True)
         self.image_combo = QComboBox()
-        self.image_combo.addItem("No image", None)
+        self.image_combo.addItem(self.tr("No image"), None)
         self._desired_image: str | None = None
 
-        for widget, label in ((self.material, "Material"), (self.colour, None), (self.width_mm, None), (self.clasp, "Clasp")):
+        for widget, label in (
+            (self.material, self.tr("Material")),
+            (self.colour, None),
+            (self.width_mm, None),
+            (self.clasp, self.tr("Clasp")),
+        ):
             if label:
                 layout.addWidget(QLabel(label))
             layout.addWidget(widget)
@@ -191,7 +231,7 @@ class StrapRow(QFrame):
         never left dangling."""
         self.image_combo.blockSignals(True)
         self.image_combo.clear()
-        self.image_combo.addItem("No image", None)
+        self.image_combo.addItem(self.tr("No image"), None)
         for name in filenames:
             self.image_combo.addItem(name, name)
         index = self.image_combo.findData(self._desired_image) if self._desired_image else 0
@@ -240,7 +280,7 @@ class StrapsEditor(QWidget):
         self._rows_layout = QVBoxLayout()
         layout.addLayout(self._rows_layout)
 
-        add_button = QPushButton("Add strap")
+        add_button = QPushButton(self.tr("Add strap"))
         add_button.clicked.connect(lambda: self.add_row())
         layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -300,7 +340,7 @@ class LogRow(QFrame):
         self.date = optional_date_edit()
         self.kind = fixed_combo(LOG_KIND_OPTIONS)
         self.note = QLineEdit()
-        self.note.setPlaceholderText("Note")
+        self.note.setPlaceholderText(self.tr("Note"))
 
         layout.addWidget(self.date)
         layout.addWidget(self.kind)
@@ -332,7 +372,7 @@ class LogEditor(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self._rows_layout = QVBoxLayout()
         layout.addLayout(self._rows_layout)
-        add_button = QPushButton("Add log entry")
+        add_button = QPushButton(self.tr("Add log entry"))
         add_button.clicked.connect(lambda: self.add_row())
         layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -407,7 +447,7 @@ class TimingEditor(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self._rows_layout = QVBoxLayout()
         layout.addLayout(self._rows_layout)
-        add_button = QPushButton("Add timing reading")
+        add_button = QPushButton(self.tr("Add timing reading"))
         add_button.clicked.connect(lambda: self.add_row())
         layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
 

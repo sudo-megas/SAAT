@@ -46,11 +46,11 @@ class ImagesTab(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        hint = QLabel("Drag and drop image files here, or:")
+        hint = QLabel(self.tr("Drag and drop image files here, or:"))
         hint.setProperty("muted", True)
         layout.addWidget(hint)
 
-        add_button = QPushButton("Add images…")
+        add_button = QPushButton(self.tr("Add images…"))
         icons.set_icon(add_button, "image-add")
         add_button.clicked.connect(self._pick_files)
         layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -77,8 +77,8 @@ class ImagesTab(QWidget):
         self._add_sources(p for p in paths if p.suffix.lower() in IMAGE_EXTENSIONS)
 
     def _pick_files(self) -> None:
-        filter_str = "Images (*" + " *".join(sorted(IMAGE_EXTENSIONS)) + ")"
-        paths, _ = QFileDialog.getOpenFileNames(self, "Add images", "", filter_str)
+        filter_str = self.tr("Images") + " (*" + " *".join(sorted(IMAGE_EXTENSIONS)) + ")"
+        paths, _ = QFileDialog.getOpenFileNames(self, self.tr("Add images"), "", filter_str)
         self._add_sources(Path(p) for p in paths)
 
     def _add_sources(self, paths) -> None:
@@ -151,30 +151,32 @@ class ImagesTab(QWidget):
         name_label = QLabel(item.filename)
         name_col.addWidget(name_label)
         if is_primary:
-            badge = QLabel("PRIMARY")
+            # Already uppercase in source (like detail_view.py's "FITTED"
+            # badge) -- no Commit C casing concern for this one literal.
+            badge = QLabel(self.tr("PRIMARY"))
             badge.setProperty("class", "fitted-badge")
             name_col.addWidget(badge)
         layout.addLayout(name_col, 1)
 
-        up_button = QPushButton("Up")
+        up_button = QPushButton(self.tr("Up"))
         up_button.setEnabled(not is_primary)
         up_button.clicked.connect(lambda: self._move(item, -1))
         layout.addWidget(up_button)
 
-        down_button = QPushButton("Down")
+        down_button = QPushButton(self.tr("Down"))
         down_button.setEnabled(item is not self._pending[-1])
         down_button.clicked.connect(lambda: self._move(item, 1))
         layout.addWidget(down_button)
 
         if not is_primary:
-            primary_button = QPushButton("Set Primary")
+            primary_button = QPushButton(self.tr("Set Primary"))
             icons.set_icon(primary_button, "star")
             primary_button.clicked.connect(lambda: self._set_primary(item))
             layout.addWidget(primary_button)
 
         remove_button = QPushButton()
         remove_button.setProperty("variant", "link")
-        remove_button.setToolTip("Remove image")
+        remove_button.setToolTip(self.tr("Remove image"))
         icons.set_icon(remove_button, "remove")
         remove_button.clicked.connect(lambda: self._remove(item))
         layout.addWidget(remove_button)

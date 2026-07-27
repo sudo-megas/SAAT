@@ -1,5 +1,7 @@
 from datetime import date, timedelta
 
+from PySide6.QtCore import QCoreApplication
+
 from saat.models import Watch
 from saat.ui.formatting import fmt_date
 
@@ -49,7 +51,7 @@ def maintenance_due_text(watch: Watch, today: date | None = None) -> str | None:
         return None
     today = today if today is not None else date.today()
     if due < today:
-        return f"Service overdue — was due {fmt_date(due)}"
+        return QCoreApplication.translate("Maintenance", "Service overdue — was due {date}").format(date=fmt_date(due))
     if due <= today + timedelta(days=DUE_SOON_DAYS):
-        return f"Service due {fmt_date(due)}"
+        return QCoreApplication.translate("Maintenance", "Service due {date}").format(date=fmt_date(due))
     return None

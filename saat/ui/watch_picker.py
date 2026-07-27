@@ -32,14 +32,14 @@ class WatchPicker(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Assign a watch")
+        self.setWindowTitle(self.tr("Assign a watch"))
         self._records = [r for r in records if r.watch is not None]
         self._current_slug = current.slug if current is not None else None
         self._chosen: WatchRecord | None = None
         self._cleared = False
 
         self._search_field = QLineEdit()
-        self._search_field.setPlaceholderText("Search brand, model, reference, caliber, tags…")
+        self._search_field.setPlaceholderText(self.tr("Search brand, model, reference, caliber, tags…"))
         self._search_field.textChanged.connect(self._render_list)
 
         self._list = QListWidget()
@@ -50,7 +50,7 @@ class WatchPicker(QDialog):
         self._list.itemActivated.connect(self._on_item_chosen)
 
         buttons = QDialogButtonBox()
-        clear_button = QPushButton("Clear")
+        clear_button = QPushButton(self.tr("Clear"))
         clear_button.clicked.connect(self._on_clear)
         buttons.addButton(clear_button, QDialogButtonBox.ButtonRole.DestructiveRole)
         cancel_button = buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
@@ -79,7 +79,7 @@ class WatchPicker(QDialog):
                 continue
             label = f"{record.watch.brand} {record.watch.model}"
             if record.slug == self._current_slug:
-                label += "  (current)"
+                label += self.tr("  (current)")
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, record)
             path = first_image(record)
