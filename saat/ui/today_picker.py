@@ -196,11 +196,16 @@ class TodayPickerDialog(QDialog):
 
         self._result_image = QLabel()
         self._result_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._result_image.setFixedHeight(RESULT_IMAGE_SIZE)
+        self._result_image.setFixedHeight(0)  # reserved only once settling actually has a photo to show (_on_settled)
         self._result_label = QLabel()
         self._result_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._result_image)
         layout.addWidget(self._result_label)
+        # Absorbs the dialog's fixed height here rather than letting Qt
+        # distribute it as implicit slack across the labels above — without
+        # this, a photo-less result centers its text partway down an
+        # oversized cell instead of sitting directly under the die.
+        layout.addStretch(1)
 
         button_row = QHBoxLayout()
         self._reroll_button = QPushButton("Re-roll")
@@ -222,6 +227,7 @@ class TodayPickerDialog(QDialog):
         self._wore_today_button.setEnabled(False)
         self._result_label.setText("")
         self._result_image.clear()
+        self._result_image.setFixedHeight(0)
         self._chosen = pick_one(self._records, self._mode, self._rand)
         final_face = self._owned.index(self._chosen) + 1
         self._die.roll_to(final_face, animate=not self._reduced_motion)
@@ -233,6 +239,7 @@ class TodayPickerDialog(QDialog):
         path = first_image(self._chosen)
         pixmap = cropped_pixmap(path, RESULT_IMAGE_SIZE, RESULT_IMAGE_SIZE) if path else None
         if pixmap is not None:
+            self._result_image.setFixedHeight(RESULT_IMAGE_SIZE)
             self._result_image.setPixmap(pixmap)
         self._wore_today_button.setEnabled(True)
 

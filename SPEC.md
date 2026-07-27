@@ -415,17 +415,48 @@ Footer strip beneath the grid, three plain figures for the displayed month: days
 recorded, distinct watches worn, and the watches *not* worn this month. That last one is
 the point — it is the only thing here that tells you something you did not already know.
 
+**Today's pick, milestone 20:** a die-styled button in the top bar, Collection scope only
+— a Wishlist watch cannot be worn — that chooses one owned watch and offers to log it
+worn today. Two modes, remembered in `config.toml`, default Weighted: Random is uniform
+over owned watches, a true dN; Weighted favours whichever has gone longest unworn, on a
+gentle curve with no hard cutoff — every owned watch keeps a non-zero chance, and with a
+small collection Weighted may barely differ from Random. The pick settles behind a brief
+animation — a hairline die, flat and stroked, never a 3D object — tumbling through as
+many faces as there are owned watches before landing on the choice; skipped outright
+under a reduced-motion preference, which currently always allows the animation, since Qt
+still exposes no such platform hint to honour on Linux (§6) — the gate exists so a real
+hook, if one ever arrives, needs no further wiring here. Re-rolling before logging picks
+again and writes nothing; only the explicit "Wore this today" action does, through the
+same path §5.6's own button already uses. Zero owned watches shows a plain message and no
+die; exactly one names it without pretending to choose.
+
+**Week mode, milestone 20's** fourth toggle choice alongside Month, Year and Stats: the
+current week as a single row of seven cells, Monday to Sunday, navigated by week instead
+of by month and otherwise sharing every interaction the month grid already has — click,
+drag a range, arrow keys. Its own control, "Roll the week," proposes a pick for every
+empty day from today onward, using Today's pick's own Random/Weighted preference and, in
+Weighted mode, carrying its bias across the days it fills: a watch picked earlier in the
+roll counts as freshly worn for the rest of it, so an accepted week spreads wear rather
+than clustering it on one watch. A proposal never overwrites a day that already has
+logged wear and never reaches into the past — it can only fill what is still empty and
+still ahead. Proposed days render dashed and lighter than a logged day, never mistakable
+for real history, until accepted whole, accepted one day at a time by clicking it, or
+dismissed outright, which writes nothing at all. Every day, proposed or not, stays
+editable through the calendar's normal interaction afterwards — the plan is a starting
+point, not a record.
+
 **Year view**, toggled in the calendar header: twelve compact month grids, cells reduced
 to colour chips instead of photos, one hue per watch derived deterministically from its
 slug. Reveals rotation at a glance — which watch owned the summer, which one you stopped
 reaching for in March.
 
-**Navigation.** A Today button returns Month mode to the current month and Year mode to
-the current year. A compact month (dropdown) and year (spinbox) jump sits inline in the
-header beside the prev/next arrows — inline controls, not a dialog, and not a separate
-"jump to date" screen.
+**Navigation.** A Today button returns Month mode to the current month, Week mode to the
+week containing today, and Year mode to the current year. A compact month (dropdown) and
+year (spinbox) jump sits inline in the header beside the prev/next arrows for Month and
+Year — inline controls, not a dialog, and not a separate "jump to date" screen. Week mode
+has no such jump of its own: prev/next/Today are enough to reach any week.
 
-**Stats mode**, the third choice in the same header toggle as Month and Year. A period
+**Stats mode**, one of four choices in the same header toggle as Month, Week and Year. A period
 selector — This month / This year / All time, three fixed choices, not a date-range
 picker (§9 still bans settings GUIs) — drives every section below it. This month and This
 year are the full calendar unit containing today, not "elapsed so far"; All time runs
@@ -722,7 +753,15 @@ that the gap doesn't need an escape hatch. This governs eased state-change trans
 specifically — the named vocabulary above. The empty state's live dial (§5.8) is a
 deliberate, narrowly-scoped exception: a real-time readout of the actual clock, not an
 animation, and the only element in the app that updates on a timer rather than in
-response to a state change.
+response to a state change. **A second exception, added in milestone 20:** the today
+picker's settle animation (§5.5) tumbles over several hundred milliseconds rather than
+one 160ms fade, because a die needs long enough to read as tumbling at all — but it stays
+inside every other limit here: flat, hairline-stroked faces, no bounce, no glow, nothing
+standing in for a real die as a 3D object. It is also the one animation in the app gated
+by a reduced-motion check. That check currently always allows the animation — this
+section's own reason for having no reduced-motion setting at all still holds, Linux still
+gives Qt no such platform hint to honour — so today the gate is only somewhere for a real
+hook to plug in later, not a live preference.
 
 **Spacing.** 8 px base unit. Card padding 16, group spacing 32, page margin 24. Table
 rows get 12 px vertical padding — a spec table crammed to 6 px is unreadable, and this

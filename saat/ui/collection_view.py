@@ -53,7 +53,7 @@ class CollectionView(QWidget):
         self._top_bar = TopBar()
         self._grid_view = GridView()
         self._table_view = TableView(on_columns_changed=self._save_columns)
-        self._calendar_view = CalendarView(records)
+        self._calendar_view = CalendarView(records, config)
 
         self._stack = QStackedWidget()
         self._stack.addWidget(self._grid_view)

@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.5] - 2026-07-27
+
+### Added
+
+- A watch picker for when the collection has too many good options: a new top-bar button
+  chooses one owned watch for you, settles a hairline die on the pick with a brief
+  tumbling animation, and offers to log it as worn today in one click. Random is a
+  uniform draw; Weighted favours whichever you haven't worn in the longest, on a gentle
+  curve that never rules any watch out — the choice is remembered next time. Re-rolling
+  before logging never writes anything, and a collection with zero or exactly one owned
+  watch skips the pretence of choosing.
+- A week planner, in a new Week mode alongside Month/Year/Stats in the calendar: "Roll
+  the week" proposes a watch for every empty day from today onward, sharing the picker's
+  own Random/Weighted preference. Proposals never overwrite a day already logged and
+  never reach into the past, and render dashed and lighter so they're never mistaken for
+  real history. Accept the whole week, accept a day at a time by clicking it, or dismiss
+  it without writing anything — every day stays editable afterwards exactly as before.
+- SPEC.md §5.5 documents both features and their fill-only-empty-future-days rule; §6
+  documents the picker's settle animation as a second, bounded exception to the app's
+  single motion timing, alongside the existing empty-state dial.
+
 ## [1.7.0] - 2026-07-27
 
 ### Added

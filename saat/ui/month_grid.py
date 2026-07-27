@@ -2,6 +2,8 @@ import calendar as cal
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from saat.selection import week_dates
+
 WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
@@ -31,3 +33,12 @@ def month_grid_days(year: int, month: int) -> list[GridDay]:
         + [GridDay(d, in_month=True) for d in current]
         + [GridDay(d, in_month=False) for d in trailing]
     )
+
+
+def week_grid_days(anchor: date) -> list[GridDay]:
+    """Seven days, Monday..Sunday of the week containing `anchor` (SPEC.md
+    §5.5: weeks start Monday) — one row for the calendar's Week mode
+    (milestone 20). Every entry is in_month=True: unlike a month grid, a
+    week has no adjacent-period overflow to pad or dim, so all seven days
+    are equally "real" and interactive."""
+    return [GridDay(d, in_month=True) for d in week_dates(anchor)]

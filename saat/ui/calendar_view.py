@@ -17,11 +17,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from saat.config import Config
+from saat.selection import MODE_WEIGHTED, pick_week
 from saat.storage import WatchRecord
 from saat.ui.calendar_stats import StatsView
 from saat.ui import icons
 from saat.ui.images import cropped_pixmap, first_image
-from saat.ui.month_grid import GridDay, WEEKDAY_LABELS, month_grid_days
+from saat.ui.month_grid import GridDay, WEEKDAY_LABELS, month_grid_days, week_grid_days
 from saat.ui import motion, theme
 from saat.ui.theme import SIZE_SM, SIZE_XS, resolve_fonts
 from saat.ui.watch_picker import WatchPicker
@@ -45,6 +47,7 @@ class _DayCell(QFrame):
         self.highlighted = False
         self.focused = False
         self.dimmed = False
+        self.proposed = False
         self.setMinimumSize(MIN_CELL_SIZE, MIN_CELL_SIZE)
 
         self._pixmap = None
@@ -74,6 +77,15 @@ class _DayCell(QFrame):
             self.dimmed = value
             self.update()
 
+    def set_proposed(self, value: bool) -> None:
+        """Milestone 20's week planner: `record` is the proposed pick (not
+        yet written anywhere), so paintEvent renders it visibly provisional
+        — a dashed ring plus a lighter photo — instead of looking like
+        already-logged history (SPEC.md milestone 20 step 14)."""
+        if value != self.proposed:
+            self.proposed = value
+            self.update()
+
     def _number_color(self, palette: "theme.Palette") -> QColor:
         if self._pixmap is not None:
             return QColor("#E8E4DC")  # fixed warm off-white: sits on the fixed black scrim over the photo, not a themed surface
@@ -91,7 +103,11 @@ class _DayCell(QFrame):
         if not self.grid_day.in_month:
             painter.fillRect(rect, QColor(palette.plate))
         elif self._pixmap is not None:
+            # Proposed: a lighter photo, so a suggestion never reads as
+            # already-worn history at a glance (SPEC.md milestone 20 step 14).
+            painter.setOpacity(0.55 if self.proposed else 1.0)
             painter.drawPixmap(rect, self._pixmap, QRect(0, 0, self._pixmap.width(), self._pixmap.height()))
+            painter.setOpacity(1.0)
             painter.fillRect(QRect(0, 0, rect.width(), SCRIM_HEIGHT), QColor(0, 0, 0, 130))  # fixed scrim over a photo, not a theme color
         elif assigned_without_photo:
             painter.fillRect(rect, QColor(palette.plate_high))  # a watch with no photo yet — SPEC.md §5.2's card placeholder, calendar-sized
@@ -139,6 +155,18 @@ class _DayCell(QFrame):
             painter.setPen(QPen(QColor(palette.gilt), 2))
             painter.drawRect(rect.adjusted(0, 0, -1, -1))
 
+        if self.proposed:
+            # Milestone 20's week planner: drawn last, at the outer edge, so
+            # a proposed day is unmistakable even when it's also today (whose
+            # solid gilt ring sits at a different, inset rect and so stays
+            # independently visible) — a dashed stroke, never solid, is what
+            # keeps this from ever reading as logged history.
+            pen = QPen(QColor(palette.gilt), 2)
+            pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(rect.adjusted(0, 0, -1, -1))
+
         painter.end()
 
 
@@ -167,8 +195,18 @@ class _MonthGrid(QWidget):
         self._focused_day: date | None = None
 
     def render(
-        self, year: int, month: int, worn_index: dict[date, WatchRecord], emphasized_slug: str | None = None
+        self,
+        days: list[GridDay],
+        record_by_day: dict[date, WatchRecord],
+        emphasized_slug: str | None = None,
     ) -> None:
+        """`days` is whatever shape the caller wants — a whole padded month
+        (month_grid_days()) or a bare week (week_grid_days(), milestone 20's
+        Week mode). This widget has no opinion on which; its interaction
+        logic (click, drag-range, arrow keys, focus) is generic over
+        dict[date, _DayCell] and just lays out exactly len(days) cells,
+        seven per row — for a 7-day week that's one row, for a change of
+        zero lines here."""
         while self._layout.count():
             item = self._layout.takeAt(0)
             if item.widget():
@@ -176,7 +214,6 @@ class _MonthGrid(QWidget):
         self._cells = {}
 
         today = date.today()
-        days = month_grid_days(year, month)
         for i, label in enumerate(WEEKDAY_LABELS):
             heading = QLabel(label)
             heading.setProperty("class", "spec-row-label")
@@ -185,7 +222,7 @@ class _MonthGrid(QWidget):
 
         for index, grid_day in enumerate(days):
             row, col = divmod(index, 7)
-            cell = _DayCell(grid_day, worn_index.get(grid_day.day), grid_day.day == today)
+            cell = _DayCell(grid_day, record_by_day.get(grid_day.day), grid_day.day == today)
             self._layout.addWidget(cell, row + 1, col)
             self._cells[grid_day.day] = cell
 
@@ -214,6 +251,13 @@ class _MonthGrid(QWidget):
         CalendarView having to thread it through every render() call site."""
         for cell in self._cells.values():
             cell.set_dimmed(emphasized_slug is not None and (cell.record is None or cell.record.slug != emphasized_slug))
+
+    def apply_proposed(self, proposed_days: frozenset[date]) -> None:
+        """Milestone 20's week planner: marks which currently-rendered days
+        carry a not-yet-written proposal. A post-render pass, the same
+        shape as apply_emphasis() — only the Week mode ever calls this."""
+        for day, cell in self._cells.items():
+            cell.set_proposed(day in proposed_days)
 
     def _day_at(self, pos) -> date | None:
         child = self.childAt(pos)
@@ -287,25 +331,36 @@ class _MonthGrid(QWidget):
 _MODE_MONTH = "month"
 _MODE_YEAR = "year"
 _MODE_STATS = "stats"
+_MODE_WEEK = "week"
 
 
 class CalendarView(QWidget):
-    """Month, Year and Stats modes over one collection's wear history. See
-    SPEC.md §5.5. Year view and the detail-page wear strip reuse
-    month_grid_days()/build_worn_index()."""
+    """Month, Year, Stats and Week modes over one collection's wear
+    history. See SPEC.md §5.5. Year view and the detail-page wear strip
+    reuse month_grid_days()/build_worn_index(). `config` is optional and
+    read-only here — only Week mode's roll uses it (to match the today
+    picker's persisted Random/Weighted preference, saat.config.Config.
+    picker_mode()); every other mode ignores it entirely, so the many
+    existing call sites that construct this without a config keep working
+    unchanged."""
 
     assign_requested = Signal(list, object)  # list[date], WatchRecord
     clear_requested = Signal(list)  # list[date]
 
-    def __init__(self, records: list[WatchRecord], parent: QWidget | None = None) -> None:
+    def __init__(
+        self, records: list[WatchRecord], config: Config | None = None, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         today = date.today()
         self._year = today.year
         self._month = today.month
+        self._week_anchor = today
+        self._config = config
         self._records = records
         self._worn_index = build_worn_index(records)
         self._mode = _MODE_MONTH
         self._emphasized_slug: str | None = None
+        self._week_proposal: dict[date, WatchRecord] | None = None
 
         self._prev_button = QPushButton()
         self._prev_button.setToolTip("Previous month")
@@ -325,12 +380,16 @@ class CalendarView(QWidget):
         self._year_spinbox = QSpinBox()
         self._year_spinbox.setRange(1900, 2100)
         self._year_spinbox.valueChanged.connect(self._on_year_spinbox_changed)
+        self._week_range_label = QLabel()
+        self._week_range_label.setProperty("class", "spec-row-label")
 
         self._month_button = QPushButton("Month")
+        self._week_button = QPushButton("Week")
         self._year_button = QPushButton("Year")
         self._stats_button = QPushButton("Stats")
         for button, mode, icon_name in (
             (self._month_button, _MODE_MONTH, "calendar"),
+            (self._week_button, _MODE_WEEK, "week"),
             (self._year_button, _MODE_YEAR, "year"),
             (self._stats_button, _MODE_STATS, "stats"),
         ):
@@ -342,10 +401,12 @@ class CalendarView(QWidget):
         header.addWidget(self._prev_button)
         header.addWidget(self._month_combo)
         header.addWidget(self._year_spinbox)
+        header.addWidget(self._week_range_label)
         header.addWidget(self._next_button)
         header.addWidget(self._today_button)
         header.addStretch()
         header.addWidget(self._month_button)
+        header.addWidget(self._week_button)
         header.addWidget(self._year_button)
         header.addWidget(self._stats_button)
 
@@ -368,10 +429,35 @@ class CalendarView(QWidget):
         self._stats_view = StatsView()
         self._stats_view.watch_clicked.connect(self._on_rotation_clicked)
 
+        self._week_grid = _MonthGrid()
+        self._week_grid.range_chosen.connect(self._on_week_range_chosen)
+
+        self._roll_week_button = QPushButton("Roll the week")
+        self._roll_week_button.clicked.connect(self._on_roll_week)
+        self._week_dismiss_button = QPushButton("Dismiss")
+        self._week_dismiss_button.clicked.connect(self._on_dismiss_week)
+        self._week_accept_all_button = QPushButton("Accept all")
+        self._week_accept_all_button.setProperty("variant", "primary")
+        self._week_accept_all_button.clicked.connect(self._on_accept_week)
+
+        week_actions = QHBoxLayout()
+        week_actions.addWidget(self._roll_week_button)
+        week_actions.addStretch()
+        week_actions.addWidget(self._week_dismiss_button)
+        week_actions.addWidget(self._week_accept_all_button)
+
+        week_content = QWidget()
+        week_layout = QVBoxLayout(week_content)
+        week_layout.setContentsMargins(0, 0, 0, 0)
+        week_layout.setSpacing(16)
+        week_layout.addWidget(self._week_grid, stretch=1)
+        week_layout.addLayout(week_actions)
+
         self._content_stack = QStackedWidget()
         self._content_stack.addWidget(month_content)
         self._content_stack.addWidget(self._year_view)
         self._content_stack.addWidget(self._stats_view)
+        self._content_stack.addWidget(week_content)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
@@ -404,6 +490,9 @@ class CalendarView(QWidget):
     def _go_previous(self) -> None:
         if self._mode == _MODE_YEAR:
             self._year -= 1
+        elif self._mode == _MODE_WEEK:
+            self._week_anchor -= timedelta(days=7)
+            self._week_proposal = None  # a proposal belongs to the week it was rolled for, not wherever navigation lands next
         else:
             self._month -= 1
             if self._month == 0:
@@ -414,6 +503,9 @@ class CalendarView(QWidget):
     def _go_next(self) -> None:
         if self._mode == _MODE_YEAR:
             self._year += 1
+        elif self._mode == _MODE_WEEK:
+            self._week_anchor += timedelta(days=7)
+            self._week_proposal = None
         else:
             self._month += 1
             if self._month == 13:
@@ -426,6 +518,9 @@ class CalendarView(QWidget):
         self._year = today.year
         if self._mode == _MODE_MONTH:
             self._month = today.month
+        elif self._mode == _MODE_WEEK:
+            self._week_anchor = today
+            self._week_proposal = None
         motion.fade_transition(self._content_stack.currentWidget(), self._render)
 
     def _on_month_combo_changed(self, index: int) -> None:
@@ -441,11 +536,13 @@ class CalendarView(QWidget):
 
     def _set_mode(self, mode: str) -> None:
         self._emphasized_slug = None  # SPEC.md §5.5: any mode change clears click-through emphasis
+        if self._mode == _MODE_WEEK and mode != _MODE_WEEK:
+            self._week_proposal = None  # leaving Week mode -- a stale proposal for a hidden screen serves no purpose
         self._mode = mode
         self._update_mode_buttons()
 
         def _switch_and_render() -> None:
-            self._content_stack.setCurrentIndex({_MODE_MONTH: 0, _MODE_YEAR: 1, _MODE_STATS: 2}[mode])
+            self._content_stack.setCurrentIndex({_MODE_MONTH: 0, _MODE_YEAR: 1, _MODE_STATS: 2, _MODE_WEEK: 3}[mode])
             self._render()
 
         motion.fade_transition(self._content_stack, _switch_and_render)
@@ -454,6 +551,7 @@ class CalendarView(QWidget):
         self._month_button.setChecked(self._mode == _MODE_MONTH)
         self._year_button.setChecked(self._mode == _MODE_YEAR)
         self._stats_button.setChecked(self._mode == _MODE_STATS)
+        self._week_button.setChecked(self._mode == _MODE_WEEK)
 
     def _jump_to_month(self, month: int) -> None:
         self._month = month
@@ -471,14 +569,21 @@ class CalendarView(QWidget):
 
     def _update_header_visibility(self) -> None:
         is_stats = self._mode == _MODE_STATS
-        for widget in (self._prev_button, self._next_button, self._today_button, self._year_spinbox):
+        is_week = self._mode == _MODE_WEEK
+        for widget in (self._prev_button, self._next_button, self._today_button):
             widget.setVisible(not is_stats)
+        self._year_spinbox.setVisible(not is_stats and not is_week)
         self._month_combo.setVisible(self._mode == _MODE_MONTH)
+        self._week_range_label.setVisible(is_week)
 
     def _render(self) -> None:
         self._update_header_visibility()
         if self._mode == _MODE_STATS:
             self._stats_view.render(self._records, date.today())
+            return
+
+        if self._mode == _MODE_WEEK:
+            self._render_week()
             return
 
         self._year_spinbox.blockSignals(True)
@@ -492,8 +597,27 @@ class CalendarView(QWidget):
             self._month_combo.setCurrentIndex(self._month - 1)
             self._month_combo.blockSignals(False)
 
-            self._grid.render(self._year, self._month, self._worn_index, self._emphasized_slug)
+            self._grid.render(month_grid_days(self._year, self._month), self._worn_index, self._emphasized_slug)
             self._footer_label.setText(self._footer_text())
+
+    def _render_week(self) -> None:
+        days = week_grid_days(self._week_anchor)
+        record_by_day = dict(self._worn_index)
+        if self._week_proposal:
+            for day, record in self._week_proposal.items():
+                # Real, already-logged wear always wins over a stale
+                # proposal — never let the display suggest overwriting it.
+                record_by_day.setdefault(day, record)
+        self._week_grid.render(days, record_by_day, emphasized_slug=None)
+        proposed_days = frozenset(self._week_proposal) if self._week_proposal else frozenset()
+        self._week_grid.apply_proposed(proposed_days)
+
+        start, end = days[0].day, days[-1].day
+        self._week_range_label.setText(f"{start.strftime('%b %-d')} – {end.strftime('%b %-d, %Y')}")
+
+        has_proposal = bool(self._week_proposal)
+        self._week_accept_all_button.setVisible(has_proposal)
+        self._week_dismiss_button.setVisible(has_proposal)
 
     def _footer_text(self) -> str:
         in_month = {d: r for d, r in self._worn_index.items() if d.year == self._year and d.month == self._month}
@@ -516,3 +640,58 @@ class CalendarView(QWidget):
             self.clear_requested.emit(dates)
         else:
             self.assign_requested.emit(dates, picker.chosen_record())
+
+    def _on_week_range_chosen(self, dates: list[date]) -> None:
+        """Milestone 20: a single click on a still-proposed day accepts
+        just that day; every other case (a drag range, an already-logged
+        day, an empty non-proposed day) falls through to the exact same
+        WatchPicker flow the month grid already uses — SPEC.md milestone 20
+        step 14's "every day remains individually editable afterwards
+        through the normal calendar interaction"."""
+        if len(dates) == 1 and self._week_proposal is not None and dates[0] in self._week_proposal:
+            day = dates[0]
+            record = self._week_proposal.pop(day)
+            if day not in self._worn_index:
+                self.assign_requested.emit([day], record)
+            # else: became real since the roll -- drop the stale proposal
+            # silently rather than overwriting what's actually there now.
+            self._render()
+            return
+        self._on_range_chosen(dates)
+
+    def _on_roll_week(self) -> None:
+        """Proposes a pick for every currently-empty, not-yet-past day in
+        the displayed week (SPEC.md milestone 20 steps 13/15) — writes
+        nothing on its own. Silently does nothing with zero owned watches,
+        the same empty-collection guard the today picker's UI applies
+        before ever calling into saat.selection."""
+        mode = (self._config.picker_mode() if self._config is not None else None) or MODE_WEIGHTED
+        try:
+            full_week = pick_week(self._records, self._week_anchor, mode)
+        except ValueError:
+            return
+        today = date.today()
+        self._week_proposal = {
+            day: record for day, record in full_week.items() if day not in self._worn_index and day >= today
+        }
+        self._render()
+
+    def _on_accept_week(self) -> None:
+        """Writes every still-empty proposed day through the same
+        assign_requested path the calendar's own picker uses — never a new
+        write. Re-validated against current wear data right before writing,
+        not the roll's stale snapshot: assign_worn() would silently steal a
+        day from whoever now owns it, which is exactly the overwrite SPEC.md
+        milestone 20 step 13 forbids if something got logged for one of
+        these days after the roll."""
+        if not self._week_proposal:
+            return
+        still_empty = {day: record for day, record in self._week_proposal.items() if day not in self._worn_index}
+        self._week_proposal = None
+        for day, record in still_empty.items():
+            self.assign_requested.emit([day], record)
+        self._render()
+
+    def _on_dismiss_week(self) -> None:
+        self._week_proposal = None
+        self._render()

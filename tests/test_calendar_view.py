@@ -2,6 +2,8 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import shutil
+import tempfile
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
@@ -12,12 +14,14 @@ from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog
 
+from saat.config import Config
 from saat.models import Watch
-from saat.storage import WatchRecord
+from saat.storage import WATCH_FILENAME, WatchRecord, create_watch
 from saat.ui import theme
-from saat.ui.calendar_view import CalendarView, _DayCell, _MODE_MONTH, _MODE_STATS, _MODE_YEAR
+from saat.ui.calendar_view import CalendarView, _DayCell, _MODE_MONTH, _MODE_STATS, _MODE_WEEK, _MODE_YEAR
 from saat.ui.month_grid import GridDay
 from saat.ui.watch_picker import WatchPicker
+from saat.wear import assign_worn
 
 _app = QApplication.instance() or QApplication([])
 
@@ -571,6 +575,362 @@ class RotationEmphasisTests(unittest.TestCase):
                 dimmed_pixel = dimmed_cell.grab().toImage().pixelColor(64, 64)
                 self.assertNotEqual(emphasized_pixel.name(), dimmed_pixel.name())
                 view.close()
+
+
+class WeekModeBasicTests(unittest.TestCase):
+    """Milestone 20: a fourth calendar mode beside Month/Year/Stats, built
+    by generalising _MonthGrid to render an arbitrary day-list rather than
+    always calling month_grid_days() itself."""
+
+    def test_switching_to_week_mode_shows_seven_days_starting_monday(self) -> None:
+        view = CalendarView([])
+        view._set_mode(_MODE_WEEK)
+        self.assertEqual(len(view._week_grid._cells), 7)
+        self.assertEqual(min(view._week_grid._cells).weekday(), 0)
+
+    def test_defaults_to_the_week_containing_today(self) -> None:
+        view = CalendarView([])
+        view._set_mode(_MODE_WEEK)
+        self.assertIn(date.today(), view._week_grid._cells)
+
+    def test_week_mode_hides_month_combo_and_year_spinbox_shows_range_label(self) -> None:
+        view = CalendarView([])
+        view.show()
+        QApplication.processEvents()
+
+        view._set_mode(_MODE_WEEK)
+        QApplication.processEvents()
+
+        self.assertFalse(view._month_combo.isVisible())
+        self.assertFalse(view._year_spinbox.isVisible())
+        self.assertTrue(view._week_range_label.isVisible())
+        self.assertTrue(view._prev_button.isVisible())
+        self.assertTrue(view._today_button.isVisible())
+        view.close()
+
+    def test_next_and_previous_step_by_seven_days(self) -> None:
+        view = CalendarView([])
+        view._set_mode(_MODE_WEEK)
+        anchor_before = view._week_anchor
+
+        view._go_next()
+        self.assertEqual(view._week_anchor, anchor_before + timedelta(days=7))
+
+        view._go_previous()
+        view._go_previous()
+        self.assertEqual(view._week_anchor, anchor_before - timedelta(days=7))
+
+    def test_today_button_returns_to_the_current_week(self) -> None:
+        view = CalendarView([])
+        view._set_mode(_MODE_WEEK)
+        view._go_next()
+        view._go_next()
+
+        view._go_today()
+
+        self.assertEqual(view._week_anchor, date.today())
+
+    def test_a_day_with_an_assigned_watch_shows_its_record_in_week_mode(self) -> None:
+        today = date.today()
+        record = _record("seiko-sarb033", "Seiko", "SARB033", worn=[today])
+        view = CalendarView([record])
+        view._set_mode(_MODE_WEEK)
+        self.assertEqual(view._week_grid._cells[today].record.slug, "seiko-sarb033")
+
+    def test_clicking_an_empty_non_proposed_day_opens_the_normal_picker(self) -> None:
+        """SPEC.md milestone 20 step 14: every day remains editable through
+        the normal calendar interaction, proposal or not."""
+        target_day = date.today()
+        record = _record("seiko-sarb033", "Seiko", "SARB033")
+        view = CalendarView([record])
+        view._set_mode(_MODE_WEEK)
+
+        received = []
+        view.assign_requested.connect(lambda dates, rec: received.append((dates, rec)))
+
+        def _pick(self):
+            self._chosen = record
+            return QDialog.DialogCode.Accepted
+
+        with patch.object(WatchPicker, "exec", _pick):
+            view._on_week_range_chosen([target_day])
+
+        self.assertEqual(received, [([target_day], record)])
+
+
+class WeekPlannerRollTests(unittest.TestCase):
+    """SPEC.md milestone 20 steps 12-16: proposing, never writing."""
+
+    def test_rolling_with_no_owned_watches_does_not_crash_and_proposes_nothing(self) -> None:
+        view = CalendarView([_record("wishlist-only", "Brand", "Model", status="Wishlist")])
+        view._set_mode(_MODE_WEEK)
+        view._on_roll_week()
+        self.assertIsNone(view._week_proposal)
+
+    def test_rolling_writes_nothing_to_the_wear_log(self) -> None:
+        records = [_record("a", "Brand", "A"), _record("b", "Brand", "B")]
+        view = CalendarView(records)
+        view._set_mode(_MODE_WEEK)
+
+        received = []
+        view.assign_requested.connect(lambda *a: received.append(a))
+        view._on_roll_week()
+
+        self.assertEqual(received, [])
+        self.assertIsNotNone(view._week_proposal)
+
+    def test_roll_only_proposes_currently_empty_days(self) -> None:
+        today = date.today()
+        already_logged = _record("a", "Brand", "A", worn=[today])
+        other = _record("b", "Brand", "B")
+        view = CalendarView([already_logged, other])
+        view._week_anchor = today
+        view._set_mode(_MODE_WEEK)
+
+        view._on_roll_week()
+
+        self.assertNotIn(today, view._week_proposal)
+
+    def test_roll_never_proposes_a_day_that_has_already_happened(self) -> None:
+        """SPEC.md milestone 20 step 15. A fixed, clearly-non-Monday date so
+        the current week reliably contains past days regardless of which
+        real weekday the suite happens to run on -- only calendar_view's
+        own `date.today()` call is patched, so the real week/pick
+        arithmetic elsewhere (month_grid.week_grid_days, saat.selection)
+        is untouched."""
+        fixed_today = date(2026, 8, 5)  # Wednesday: week is Mon Aug 3 .. Sun Aug 9
+        records = [_record("a", "Brand", "A"), _record("b", "Brand", "B")]
+        view = CalendarView(records)
+        view._week_anchor = fixed_today
+        view._set_mode(_MODE_WEEK)
+
+        with patch("saat.ui.calendar_view.date") as mock_date:
+            mock_date.today.return_value = fixed_today
+            view._on_roll_week()
+
+        self.assertTrue(view._week_proposal, "expected at least one proposed day")
+        self.assertTrue(all(day >= fixed_today for day in view._week_proposal))
+        self.assertNotIn(date(2026, 8, 3), view._week_proposal)  # Monday: already past
+        self.assertNotIn(date(2026, 8, 4), view._week_proposal)  # Tuesday: already past
+
+    def test_rolled_days_are_marked_proposed_on_the_grid(self) -> None:
+        today = date.today()
+        records = [_record("a", "Brand", "A"), _record("b", "Brand", "B")]
+        view = CalendarView(records)
+        view._week_anchor = today
+        view._set_mode(_MODE_WEEK)
+
+        view._on_roll_week()
+
+        self.assertTrue(view._week_grid._cells[today].proposed)
+
+    def test_roll_reads_the_persisted_picker_mode(self) -> None:
+        """The week planner shares the today picker's Random/Weighted
+        preference rather than carrying its own separate toggle."""
+        import tempfile
+        from saat.selection import MODE_RANDOM
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Config(Path(tmp) / "config.toml")
+            config.set_picker_mode(MODE_RANDOM)
+            records = [_record("a", "Brand", "A"), _record("b", "Brand", "B")]
+            view = CalendarView(records, config)
+            view._set_mode(_MODE_WEEK)
+
+            with patch("saat.ui.calendar_view.pick_week") as mock_pick_week:
+                mock_pick_week.return_value = {}
+                view._on_roll_week()
+                self.assertEqual(mock_pick_week.call_args.args[2], MODE_RANDOM)
+
+
+class WeekPlannerAcceptAndDismissTests(unittest.TestCase):
+    """SPEC.md milestone 20 steps 13/14/18/19: fills only empty days, never
+    overwrites logged wear, and dismissing writes nothing."""
+
+    def test_accept_all_writes_every_proposed_day_through_assign_requested(self) -> None:
+        today = date.today()
+        records = [_record("a", "Brand", "A"), _record("b", "Brand", "B")]
+        view = CalendarView(records)
+        view._week_anchor = today
+        view._set_mode(_MODE_WEEK)
+        view._on_roll_week()
+        proposal = dict(view._week_proposal)
+
+        received = []
+        view.assign_requested.connect(lambda dates, rec: received.append((tuple(dates), rec.slug)))
+        view._on_accept_week()
+
+        expected = {(day,): record.slug for day, record in proposal.items()}
+        self.assertEqual({dates: slug for dates, slug in received}, expected)
+        self.assertIsNone(view._week_proposal)
+
+    def test_accept_week_does_not_overwrite_a_day_logged_after_the_roll(self) -> None:
+        """The core of step 19: a day already logged by accept-time must be
+        left byte-identical, even if it was still empty when the proposal
+        was made — re-validated against current wear data, not the roll's
+        stale snapshot."""
+        today = date.today()
+        watch_a = _record("a", "Brand", "A")
+        watch_b = _record("b", "Brand", "B", worn=[today])  # logged *after* the (simulated) roll
+        view = CalendarView([watch_a, watch_b])
+        view._set_mode(_MODE_WEEK)
+        # A stale proposal, as if rolled before `today` became logged.
+        view._week_proposal = {today: watch_a}
+
+        received = []
+        view.assign_requested.connect(lambda dates, rec: received.append((dates, rec)))
+        view._on_accept_week()
+
+        self.assertEqual(received, [], "must not write a day that is already logged by accept-time")
+        self.assertIsNone(view._week_proposal)
+
+    def test_accept_week_leaves_an_already_logged_watch_file_byte_identical_on_disk(self) -> None:
+        """Same guarantee as the test above, but through the real
+        assign_requested -> wear.assign_worn -> storage.save_watch path
+        instead of just inspecting which signals fire -- proves the
+        already-logged watch's watch.toml is never reopened for writing,
+        not merely that its record object is left alone in memory."""
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        watches_dir = tmp_dir / "watches"
+        backups_dir = tmp_dir / "backups"
+        watches_dir.mkdir()
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+
+        logged = create_watch(watches_dir, backups_dir, Watch(brand="Seiko", model="SARB033", worn=[today], status="Owned"))
+        target = create_watch(watches_dir, backups_dir, Watch(brand="Casio", model="G-Shock", status="Owned"))
+        records = [logged, target]
+
+        view = CalendarView(records)
+        view._set_mode(_MODE_WEEK)
+        # A stale proposal, as if rolled before `today` became logged --
+        # still offering `target` for `today` plus a genuinely-open `tomorrow`.
+        view._week_proposal = {today: target, tomorrow: target}
+        view.assign_requested.connect(lambda dates, record: assign_worn(backups_dir, records, dates, record))
+
+        logged_toml = logged.path / WATCH_FILENAME
+        target_toml = target.path / WATCH_FILENAME
+        logged_before = logged_toml.read_bytes()
+        target_before = target_toml.read_bytes()
+
+        view._on_accept_week()
+
+        self.assertEqual(logged_toml.read_bytes(), logged_before, "an already-logged day's file must not be rewritten")
+        self.assertNotEqual(target_toml.read_bytes(), target_before, "the genuinely-open day must actually be written")
+
+    def test_accept_week_still_writes_the_other_days_when_one_became_stale(self) -> None:
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        watch_a = _record("a", "Brand", "A")
+        watch_b = _record("b", "Brand", "B", worn=[today])
+        view = CalendarView([watch_a, watch_b])
+        view._set_mode(_MODE_WEEK)
+        view._week_proposal = {today: watch_a, tomorrow: watch_a}
+
+        received = []
+        view.assign_requested.connect(lambda dates, rec: received.append((dates, rec)))
+        view._on_accept_week()
+
+        self.assertEqual(received, [([tomorrow], watch_a)])
+
+    def test_dismiss_writes_nothing(self) -> None:
+        today = date.today()
+        records = [_record("a", "Brand", "A"), _record("b", "Brand", "B")]
+        view = CalendarView(records)
+        view._week_anchor = today
+        view._set_mode(_MODE_WEEK)
+        view._on_roll_week()
+
+        received = []
+        view.assign_requested.connect(lambda *a: received.append(a))
+        view._on_dismiss_week()
+
+        self.assertEqual(received, [])
+        self.assertIsNone(view._week_proposal)
+
+    def test_clicking_a_still_proposed_day_accepts_just_that_day(self) -> None:
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        records = [_record("a", "Brand", "A"), _record("b", "Brand", "B")]
+        view = CalendarView(records)
+        view._week_anchor = today
+        view._set_mode(_MODE_WEEK)
+        view._on_roll_week()
+        chosen_for_today = view._week_proposal[today]
+
+        received = []
+        view.assign_requested.connect(lambda dates, rec: received.append((dates, rec)))
+        view._on_week_range_chosen([today])
+
+        self.assertEqual(received, [([today], chosen_for_today)])
+        self.assertNotIn(today, view._week_proposal)
+        if tomorrow in (view._week_proposal or {}):
+            self.assertIn(tomorrow, view._week_proposal)  # untouched by the single-day accept
+
+
+class WeekProposalNavigationTests(unittest.TestCase):
+    """A proposal belongs to the week/mode it was made for -- navigating or
+    switching modes away from it discards it rather than letting it linger
+    and silently reappear somewhere it no longer corresponds to."""
+
+    def _rolled_view(self) -> CalendarView:
+        records = [_record("a", "Brand", "A"), _record("b", "Brand", "B")]
+        view = CalendarView(records)
+        view._set_mode(_MODE_WEEK)
+        view._on_roll_week()
+        self.assertIsNotNone(view._week_proposal)
+        return view
+
+    def test_next_week_clears_the_proposal(self) -> None:
+        view = self._rolled_view()
+        view._go_next()
+        self.assertIsNone(view._week_proposal)
+
+    def test_previous_week_clears_the_proposal(self) -> None:
+        view = self._rolled_view()
+        view._go_previous()
+        self.assertIsNone(view._week_proposal)
+
+    def test_today_button_clears_the_proposal(self) -> None:
+        view = self._rolled_view()
+        view._go_today()
+        self.assertIsNone(view._week_proposal)
+
+    def test_switching_to_another_mode_clears_the_proposal(self) -> None:
+        view = self._rolled_view()
+        view._set_mode(_MODE_MONTH)
+        self.assertIsNone(view._week_proposal)
+
+    def test_re_entering_week_mode_does_not_resurrect_a_cleared_proposal(self) -> None:
+        view = self._rolled_view()
+        view._set_mode(_MODE_MONTH)
+        view._set_mode(_MODE_WEEK)
+        self.assertIsNone(view._week_proposal)
+
+
+class DayCellProposedTests(unittest.TestCase):
+    def test_set_proposed_toggles_and_triggers_repaint(self) -> None:
+        grid_day = GridDay(date.today(), in_month=True)
+        cell = _DayCell(grid_day, None, is_today=False)
+        self.assertFalse(cell.proposed)
+        cell.set_proposed(True)
+        self.assertTrue(cell.proposed)
+        cell.set_proposed(True)  # idempotent, no error
+        self.assertTrue(cell.proposed)
+
+    def test_proposed_cell_paints_without_error_in_both_themes(self) -> None:
+        record = _record("seiko-sarb033", "Seiko", "SARB033")
+        grid_day = GridDay(date.today(), in_month=True)
+        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
+            theme.set_mode(mode)
+            with self.subTest(mode=mode):
+                cell = _DayCell(grid_day, record, is_today=False)
+                cell.set_proposed(True)
+                cell.resize(72, 72)
+                image = cell.grab().toImage()
+                self.assertFalse(image.isNull())
+        theme.set_mode(theme.MODE_DARK)
 
 
 if __name__ == "__main__":
