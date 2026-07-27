@@ -57,6 +57,16 @@ class Config:
     def set_column_keys(self, keys: list[str], scope: str = "collection") -> None:
         self.data.setdefault("columns", tomlkit.table())[f"{scope}_keys"] = list(keys)
 
+    def picker_mode(self) -> str | None:
+        """Milestone 20: Random/Weighted, remembered across launches. §9
+        still bans a settings dialog -- this is the picker surface's own
+        single toggle persisting itself, the same shape as theme_mode()."""
+        picker = self.data.get("picker")
+        return picker.get("mode") if picker else None
+
+    def set_picker_mode(self, mode: str) -> None:
+        self.data.setdefault("picker", tomlkit.table())["mode"] = mode
+
     def theme_mode(self) -> str | None:
         theme = self.data.get("theme")
         return theme.get("mode") if theme else None

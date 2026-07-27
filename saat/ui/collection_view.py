@@ -37,6 +37,7 @@ class CollectionView(QWidget):
     assign_worn_requested = Signal(list, object)  # list[date], WatchRecord
     clear_worn_requested = Signal(list)  # list[date]
     export_requested = Signal()
+    pick_requested = Signal()
 
     def __init__(self, records: list[WatchRecord], config: Config, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -87,6 +88,7 @@ class CollectionView(QWidget):
         self._top_bar.add_watch_requested.connect(self.add_watch_requested.emit)
         self._top_bar.theme_toggle_requested.connect(self.theme_toggle_requested.emit)
         self._top_bar.export_requested.connect(self.export_requested.emit)
+        self._top_bar.pick_requested.connect(self.pick_requested.emit)
         self._calendar_view.assign_requested.connect(self.assign_worn_requested.emit)
         self._calendar_view.clear_requested.connect(self.clear_worn_requested.emit)
 

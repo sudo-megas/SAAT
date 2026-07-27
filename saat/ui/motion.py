@@ -39,6 +39,17 @@ def fade_transition(container: QWidget, apply_change: Callable[[], None]) -> Non
     animation.start()
 
 
+def reduced_motion_preferred() -> bool:
+    """Always False today. SPEC.md §6 is explicit that Qt exposes no
+    reduced-motion platform hint to honour on Linux, so there is currently
+    no live signal for this to read — confirmed against this app's own
+    code, not assumed. Milestone 20's picker still gates its settle
+    animation behind this call, rather than hard-coding "always animate",
+    so a future platform hook only has to change what this one function
+    returns; nothing that calls it needs to change."""
+    return False
+
+
 def animate_width(widget: QWidget, target_width: int) -> None:
     """Sidebar collapse/expand: setFixedWidth's instant jump, eased instead
     by animating the same minimumWidth/maximumWidth pair setFixedWidth

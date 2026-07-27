@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from saat import __version__, autostart
 from saat.config import Config
 from saat.paths import data_dir
+from saat.selection import MODE_WEIGHTED
 from saat.sellers import Seller, load_sellers
 from saat.sellers import sellers_path as default_sellers_path
 from saat.storage import WatchRecord, create_watch, delete_watch, load_collection, save_watch
@@ -30,6 +31,7 @@ from saat.ui import motion
 from saat.ui.pdf_renderer import ExportError, export_pdf
 from saat.ui.sellers_dialog import SellersDialog
 from saat.ui import theme
+from saat.ui.today_picker import TodayPickerDialog
 from saat.ui.top_bar import SCOPE_WISHLIST
 from saat.ui.tray import TrayController
 from saat.ui.watch_form import WatchForm
@@ -213,6 +215,7 @@ class MainWindow(QMainWindow):
             self._collection_view.wore_today_requested.connect(self._on_wore_today)
             self._collection_view.compare_requested.connect(self._show_compare)
             self._collection_view.export_requested.connect(self._export_pdf)
+            self._collection_view.pick_requested.connect(self._on_pick_requested)
             self._stack.addWidget(self._collection_view)
             self._stack.setCurrentWidget(self._collection_view)
         else:
@@ -273,6 +276,20 @@ class MainWindow(QMainWindow):
 
     def _on_wore_today(self, target: WatchRecord) -> None:
         self._apply_worn_update(mark_worn_today(self._backups_dir, self._current_records(), target))
+
+    def _on_pick_requested(self) -> None:
+        """Milestone 20: the top bar's picker button. wore_today_requested
+        routes to the same _on_wore_today handler every other "Wore this
+        today" affordance already uses — this dialog only ever emits a
+        request, never writes on its own."""
+        mode = self._config.picker_mode() or MODE_WEIGHTED
+        dialog = TodayPickerDialog(self._current_records(), mode, on_mode_changed=self._on_picker_mode_changed, parent=self)
+        dialog.wore_today_requested.connect(self._on_wore_today)
+        dialog.exec()
+
+    def _on_picker_mode_changed(self, mode: str) -> None:
+        self._config.set_picker_mode(mode)
+        self._config.save()
 
     def _apply_worn_update(self, records: list[WatchRecord]) -> None:
         """Wear edits use the light set_records() path — unlike add/edit/

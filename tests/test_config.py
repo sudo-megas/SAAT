@@ -15,6 +15,22 @@ class ConfigTestCase(unittest.TestCase):
         return Config(self.tmp / "config.toml")
 
 
+class PickerConfigTests(ConfigTestCase):
+    """Milestone 20: the today picker's Random/Weighted toggle."""
+
+    def test_picker_mode_defaults_to_none(self) -> None:
+        """None, not a hard-coded default -- the picker itself applies the
+        SPEC.md-mandated Weighted default when this comes back empty, the
+        same way last_view()/active_scope() leave defaulting to the UI."""
+        self.assertIsNone(self._config().picker_mode())
+
+    def test_picker_mode_round_trips(self) -> None:
+        config = self._config()
+        config.set_picker_mode("weighted")
+        config.save()
+        self.assertEqual(Config(config.path).picker_mode(), "weighted")
+
+
 class TrayConfigTests(ConfigTestCase):
     """SPEC.md milestone 18 §8/§10: close_to_tray and start_minimised default
     OFF -- a user who hasn't opted in must never lose their window -- and

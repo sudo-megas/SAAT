@@ -88,6 +88,7 @@ class TopBar(QWidget):
     theme_toggle_requested = Signal()
     compare_requested = Signal()
     export_requested = Signal()
+    pick_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -158,6 +159,11 @@ class TopBar(QWidget):
         icons.set_icon(self._export_button, "export")
         self._export_button.clicked.connect(self.export_requested.emit)
 
+        self._pick_button = QPushButton()
+        self._pick_button.setToolTip("Pick a watch for today")
+        icons.set_icon(self._pick_button, "pick")
+        self._pick_button.clicked.connect(self.pick_requested.emit)
+
         self._theme_toggle = _ThemeToggle()
         self._theme_toggle.clicked.connect(self.theme_toggle_requested.emit)
 
@@ -179,6 +185,7 @@ class TopBar(QWidget):
         layout.addStretch()
         layout.addWidget(self._compare_button)
         layout.addWidget(add_button)
+        layout.addWidget(self._pick_button)
         layout.addWidget(self._export_button)
         layout.addWidget(self._theme_toggle)
 
@@ -255,6 +262,9 @@ class TopBar(QWidget):
         if is_wishlist and self._calendar_button.isChecked():
             self._set_view(VIEW_GRID)
         self._calendar_button.setVisible(not is_wishlist)
+        # Milestone 20: the picker only ever draws from Owned watches (§5.12)
+        # -- meaningless in Wishlist scope, so hidden the same way Calendar is.
+        self._pick_button.setVisible(not is_wishlist)
 
         # Rebuilt rather than filtered in place — Wishlist and Collection
         # offer genuinely different option lists (SPEC.md §5.12). Signals
