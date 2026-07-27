@@ -9,3 +9,4 @@ build/
 dist/
 __pycache__/
 CLAUDE.md
+saat/resources/i18n/*.qm
