@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.0] - 2026-07-27
+
+### Added
+
+- Export to PDF: `Ctrl+P` or the new top-bar button renders whatever the
+  collection view is currently showing — the active scope (Collection or
+  Wishlist), active filters, active search, and current sort order — to a
+  document you save wherever you like. A summary page (title, generation
+  date, item count and total value by currency, a compact table) is
+  followed by one page per watch: a generously sized primary photo (or an
+  informative placeholder if it doesn't have one yet), its identity, and
+  full specs in the same order and vocabulary the detail page uses —
+  minute-track section headers, monospace figures — continuing onto
+  further pages rather than clipping anything for a watch detailed enough
+  to need them. A4 by default, Letter for a US/Canada locale. Exporting an
+  empty view (nothing currently visible) is refused with a plain message
+  rather than producing an empty document.
+- SPEC.md §9 narrowed to permit this: local document generation to a path
+  you choose remains the one exception to the export ban — cloud sync,
+  sharing, a showcase mode, and any other export format stay exactly as
+  banned as before.
+
 ## [1.6.5] - 2026-07-27
 
 ### Added
