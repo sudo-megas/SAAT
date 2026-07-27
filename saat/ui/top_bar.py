@@ -2,7 +2,7 @@ import math
 
 from PySide6.QtCore import QPointF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPainterPath, QPen
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from saat.ui import icons, theme
 from saat.ui.columns import COLUMNS_BY_KEY, GROUP_ORDER, SORT_OPTIONS, WISHLIST_SORT_OPTIONS
@@ -108,7 +108,7 @@ class TopBar(QWidget):
 
         self._search_field = QLineEdit()
         self._search_field.setPlaceholderText("Search brand, model, reference, caliber, tags…")
-        self._search_field.setMinimumWidth(240)
+        self._search_field.setMinimumWidth(120)
         self._search_field.addAction(
             icons.icon("search", theme.colors().text_muted), QLineEdit.ActionPosition.LeadingPosition
         )
@@ -167,27 +167,44 @@ class TopBar(QWidget):
         self._theme_toggle = _ThemeToggle()
         self._theme_toggle.clicked.connect(self.theme_toggle_requested.emit)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(24, 12, 24, 12)
-        layout.setSpacing(12)
-        layout.addWidget(self._collection_button)
-        layout.addWidget(self._wishlist_button)
-        layout.addSpacing(12)
-        layout.addWidget(self._search_field)
-        layout.addSpacing(12)
-        layout.addWidget(self._grid_button)
-        layout.addWidget(self._table_button)
-        layout.addWidget(self._calendar_button)
-        layout.addSpacing(12)
-        layout.addWidget(self._sort_combo)
-        layout.addWidget(self._sort_direction_button)
-        layout.addWidget(self._preset_combo)
-        layout.addStretch()
-        layout.addWidget(self._compare_button)
-        layout.addWidget(add_button)
-        layout.addWidget(self._pick_button)
-        layout.addWidget(self._export_button)
-        layout.addWidget(self._theme_toggle)
+        # Two rows, not one -- SPEC.md's "minimum 1100x700" only holds if the
+        # bar actually fits it. A single row cramming scope + search + view
+        # toggle + sort + presets + every action button overflowed that
+        # floor by hundreds of pixels once milestones 19 and 20 added their
+        # own buttons on top of what was already there. Row 1 answers "what
+        # subset of the collection am I looking at, and how"; row 2 answers
+        # "how is it ordered, and what can I do."
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(24, 12, 24, 12)
+        outer.setSpacing(8)
+
+        row1 = QHBoxLayout()
+        row1.setContentsMargins(0, 0, 0, 0)
+        row1.setSpacing(12)
+        row1.addWidget(self._collection_button)
+        row1.addWidget(self._wishlist_button)
+        row1.addSpacing(12)
+        row1.addWidget(self._search_field, 1)
+        row1.addSpacing(12)
+        row1.addWidget(self._grid_button)
+        row1.addWidget(self._table_button)
+        row1.addWidget(self._calendar_button)
+
+        row2 = QHBoxLayout()
+        row2.setContentsMargins(0, 0, 0, 0)
+        row2.setSpacing(12)
+        row2.addWidget(self._sort_combo)
+        row2.addWidget(self._sort_direction_button)
+        row2.addWidget(self._preset_combo)
+        row2.addStretch()
+        row2.addWidget(self._compare_button)
+        row2.addWidget(add_button)
+        row2.addWidget(self._pick_button)
+        row2.addWidget(self._export_button)
+        row2.addWidget(self._theme_toggle)
+
+        outer.addLayout(row1)
+        outer.addLayout(row2)
 
         self._set_view(VIEW_GRID)
         self._set_scope(SCOPE_COLLECTION)

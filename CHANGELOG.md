@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.6] - 2026-07-27
+
+### Fixed
+
+- The top bar's controls could overlap each other, worst on 1080p-class screens: what had
+  been one row grew a button at nearly every recent milestone until it silently outgrew
+  the window's own documented 1100 px minimum width by several hundred pixels. Split into
+  two rows — scope, search and view toggle on the first; sort, presets and every action
+  button on the second — with the search field free to actually shrink and grow instead of
+  fighting the rest of the row for space. SPEC.md §5.1 documents the new layout.
+
 ## [1.7.5] - 2026-07-27
 
 ### Added

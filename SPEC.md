@@ -303,14 +303,19 @@ Main window, three regions:
   kind, Case material, Lug width, Tags, `Not worn in 90 days`. Each facet is multi-select
   with live counts. Facets with no values across the collection are hidden — with an
   empty collection the sidebar shows only the summary footer.
-- **Top bar.** A Collection / Wishlist scope selector (§5.12), search field, view toggle
-  (Grid / Table / Calendar), sort dropdown, and "Add watch" as the one primary-weight
-  control in the app. Scope is orthogonal to view.
+- **Top bar, two rows.** Row one is what subset of the collection is showing and how: the
+  Collection / Wishlist scope selector (§5.12), search field, and view toggle (Grid /
+  Table / Calendar). Row two is ordering and actions: sort dropdown, "Add watch" as the
+  one primary-weight control in the app, Compare, the watch picker (milestone 20),
+  export, and the theme toggle. Scope is orthogonal to view. One row grew a control at
+  nearly every milestone and eventually overflowed the window's own minimum width by
+  hundreds of pixels before splitting into two, milestone 20's fix.
 - **Main area.** Whichever view is selected.
 
-Window opens at 1600×1000, remembers geometry in `config.toml`, minimum 1100×700. On a
-1440p display the grid shows four to five cards per row — do not cap content width at a
-fashionable 1200 px, use the screen.
+Window opens at 1600×1000, remembers geometry in `config.toml`, minimum 1100×700 —
+the top bar's own two rows must actually fit that floor, not just the main area.
+On a 1440p display the grid shows four to five cards per row — do not cap content
+width at a fashionable 1200 px, use the screen.
 
 ### 5.2 Grid view
 Image-forward cards. Primary photo fills the card top at a consistent 4:5 portrait crop —
