@@ -106,6 +106,12 @@ def _valid_watches(records: list[WatchRecord]) -> list[WatchRecord]:
     return [r for r in records if r.watch is not None and r.watch.status == "Owned"]
 
 
+def owned_watches(records: list[WatchRecord]) -> list[WatchRecord]:
+    """Public alias of _valid_watches — Milestone 20's picker reads through
+    this exact same owned-only choke point rather than reimplementing it."""
+    return _valid_watches(records)
+
+
 def _name_key(record: WatchRecord) -> tuple[str, str]:
     return (record.watch.brand.casefold(), record.watch.model.casefold())
 
