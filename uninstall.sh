@@ -25,8 +25,8 @@ echo "Removing autostart entry..."
 # Running as root under sudo means $HOME here is root's, not the invoking
 # user's -- the autostart entry lives in the real user's home, so it has to
 # be resolved explicitly rather than trusting $HOME or a bare ~/.config.
-target_user="${SUDO_USER:-$USER}"
-target_home="$(getent passwd "$target_user" | cut -d: -f6)"
+target_user="${SUDO_USER:-${USER:-root}}"
+target_home="$(getent passwd "$target_user" | cut -d: -f6)" || target_home=""
 if [ -n "$target_home" ]; then
     # Honours a preserved XDG_CONFIG_HOME (e.g. sudo -E) the same way the
     # app itself does, falling back to the resolved user's default
