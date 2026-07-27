@@ -136,7 +136,7 @@ class PaginateWatchTests(unittest.TestCase):
         photo or needs the grid-card-style placeholder doesn't change
         this: SPEC.md's placeholder reserves the exact same
         PHOTO_BLOCK_HEIGHT_PT a real photo would, so pagination has
-        nothing to branch on either way -- only saat.ui.pdf_export's
+        nothing to branch on either way -- only saat.ui.pdf_renderer's
         drawing step (which image to paint, if any) differs."""
         watch_input = WatchExportInput(record=_record(), groups=[])
         pages = paginate_watch(watch_input, PAGE_A4)
@@ -211,6 +211,24 @@ class BuildExportPlanTests(unittest.TestCase):
         plan = build_export_plan([], is_wishlist=False, page_size=PAGE_A4)
         self.assertEqual(plan.page_count, 0)
         self.assertEqual(plan.pages, [])
+        self.assertEqual(plan.item_count, 0)
+        self.assertEqual(plan.value_by_currency, [])
+
+    def test_item_count_and_value_by_currency_reflect_owned_prices(self) -> None:
+        inputs = [
+            WatchExportInput(record=_record(brand="A", price=100, currency="USD"), groups=[]),
+            WatchExportInput(record=_record(brand="B", price=50, currency="USD"), groups=[]),
+        ]
+        plan = build_export_plan(inputs, is_wishlist=False, page_size=PAGE_A4)
+        self.assertEqual(plan.item_count, 2)
+        self.assertEqual(dict(plan.value_by_currency), {"USD": 150})
+
+    def test_wishlist_plan_totals_target_price_not_price(self) -> None:
+        inputs = [
+            WatchExportInput(record=_record(price=100, target_price=500, currency="USD"), groups=[]),
+        ]
+        plan = build_export_plan(inputs, is_wishlist=True, page_size=PAGE_A4)
+        self.assertEqual(dict(plan.value_by_currency), {"USD": 500})
 
     def test_single_watch_produces_a_summary_page_and_one_watch_page(self) -> None:
         watch_input = WatchExportInput(record=_record(), groups=[GroupContent("Movement", 3)])

@@ -1,14 +1,14 @@
 """Pure logic only — no QPdfWriter, no QPainter, no event loop. Given a
 watch collection (or wishlist) and a page size, decides which watch lands
 on which page and how the summary table chunks across continuation pages
-— nothing here draws a pixel. saat.ui.pdf_export turns this into an
+— nothing here draws a pixel. saat.ui.pdf_renderer turns this into an
 actual PDF, the same split wear.py/saat.ui.compare established: unit
 tested without an event loop, imported freely by files that also define
 Qt widget classes. See SPEC.md §9.
 
 The height model below (named pt constants) is deliberately the single
 source of truth for both this module's page-count predictions and
-saat.ui.pdf_export's actual drawing — the renderer advances by these same
+saat.ui.pdf_renderer's actual drawing — the renderer advances by these same
 constants rather than deriving its own from font metrics, so a predicted
 page count is correct by construction, not an estimate that can drift
 from what actually gets painted."""
@@ -17,6 +17,7 @@ import textwrap
 from dataclasses import dataclass
 
 from saat.storage import WatchRecord
+from saat.ui.collection_summary import compute_collection_summary, compute_wishlist_summary
 from saat.ui.formatting import EM_DASH, fmt_price
 
 PAGE_A4 = "A4"
@@ -37,7 +38,15 @@ SUMMARY_HEADER_HEIGHT_PT = 20.0  # compact table's column header row, every summ
 SUMMARY_ROW_HEIGHT_PT = 16.0
 
 IDENTITY_BLOCK_HEIGHT_PT = 70.0  # brand/model/reference/nickname/serial, first page of a watch only
-PHOTO_BLOCK_HEIGHT_PT = 260.0  # primary photo or its placeholder, first page of a watch only
+# Started at 260 (visually verified against a rendered PDF): a normally-
+# detailed watch (Movement+Case+Dial+Acquisition, all fixed-length
+# whenever shown at all per SPEC.md §4 -- 34 lines before Straps/
+# Maintenance/Log/Timing/Notes even enter the picture) already asks for
+# roughly 640pt against a ~670-720pt usable page height, so a 260pt photo
+# block left the first page holding a single group and read as padding.
+# 180pt keeps the photo genuinely prominent (2.5in on Letter) while
+# leaving room for two or three groups on a watch's first page.
+PHOTO_BLOCK_HEIGHT_PT = 180.0  # primary photo or its placeholder, first page of a watch only
 GROUP_HEADER_HEIGHT_PT = 22.0  # a minute-track section header
 GROUP_SPACING_PT = 12.0  # gap after a group, before the next
 LINE_HEIGHT_PT = 15.0  # one spec row / log entry / timing entry / wrapped notes line
@@ -80,7 +89,7 @@ def wrap_notes(notes: str, chars_per_line: int = NOTES_CHARS_PER_LINE) -> list[s
 class GroupContent:
     """What pagination needs to know about one non-empty spec group on a
     watch page: its title and how many lines it takes. Never the actual
-    row text -- the renderer (saat.ui.pdf_export) computes real rows
+    row text -- the renderer (saat.ui.pdf_renderer) computes real rows
     exactly once per watch and derives this count from that same
     computation, so what gets counted here and what gets drawn are
     guaranteed to be the same lines, not two independent derivations."""
@@ -138,6 +147,8 @@ ExportPage = SummaryPage | WatchPage
 class ExportPlan:
     pages: list[ExportPage]
     page_size: str
+    item_count: int
+    value_by_currency: list[tuple[str, float]]  # (currency, total), sorted -- price if collection, target_price if wishlist
 
     @property
     def page_count(self) -> int:
@@ -259,11 +270,27 @@ def build_export_plan(watch_inputs: list[WatchExportInput], is_wishlist: bool, p
     the one-page-per-watch section that follows it, in the same order --
     a single list in, so the two can never fall out of sync with each
     other. Line counts inside each WatchExportInput come from the
-    Qt-aware row-builders in saat.ui.detail_view and saat.ui.pdf_export,
-    which this module never imports."""
+    Qt-aware row-builders in saat.ui.detail_view and saat.ui.pdf_renderer,
+    which this module never imports. item_count/value_by_currency reuse
+    saat.ui.collection_summary's existing, already-Qt-free aggregation
+    (the same figures the on-screen sidebar footer shows) rather than a
+    second computation of the same totals."""
     records = [wi.record for wi in watch_inputs]
     summary_rows = build_summary_rows(records, is_wishlist)
     pages: list[ExportPage] = list(paginate_summary(summary_rows, page_size))
     for watch_input in watch_inputs:
         pages.extend(paginate_watch(watch_input, page_size))
-    return ExportPlan(pages=pages, page_size=page_size)
+
+    if is_wishlist:
+        aggregate = compute_wishlist_summary(records)
+        value_by_currency = aggregate.target_value_by_currency
+    else:
+        aggregate = compute_collection_summary(records)
+        value_by_currency = aggregate.value_by_currency
+
+    return ExportPlan(
+        pages=pages,
+        page_size=page_size,
+        item_count=aggregate.total,
+        value_by_currency=value_by_currency,
+    )
