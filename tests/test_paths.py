@@ -135,6 +135,24 @@ class SaatDataDirPrecedenceTests(PathsTestCase):
         self.assertEqual(paths.config_dir(), override)
 
 
+class PublicInstalledModeCheckTests(PathsTestCase):
+    """is_installed() is the public wrapper autostart.py (milestone 18)
+    uses to decide whether to offer autostart at all -- must track
+    _installed_mode() exactly, including the "marker present but not
+    frozen stays portable" case."""
+
+    def test_false_in_portable_mode(self) -> None:
+        self.assertFalse(paths.is_installed())
+
+    def test_true_when_frozen_and_marked(self) -> None:
+        self._freeze(marker=True)
+        self.assertTrue(paths.is_installed())
+
+    def test_false_when_frozen_without_the_marker(self) -> None:
+        self._freeze(marker=False)
+        self.assertFalse(paths.is_installed())
+
+
 class FirstRunCreationTests(PathsTestCase):
     def test_data_dir_creates_a_nonexistent_nested_path(self) -> None:
         target = self.tmp / "does" / "not" / "exist" / "yet"

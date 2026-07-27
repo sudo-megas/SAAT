@@ -19,6 +19,7 @@ import sys
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+from saat.autostart import AUTOSTART_FLAG
 from saat.config import Config
 from saat.paths import data_dir, resource_dir
 from saat.single_instance import SingleInstanceGuard
@@ -27,6 +28,11 @@ from saat.ui.theme import MODE_DARK, apply_theme, load_bundled_fonts
 
 
 def main() -> int:
+    # Read before QApplication(sys.argv) construction, which mutates the
+    # argv list it's handed (stripping any Qt-recognized options) -- this
+    # flag isn't one, but snapshotting first avoids depending on that.
+    started_via_autostart = AUTOSTART_FLAG in sys.argv[1:]
+
     app = QApplication(sys.argv)
     app.setApplicationName("SAAT")
     app.setWindowIcon(QIcon(str(resource_dir() / "resources" / "icon" / "saat.png")))
@@ -45,7 +51,8 @@ def main() -> int:
     window = MainWindow(config=config)
     guard.raise_requested.connect(window.bring_to_front)
     app.aboutToQuit.connect(guard.close)
-    window.show()
+    if not window.should_start_hidden(started_via_autostart):
+        window.show()
 
     return app.exec()
 

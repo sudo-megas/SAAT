@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.5] - 2026-07-27
+
+### Added
+
+- Single-instance enforcement: launching SAAT while it's already running against
+  the same collection now raises and focuses the existing window instead of
+  starting a second process against the same files. Two portable copies pointing
+  at different collections still both run fine.
+- A system tray icon, on desktops that provide one (checked at startup, never
+  assumed). Left click shows or hides the window; right click opens a menu with
+  Show/Hide, a "Wore today" submenu listing your most recently worn watches,
+  "Close to tray" (closing hides instead of quitting; off by default), "Start
+  minimised", and Quit. The first time the window is hidden to the tray, a
+  one-time message explains how to bring it back. On a desktop with no tray,
+  none of this appears — closing always quits, exactly as before.
+- Autostart, offered only in an installed copy: a "Start at login" option in the
+  tray menu registers SAAT to launch at login via the standard XDG mechanism.
+  Combined with "Start minimised", an autostarted launch can go straight to the
+  tray without showing a window — a manual launch always shows one.
+
+### Changed
+
+- `uninstall.sh` now also removes the autostart entry, alongside everything else
+  it already reversed.
+
 ## [1.6.0] - 2026-07-26
 
 ### Added

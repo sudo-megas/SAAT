@@ -9,8 +9,9 @@ from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
+from saat import autostart
 from saat.config import Config
 from saat.models import Watch
 from saat.storage import WatchRecord, create_watch, load_collection
@@ -100,6 +101,52 @@ class CheckableActionTests(TrayControllerTestCase):
     def test_set_start_minimised_checked_seeds_initial_state(self) -> None:
         self.tray.set_start_minimised_checked(True)
         self.assertTrue(self.tray._start_minimised_action.isChecked())
+
+
+class StartAtLoginMenuItemTests(unittest.TestCase):
+    """SPEC.md milestone 18 §11: hidden entirely in portable mode, not
+    merely disabled -- and §14: reflects reality on every menu open, never
+    a cached flag."""
+
+    def test_absent_when_autostart_is_unavailable(self) -> None:
+        tray = TrayController(window_visible_getter=lambda: True, autostart_available=False)
+        self.addCleanup(tray.hide)
+        self.assertIsNone(tray._start_at_login_action)
+
+    def test_present_and_checkable_when_autostart_is_available(self) -> None:
+        tray = TrayController(window_visible_getter=lambda: True, autostart_available=True)
+        self.addCleanup(tray.hide)
+        self.assertIsNotNone(tray._start_at_login_action)
+        self.assertTrue(tray._start_at_login_action.isCheckable())
+
+    def test_refresh_syncs_checked_state_from_disk_without_emitting_toggled(self) -> None:
+        tray = TrayController(window_visible_getter=lambda: True, autostart_available=True)
+        self.addCleanup(tray.hide)
+        received = []
+        tray.start_at_login_toggled.connect(received.append)
+
+        with patch.object(autostart, "is_enabled", return_value=True):
+            tray._refresh_menu()
+
+        self.assertTrue(tray._start_at_login_action.isChecked())
+        self.assertEqual(received, [], "a programmatic refresh must never re-trigger enable()/disable()")
+
+    def test_refresh_reflects_disabled_state_too(self) -> None:
+        tray = TrayController(window_visible_getter=lambda: True, autostart_available=True)
+        self.addCleanup(tray.hide)
+        with patch.object(autostart, "is_enabled", return_value=False):
+            tray._refresh_menu()
+        self.assertFalse(tray._start_at_login_action.isChecked())
+
+    def test_a_real_user_click_emits_start_at_login_toggled(self) -> None:
+        tray = TrayController(window_visible_getter=lambda: True, autostart_available=True)
+        self.addCleanup(tray.hide)
+        received = []
+        tray.start_at_login_toggled.connect(received.append)
+
+        tray._start_at_login_action.trigger()
+
+        self.assertEqual(received, [True])
 
 
 class WoreTodaySubmenuTests(TrayControllerTestCase):
@@ -379,6 +426,77 @@ class TraySyncRecordsTests(MainWindowTrayTestCase):
 
         [reloaded] = load_collection(self.watches_dir)
         self.assertIn(date.today(), reloaded.watch.worn)
+
+
+class AutostartMenuItemIntegrationTests(MainWindowTrayTestCase):
+    def test_start_at_login_item_present_when_autostart_available(self) -> None:
+        with patch.object(autostart, "is_available", return_value=True):
+            window = self._window(tray_available=True)
+        self.assertIsNotNone(window._tray._start_at_login_action)
+
+    def test_start_at_login_item_absent_when_autostart_unavailable(self) -> None:
+        with patch.object(autostart, "is_available", return_value=False):
+            window = self._window(tray_available=True)
+        self.assertIsNone(window._tray._start_at_login_action)
+
+    def test_toggling_on_calls_autostart_enable(self) -> None:
+        window = self._window(tray_available=True)
+        with patch.object(autostart, "enable") as mock_enable:
+            window._on_start_at_login_toggled(True)
+        mock_enable.assert_called_once()
+
+    def test_toggling_off_calls_autostart_disable(self) -> None:
+        window = self._window(tray_available=True)
+        with patch.object(autostart, "disable") as mock_disable:
+            window._on_start_at_login_toggled(False)
+        mock_disable.assert_called_once()
+
+    def test_a_failure_enabling_autostart_is_surfaced_not_swallowed(self) -> None:
+        """SPEC.md §2 rule 7: never silently swallow an exception."""
+        window = self._window(tray_available=True)
+        with patch.object(autostart, "enable", side_effect=OSError("permission denied")):
+            with patch.object(QMessageBox, "critical") as mock_critical:
+                window._on_start_at_login_toggled(True)
+        mock_critical.assert_called_once()
+
+    def test_a_failure_disabling_autostart_is_surfaced_not_swallowed(self) -> None:
+        window = self._window(tray_available=True)
+        with patch.object(autostart, "disable", side_effect=OSError("permission denied")):
+            with patch.object(QMessageBox, "critical") as mock_critical:
+                window._on_start_at_login_toggled(False)
+        mock_critical.assert_called_once()
+
+
+class ShouldStartHiddenTests(MainWindowTrayTestCase):
+    """SPEC.md milestone 18 §15: 'Start minimised' only ever affects an
+    autostarted launch, never a manual one, and only when a tray actually
+    exists right now -- starting hidden with nothing to restore from would
+    strand the user exactly as badly as anything else in this milestone."""
+
+    def test_false_when_tray_unavailable_even_if_autostarted_and_start_minimised(self) -> None:
+        config = self._config()
+        config.set_start_minimised(True)
+        config.save()
+        window = self._window(tray_available=False, config=config)
+        self.assertFalse(window.should_start_hidden(started_via_autostart=True))
+
+    def test_false_on_a_manual_launch_even_with_start_minimised_on(self) -> None:
+        config = self._config()
+        config.set_start_minimised(True)
+        config.save()
+        window = self._window(tray_available=True, config=config)
+        self.assertFalse(window.should_start_hidden(started_via_autostart=False))
+
+    def test_false_when_autostarted_but_start_minimised_is_off(self) -> None:
+        window = self._window(tray_available=True)
+        self.assertFalse(window.should_start_hidden(started_via_autostart=True))
+
+    def test_true_only_when_tray_available_and_autostarted_and_start_minimised(self) -> None:
+        config = self._config()
+        config.set_start_minimised(True)
+        config.save()
+        window = self._window(tray_available=True, config=config)
+        self.assertTrue(window.should_start_hidden(started_via_autostart=True))
 
 
 if __name__ == "__main__":

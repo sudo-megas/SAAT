@@ -1,10 +1,11 @@
 from typing import Callable
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QObject, QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
+from saat import autostart
 from saat.paths import resource_dir
 from saat.storage import WatchRecord
 from saat.ui.wear_stats import last_worn
@@ -61,9 +62,15 @@ class TrayController(QObject):
     wore_today_requested = Signal(object)
     close_to_tray_toggled = Signal(bool)
     start_minimised_toggled = Signal(bool)
+    start_at_login_toggled = Signal(bool)
     quit_requested = Signal()
 
-    def __init__(self, window_visible_getter: Callable[[], bool], parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        window_visible_getter: Callable[[], bool],
+        autostart_available: bool = False,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
         self._window_visible_getter = window_visible_getter
         self._records: list[WatchRecord] = []
@@ -87,6 +94,15 @@ class TrayController(QObject):
         self._start_minimised_action = self._menu.addAction("Start minimised")
         self._start_minimised_action.setCheckable(True)
         self._start_minimised_action.toggled.connect(self.start_minimised_toggled)
+
+        # SPEC.md milestone 18 §11: hidden entirely in portable mode, not
+        # merely disabled -- a portable copy on removable media registering
+        # itself to start at boot is incoherent.
+        self._start_at_login_action = None
+        if autostart_available:
+            self._start_at_login_action = self._menu.addAction("Start at login")
+            self._start_at_login_action.setCheckable(True)
+            self._start_at_login_action.toggled.connect(self.start_at_login_toggled)
 
         self._menu.addSeparator()
         quit_action = self._menu.addAction("Quit")
@@ -129,6 +145,14 @@ class TrayController(QObject):
     def _refresh_menu(self) -> None:
         self._show_hide_action.setText("Hide" if self._window_visible_getter() else "Show")
         self._rebuild_wore_today_menu()
+        if self._start_at_login_action is not None:
+            # Reflects reality read fresh every time the menu opens (SPEC.md
+            # milestone 18 §14), never a cached flag -- but setChecked()
+            # emits toggled() on any real state change regardless of who
+            # called it, so this has to be signal-blocked or syncing the
+            # display would itself trigger an unwanted enable()/disable().
+            with QSignalBlocker(self._start_at_login_action):
+                self._start_at_login_action.setChecked(autostart.is_enabled())
 
     def _rebuild_wore_today_menu(self) -> None:
         self._wore_today_menu.clear()

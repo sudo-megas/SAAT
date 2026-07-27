@@ -40,7 +40,14 @@ Non-negotiable. Do not improve past them.
    must never silently relocate a portable user's collection into their home directory,
    so a mispackaged installer should fail loudly (a permissions error writing beside a
    read-only system executable) rather than silently splitting a collection across two
-   locations.
+   locations. **One sanctioned exception, added in milestone 18:** the XDG autostart
+   entry (`$XDG_CONFIG_HOME/autostart/saat.desktop`), which is OS integration, not app
+   data, and is neither `data_dir()` nor `config_dir()` — it is a shared directory every
+   autostart-registering app writes into, not namespaced per-app. Offered only in
+   installed mode, for the same reason installed mode itself exists: a portable copy on
+   removable media registering itself to start at boot is incoherent, since the medium
+   may not be present. Named here explicitly so the exception is recorded, not quietly
+   introduced.
 3. **No database.** No SQLite, no ORM, no embedded server. Storage is plain files.
 4. **No network.** No API calls, no image fetching, no update checks, no telemetry. The
    app never opens a network socket. The single exception is handing a URL to the system

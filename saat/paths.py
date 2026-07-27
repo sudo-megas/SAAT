@@ -48,6 +48,13 @@ def config_dir() -> Path:
     return _resolve("XDG_CONFIG_HOME", (".config",))
 
 
+def is_installed() -> bool:
+    """Public check for installed vs portable mode, for anything that
+    behaves differently between the two -- e.g. autostart.py, offered only
+    in installed mode (SPEC.md §2 rule 2's amendment)."""
+    return _installed_mode()
+
+
 def resource_dir() -> Path:
     """Bundled read-only resources: theme, fonts, icons. Never the writable
     data/config dirs. Unaffected by portable vs installed mode."""

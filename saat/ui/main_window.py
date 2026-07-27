@@ -4,9 +4,16 @@ from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QStackedWidget, QSystemTrayIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QMainWindow,
+    QMessageBox,
+    QStackedWidget,
+    QSystemTrayIcon,
+)
 
-from saat import __version__
+from saat import __version__, autostart
 from saat.config import Config
 from saat.paths import data_dir
 from saat.sellers import Seller, load_sellers
@@ -74,11 +81,16 @@ class MainWindow(QMainWindow):
         self._install_shortcuts()
 
     def _setup_tray(self) -> None:
-        self._tray = TrayController(window_visible_getter=self.isVisible, parent=self)
+        self._tray = TrayController(
+            window_visible_getter=self.isVisible,
+            autostart_available=autostart.is_available(),
+            parent=self,
+        )
         self._tray.show_hide_requested.connect(self._on_tray_show_hide)
         self._tray.wore_today_requested.connect(self._on_wore_today)
         self._tray.close_to_tray_toggled.connect(self._on_close_to_tray_toggled)
         self._tray.start_minimised_toggled.connect(self._on_start_minimised_toggled)
+        self._tray.start_at_login_toggled.connect(self._on_start_at_login_toggled)
         self._tray.quit_requested.connect(self._quit)
         self._tray.set_close_to_tray_checked(self._config.close_to_tray())
         self._tray.set_start_minimised_checked(self._config.start_minimised())
@@ -424,6 +436,29 @@ class MainWindow(QMainWindow):
     def _on_start_minimised_toggled(self, checked: bool) -> None:
         self._config.set_start_minimised(checked)
         self._config.save()
+
+    def _on_start_at_login_toggled(self, checked: bool) -> None:
+        # No local bookkeeping on success -- the checkbox re-reads
+        # autostart.is_enabled() from disk the next time the menu opens
+        # (TrayController._refresh_menu), per SPEC.md milestone 18 §14.
+        # Surfaced on failure rather than swallowed (SPEC.md §2 rule 7);
+        # the checkbox itself will fall back to whatever actually happened
+        # on disk the same way, with no separate revert needed here.
+        try:
+            if checked:
+                autostart.enable()
+            else:
+                autostart.disable()
+        except Exception as exc:
+            QMessageBox.critical(self, "SAAT", f"Could not update the autostart entry: {exc}")
+
+    def should_start_hidden(self, started_via_autostart: bool) -> bool:
+        """SPEC.md milestone 18 §15: 'Start minimised' only ever affects an
+        autostarted launch, never a manual one -- a user who runs the app
+        expects a window. Also requires a tray to exist right now: starting
+        hidden with nothing to restore from would strand the user exactly
+        as badly as anything else in this milestone."""
+        return self._tray_available and started_via_autostart and self._config.start_minimised()
 
     def _poll_tray_availability(self) -> None:
         """SPEC.md milestone 18 §9: if the tray disappears (shell restart,
