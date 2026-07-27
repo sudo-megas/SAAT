@@ -2,11 +2,12 @@ import dataclasses
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import QSize, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
+    QFileDialog,
     QMainWindow,
     QMessageBox,
     QStackedWidget,
@@ -26,6 +27,7 @@ from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
 from saat.ui.image_viewer import ImageViewerOverlay
 from saat.ui import motion
+from saat.ui.pdf_renderer import ExportError, export_pdf
 from saat.ui.sellers_dialog import SellersDialog
 from saat.ui import theme
 from saat.ui.top_bar import SCOPE_WISHLIST
@@ -135,6 +137,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self._focus_search)
         QShortcut(QKeySequence("Ctrl+E"), self).activated.connect(self._edit_current)
         QShortcut(QKeySequence("Ctrl+W"), self).activated.connect(self._wore_today_current)
+        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self._export_pdf)
         # Connects to _quit(), not self.close(): Ctrl+Q must always quit
         # (SPEC.md §5.11), even with close-to-tray ON, when closeEvent
         # itself would otherwise hide instead of accepting the close.
@@ -209,6 +212,7 @@ class MainWindow(QMainWindow):
             self._collection_view.theme_toggle_requested.connect(self._on_theme_toggle)
             self._collection_view.wore_today_requested.connect(self._on_wore_today)
             self._collection_view.compare_requested.connect(self._show_compare)
+            self._collection_view.export_requested.connect(self._export_pdf)
             self._stack.addWidget(self._collection_view)
             self._stack.setCurrentWidget(self._collection_view)
         else:
@@ -285,6 +289,45 @@ class MainWindow(QMainWindow):
     def _sync_tray_records(self) -> None:
         if self._tray is not None:
             self._tray.set_records(self._current_records())
+
+    def _export_pdf(self) -> None:
+        """SPEC.md milestone 19 §9: exports whatever is currently visible
+        in the collection view -- the active scope, active filters, active
+        search, current sort order -- with no options of its own. Only
+        meaningful while the collection view is actually on screen, same
+        guard Ctrl+F's _focus_search already applies, since Ctrl+P is a
+        window-level shortcut that could otherwise fire over the detail or
+        compare page."""
+        if self._image_viewer is not None:
+            return
+        if self._collection_view is None or self._stack.currentWidget() is not self._collection_view:
+            return
+
+        records = self._collection_view.visible_records()
+        if not any(r.watch is not None for r in records):
+            QMessageBox.information(self, "SAAT", "There is nothing to export in the current view.")
+            return
+
+        is_wishlist = self._collection_view.current_scope() == SCOPE_WISHLIST
+        document_title = "SAAT Wishlist" if is_wishlist else "SAAT Collection"
+
+        documents_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+        default_name = f"SAAT-collection-{date.today():%d-%m-%Y}.pdf"
+        default_path = str(Path(documents_dir) / default_name) if documents_dir else default_name
+
+        path_str, _ = QFileDialog.getSaveFileName(self, "Export to PDF", default_path, "PDF files (*.pdf)")
+        if not path_str:
+            return
+
+        self._collection_view.set_export_enabled(False)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            export_pdf(Path(path_str), records, is_wishlist, document_title)
+        except Exception as exc:
+            QMessageBox.critical(self, "SAAT", f"Could not export the PDF: {exc}")
+        finally:
+            QApplication.restoreOverrideCursor()
+            self._collection_view.set_export_enabled(True)
 
     def _on_theme_toggle(self) -> None:
         new_mode = theme.MODE_LIGHT if theme.current_mode() == theme.MODE_DARK else theme.MODE_DARK

@@ -36,6 +36,7 @@ class CollectionView(QWidget):
     compare_requested = Signal(list)  # list[WatchRecord]
     assign_worn_requested = Signal(list, object)  # list[date], WatchRecord
     clear_worn_requested = Signal(list)  # list[date]
+    export_requested = Signal()
 
     def __init__(self, records: list[WatchRecord], config: Config, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -85,6 +86,7 @@ class CollectionView(QWidget):
         self._table_view.selection_changed.connect(self._on_table_selection_changed)
         self._top_bar.add_watch_requested.connect(self.add_watch_requested.emit)
         self._top_bar.theme_toggle_requested.connect(self.theme_toggle_requested.emit)
+        self._top_bar.export_requested.connect(self.export_requested.emit)
         self._calendar_view.assign_requested.connect(self.assign_worn_requested.emit)
         self._calendar_view.clear_requested.connect(self.clear_worn_requested.emit)
 
@@ -105,6 +107,15 @@ class CollectionView(QWidget):
         slug lookups need every record, not just what search/facets show."""
         return self._records
 
+    def visible_records(self) -> list[WatchRecord]:
+        """The filtered, sorted, currently-displayed subset within the
+        active scope — SPEC.md's PDF export (milestone 19) needs exactly
+        this: the active scope, active filters, active search, current
+        sort order, and nothing else. Not the same thing records above
+        returns. A copy, so a caller can't mutate _ordered_records out
+        from under the next _recompute()."""
+        return list(self._ordered_records)
+
     def current_scope(self) -> str:
         """SPEC.md §5.12: MainWindow reads this to default a newly-added
         watch's status to Wishlist when "Add watch" is clicked from Wishlist
@@ -114,6 +125,9 @@ class CollectionView(QWidget):
 
     def focus_search(self) -> None:
         self._top_bar.focus_search()
+
+    def set_export_enabled(self, enabled: bool) -> None:
+        self._top_bar.set_export_enabled(enabled)
 
     def clear_calendar_emphasis(self) -> None:
         """Escape, routed from MainWindow._on_escape — a no-op unless the

@@ -129,6 +129,40 @@ class CollectionViewBehaviorTests(UITestCase):
         descending = [r.watch.brand for r in view._ordered_records]
         self.assertEqual(descending, list(reversed(ascending)))
 
+    def test_visible_records_matches_the_current_sort_and_filter_state(self) -> None:
+        """SPEC.md milestone 19 §11: the PDF export needs exactly this
+        subset -- not the full, unfiltered records the `records` property
+        deliberately keeps returning."""
+        view = CollectionView(self.records, self._config())
+        self.assertEqual([r.slug for r in view.visible_records()], [r.slug for r in view._ordered_records])
+
+        view._top_bar._sort_direction_button.click()
+        self.assertEqual([r.slug for r in view.visible_records()], [r.slug for r in view._ordered_records])
+
+    def test_visible_records_is_a_copy_not_a_live_reference(self) -> None:
+        view = CollectionView(self.records, self._config())
+        visible = view.visible_records()
+        visible.clear()
+        self.assertNotEqual(view.visible_records(), [])
+
+    def test_export_requested_signal_forwards_from_the_top_bars_export_button(self) -> None:
+        view = CollectionView(self.records, self._config())
+        received = []
+        view.export_requested.connect(lambda: received.append(True))
+
+        view._top_bar._export_button.click()
+
+        self.assertEqual(received, [True])
+
+    def test_set_export_enabled_toggles_the_top_bars_export_button(self) -> None:
+        view = CollectionView(self.records, self._config())
+
+        view.set_export_enabled(False)
+        self.assertFalse(view._top_bar._export_button.isEnabled())
+
+        view.set_export_enabled(True)
+        self.assertTrue(view._top_bar._export_button.isEnabled())
+
     def test_scope_change_resets_sort_direction_to_ascending(self) -> None:
         view = CollectionView(self.records, self._config())
         view._top_bar._sort_direction_button.click()

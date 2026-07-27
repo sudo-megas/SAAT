@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 
 from saat.config import Config
 from saat.models import Watch
@@ -51,7 +51,7 @@ class UITestCase(unittest.TestCase):
 class GlobalShortcutRegistrationTests(UITestCase):
     def test_each_expected_shortcut_is_registered_exactly_once(self) -> None:
         window = self._window()
-        for sequence in ("Ctrl+N", "Ctrl+F", "Ctrl+E", "Ctrl+W", "Ctrl+Q", "Esc"):
+        for sequence in ("Ctrl+N", "Ctrl+F", "Ctrl+E", "Ctrl+W", "Ctrl+P", "Ctrl+Q", "Esc"):
             with self.subTest(sequence=sequence):
                 self.assertEqual(len(_shortcuts(window, sequence)), 1)
 
@@ -135,6 +135,88 @@ class FocusSearchShortcutTests(UITestCase):
         QApplication.processEvents()
 
         self.assertFalse(window._collection_view._top_bar._search_field.hasFocus())
+
+
+class ExportPdfShortcutTests(UITestCase):
+    def test_ctrl_p_while_on_detail_view_does_nothing(self) -> None:
+        window = self._window()
+        [record] = load_collection(self.watches_dir)
+        window._show_detail(record)
+
+        with patch("saat.ui.main_window.export_pdf") as mock_export:
+            window._export_pdf()
+
+        mock_export.assert_not_called()
+
+    def test_ctrl_p_with_nothing_visible_shows_a_message_and_never_opens_the_save_dialog(self) -> None:
+        """A search that matches nothing (SPEC.md milestone 19 §11/§12) is
+        refused with a plain message before ever reaching the save dialog
+        -- the user shouldn't have to pick a path for something that will
+        fail. A real CollectionView with a real watch, filtered down to
+        zero visible matches -- not an empty collection, which shows the
+        empty state instead of a CollectionView at all."""
+        window = self._window(count=1)
+        window._collection_view._top_bar._search_field.setText("zzz-no-such-watch-zzz")
+        QApplication.processEvents()
+        self.assertEqual(window._collection_view.visible_records(), [])
+
+        with patch.object(QFileDialog, "getSaveFileName") as mock_dialog, \
+             patch.object(QMessageBox, "information") as mock_message:
+            window._export_pdf()
+
+        mock_dialog.assert_not_called()
+        mock_message.assert_called_once()
+
+    def test_ctrl_p_end_to_end_writes_a_real_pdf_to_the_chosen_path(self) -> None:
+        window = self._window(count=2)
+        out_path = self.tmp / "chosen.pdf"
+
+        with patch.object(QFileDialog, "getSaveFileName", return_value=(str(out_path), "")):
+            window._export_pdf()
+
+        self.assertTrue(out_path.exists())
+        self.assertGreater(out_path.stat().st_size, 0)
+        self.assertEqual(out_path.read_bytes()[:5], b"%PDF-")
+
+    def test_ctrl_p_cancelling_the_save_dialog_writes_nothing(self) -> None:
+        window = self._window()
+
+        with patch.object(QFileDialog, "getSaveFileName", return_value=("", "")):
+            window._export_pdf()
+
+        self.assertEqual(list(self.tmp.glob("*.pdf")), [])
+
+    def test_ctrl_p_exports_only_the_currently_visible_subset(self) -> None:
+        """SPEC.md milestone 19 §11: whatever is currently visible -- the
+        active search included -- not the full collection. Filtering down
+        to one match and exporting must pass only that one record through,
+        proven here via the actual call args rather than by re-parsing the
+        rendered PDF (saat.ui.pdf_renderer's own tests already cover
+        rendering correctness)."""
+        window = self._window(count=3)
+        window._collection_view._top_bar._search_field.setText("B")
+        QApplication.processEvents()
+        visible = window._collection_view.visible_records()
+        self.assertEqual(len(visible), 1)
+
+        with patch.object(QFileDialog, "getSaveFileName", return_value=(str(self.tmp / "out.pdf"), "")), \
+             patch("saat.ui.main_window.export_pdf") as mock_export:
+            window._export_pdf()
+
+        passed_records = mock_export.call_args.args[1]
+        self.assertEqual([r.slug for r in passed_records], [r.slug for r in visible])
+
+    def test_ctrl_p_failure_shows_a_message_and_restores_the_cursor_and_button(self) -> None:
+        window = self._window()
+
+        with patch.object(QFileDialog, "getSaveFileName", return_value=(str(self.tmp / "out.pdf"), "")), \
+             patch("saat.ui.main_window.export_pdf", side_effect=RuntimeError("disk full")), \
+             patch.object(QMessageBox, "critical") as mock_critical:
+            window._export_pdf()
+
+        mock_critical.assert_called_once()
+        self.assertEqual(QApplication.overrideCursor(), None)
+        self.assertTrue(window._collection_view._top_bar._export_button.isEnabled())
 
 
 class EscapeShortcutTests(UITestCase):
@@ -258,6 +340,14 @@ class ImageViewerOverlayGuardTests(UITestCase):
         with patch.object(WatchForm, "exec") as mock_exec:
             window._show_add_form()
         mock_exec.assert_not_called()
+
+    def test_export_pdf_is_a_no_op_while_the_overlay_is_open(self) -> None:
+        window = self._window()
+        window._open_image_viewer([Path("/nonexistent/a.jpg")], 0)
+
+        with patch("saat.ui.main_window.export_pdf") as mock_export:
+            window._export_pdf()
+        mock_export.assert_not_called()
 
 
 if __name__ == "__main__":

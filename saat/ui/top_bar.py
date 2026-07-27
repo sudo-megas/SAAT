@@ -87,6 +87,7 @@ class TopBar(QWidget):
     add_watch_requested = Signal()
     theme_toggle_requested = Signal()
     compare_requested = Signal()
+    export_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -152,6 +153,11 @@ class TopBar(QWidget):
         self._compare_button.clicked.connect(self.compare_requested.emit)
         self._compare_button.setVisible(False)
 
+        self._export_button = QPushButton()
+        self._export_button.setToolTip("Export to PDF (Ctrl+P)")
+        icons.set_icon(self._export_button, "export")
+        self._export_button.clicked.connect(self.export_requested.emit)
+
         self._theme_toggle = _ThemeToggle()
         self._theme_toggle.clicked.connect(self.theme_toggle_requested.emit)
 
@@ -173,6 +179,7 @@ class TopBar(QWidget):
         layout.addStretch()
         layout.addWidget(self._compare_button)
         layout.addWidget(add_button)
+        layout.addWidget(self._export_button)
         layout.addWidget(self._theme_toggle)
 
         self._set_view(VIEW_GRID)
@@ -184,6 +191,13 @@ class TopBar(QWidget):
         permanent control."""
         self._compare_button.setText(f"Compare ({count})")
         self._compare_button.setVisible(count >= MIN_COMPARE)
+
+    def set_export_enabled(self, enabled: bool) -> None:
+        """Disabled for the duration of a PDF render (main_window.py) --
+        export_pdf() is synchronous, so this mostly guards against a
+        second click queued up right as the first finishes, rather than
+        one arriving mid-render while the event loop is blocked anyway."""
+        self._export_button.setEnabled(enabled)
 
     def set_view(self, view: str) -> None:
         self._set_view(view)
