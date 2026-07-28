@@ -628,7 +628,8 @@ Two UI languages: English and Türkçe (Turkish), chosen by endonym in a small l
 menu — the system tray's submenu when a tray is available, a fallback control in the
 sidebar's summary footer (§5.10) otherwise, since a tray is not always present (none on
 the desktop, or lost mid-session) and the control must stay reachable either way. Not a
-preferences panel: one menu, two choices — see §9.
+preferences panel: one menu, two choices — see §9. Japanese was considered and deferred:
+it would need a bundled CJK typeface, a cost for a future milestone, not this one.
 
 **English is always the default. SAAT never reads the OS locale to choose a UI
 language** — an explicit choice, not an oversight. The active language is persisted in

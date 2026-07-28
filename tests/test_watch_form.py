@@ -261,12 +261,12 @@ class WatchFormBuildTests(UITestCase):
 
 
 class _FakeEnumTranslator(QTranslator):
-    """Stands in for a real saat_tr.qm/saat_ja.qm (Commit B) -- proves the
-    display/storage split (form_fields.py's combo_value()/set_combo_value())
-    holds under ANY installed translator, without needing real translations
-    to exist yet. Returning None (not "") for an unmapped source text tells
-    Qt's translation fallback "not handled here", which correctly resolves
-    back to the untranslated source string -- confirmed empirically before
+    """Stands in for a real saat_tr.qm -- proves the display/storage split
+    (form_fields.py's combo_value()/set_combo_value()) holds under ANY
+    installed translator, without needing real translations to exist yet.
+    Returning None (not "") for an unmapped source text tells Qt's
+    translation fallback "not handled here", which correctly resolves back
+    to the untranslated source string -- confirmed empirically before
     writing this test."""
 
     _MAP = {"Diver": "XX_Diver_XX", "Owned": "XX_Owned_XX"}

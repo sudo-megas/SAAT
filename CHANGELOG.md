@@ -18,7 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   built the combo box that offered it. Turkish month, weekday and casing rules (e.g.
   dotted İ) come from Qt's own locale data, not a hand-rolled word list. SPEC.md §5.13
   documents the feature; §9 records that the language menu is not the start of a settings
-  panel.
+  panel. Japanese was considered and deferred — it needs a bundled CJK typeface, a future
+  milestone's cost.
 
 ## [1.7.6] - 2026-07-27
 
