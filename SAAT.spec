@@ -63,8 +63,10 @@ if sys.platform == 'win32':
         parts.append('0')
     numeric = ', '.join(parts[:4])
 
+    # Absolute: PyInstaller resolves a relative `version=` against its own
+    # working directory, which is not guaranteed to be the spec's.
     os.makedirs('build', exist_ok=True)
-    version_resource = os.path.join('build', 'version_info.txt')
+    version_resource = os.path.abspath(os.path.join('build', 'version_info.txt'))
     with open(version_resource, 'w', encoding='utf-8') as handle:
         handle.write(f"""VSVersionInfo(
   ffi=FixedFileInfo(filevers=({numeric}), prodvers=({numeric}),

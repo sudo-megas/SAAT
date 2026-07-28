@@ -18,12 +18,16 @@ class PathsTestCase(unittest.TestCase):
     opts in to "frozen" explicitly rather than inheriting ambient state."""
 
     def setUp(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix="saat-paths-test-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-paths-test-")).resolve()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.home = self.tmp / "home"
         self.home.mkdir()
 
-        env_patch = patch.dict(os.environ, {"HOME": str(self.home)}, clear=False)
+        env_patch = patch.dict(
+            os.environ,
+            {"HOME": str(self.home), "USERPROFILE": str(self.home)},
+            clear=False,
+        )
         env_patch.start()
         self.addCleanup(env_patch.stop)
         for var in ("SAAT_DATA_DIR", "XDG_DATA_HOME", "XDG_CONFIG_HOME"):
@@ -158,7 +162,17 @@ class SymlinkedEntryPointTests(PathsTestCase):
         bin_dir = self.tmp / "usr" / "bin"
         bin_dir.mkdir(parents=True)
         link = bin_dir / "saat"
-        link.symlink_to(Path("..") / "lib" / "saat" / "SAAT")
+        try:
+            link.symlink_to(Path("..") / "lib" / "saat" / "SAAT")
+        except OSError as exc:
+            # Windows refuses symlink creation without Developer Mode or
+            # elevation. What is being modelled here is the Debian
+            # package's /usr/bin/saat entry point, which does not exist on
+            # Windows at all -- so skipping is honest rather than a
+            # workaround for a real gap.
+            raise unittest.SkipTest(
+                f"cannot create a symlink on this platform: {exc}"
+            ) from exc
 
         frozen_patch = patch.object(sys, "frozen", True, create=True)
         frozen_patch.start()

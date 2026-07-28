@@ -184,6 +184,17 @@ jobs:
             exit 1
           fi
 
+          # The tarball is the PORTABLE build and must stay portable no
+          # matter what the packaging work does to the same tree. It ships
+          # no .installed marker, so it must resolve its data beside the
+          # executable and must never touch the installed-mode location --
+          # the exact failure a marker leaking into the tarball would
+          # cause, silently relocating every portable user's collection.
+          test ! -e /tmp/smoke/SAAT/.installed
+          test ! -e "$HOME/.local/share/saat"
+          test ! -e "$HOME/.config/saat"
+          echo "portable build confirmed: nothing resolved into the home directory"
+
       - uses: actions/upload-artifact@v4
         with:
           name: saat-linux-x86_64

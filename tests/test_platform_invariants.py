@@ -32,17 +32,23 @@ class WindowsInstalledPathsTests(unittest.TestCase):
     has a Windows machine to try it on."""
 
     def setUp(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix="saat-winpaths-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-winpaths-")).resolve()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.home = self.tmp / "home"
         self.home.mkdir()
 
-        env = patch.dict(os.environ, {"HOME": str(self.home)}, clear=False)
+        env = patch.dict(
+            os.environ,
+            {"HOME": str(self.home), "USERPROFILE": str(self.home)},
+            clear=False,
+        )
         env.start()
         self.addCleanup(env.stop)
+        # USERPROFILE is deliberately NOT cleared here -- it was just set to
+        # the isolated home above, and Path.home() reads it on Windows.
         for var in (
             "SAAT_DATA_DIR", "XDG_DATA_HOME", "XDG_CONFIG_HOME",
-            "LOCALAPPDATA", "APPDATA", "USERPROFILE",
+            "LOCALAPPDATA", "APPDATA",
         ):
             os.environ.pop(var, None)
 
@@ -253,7 +259,7 @@ class AtomicReplaceRetryTests(unittest.TestCase):
     written."""
 
     def setUp(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix="saat-atomic-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-atomic-")).resolve()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.target = self.tmp / "watch.toml"
         self.tmp_file = self.tmp / "watch.toml.tmp"
@@ -346,7 +352,7 @@ class CrossPlatformCollectionTests(unittest.TestCase):
     differs is line endings."""
 
     def setUp(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix="saat-crossplat-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-crossplat-")).resolve()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.watches = self.tmp / "watches"
         self.watches.mkdir()

@@ -26,12 +26,16 @@ class AutostartTestCase(unittest.TestCase):
     ~/.config/autostart."""
 
     def setUp(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix="saat-autostart-test-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="saat-autostart-test-")).resolve()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.home = self.tmp / "home"
         self.home.mkdir()
 
-        env_patch = patch.dict(os.environ, {"HOME": str(self.home)}, clear=False)
+        env_patch = patch.dict(
+            os.environ,
+            {"HOME": str(self.home), "USERPROFILE": str(self.home)},
+            clear=False,
+        )
         env_patch.start()
         self.addCleanup(env_patch.stop)
         for var in ("SAAT_DATA_DIR", "XDG_DATA_HOME", "XDG_CONFIG_HOME"):

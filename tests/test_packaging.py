@@ -10,7 +10,7 @@ deletes a collection.
 """
 
 import re
-import stat
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -19,6 +19,26 @@ from saat import autostart
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PACKAGING = REPO_ROOT / "packaging"
 DESKTOP_FILE = PACKAGING / "saat.desktop"
+
+
+def _is_executable_in_git(path: Path) -> bool:
+    """Whether git records the file as mode 100755.
+
+    stat().st_mode is the wrong question on Windows: NTFS has no execute
+    bit and a Windows checkout reports every file the same way, so the
+    POSIX check fails there for a file that is perfectly executable
+    everywhere it matters. What actually decides whether a script ships
+    runnable -- into the .deb, onto a user's machine -- is the mode git
+    has recorded, which is identical on every platform."""
+    result = subprocess.run(
+        ["git", "ls-files", "-s", "--", str(path.relative_to(REPO_ROOT).as_posix())],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise unittest.SkipTest(f"{path} is not tracked by git")
+    return result.stdout.split()[0] == "100755"
 
 
 def _desktop_entries(text: str) -> dict[str, str]:
@@ -84,7 +104,12 @@ class DesktopEntryIsSharedTests(unittest.TestCase):
         with --autostart appended, rather than composing a second, divergent
         .desktop file. That only works if the packaging actually puts the
         file where autostart.py looks for it."""
-        target = str(autostart.INSTALLED_DESKTOP_PATH)
+        # .as_posix(), not str(): on Windows a Path built from a POSIX
+        # literal is a WindowsPath and stringifies with backslashes. The
+        # path is a Linux FHS location either way -- the constant is only
+        # ever used on Linux -- so the POSIX rendering is the meaningful
+        # comparison on every platform.
+        target = autostart.INSTALLED_DESKTOP_PATH.as_posix()
         self.assertEqual(target, "/usr/share/applications/saat.desktop")
 
         stage = (PACKAGING / "stage-tree.sh").read_text(encoding="utf-8")
@@ -143,9 +168,11 @@ class StagedLayoutTests(unittest.TestCase):
         self.assertIn("find \"$stage_dir\" -type d -exec chmod 0755", self.stage)
 
     def test_scripts_are_executable(self) -> None:
-        for name in ("stage-tree.sh",):
-            mode = (PACKAGING / name).stat().st_mode
-            self.assertTrue(mode & stat.S_IXUSR, f"packaging/{name} is not executable")
+        for name in ("stage-tree.sh", "build-deb.sh", "audit-bundle.py"):
+            self.assertTrue(
+                _is_executable_in_git(PACKAGING / name),
+                f"packaging/{name} is not recorded executable by git",
+            )
 
 
 class MaintainerScriptDataSafetyTests(unittest.TestCase):
@@ -225,7 +252,11 @@ class MaintainerScriptDataSafetyTests(unittest.TestCase):
     def test_every_script_is_executable_and_a_posix_shell_script(self) -> None:
         for name in self.SCRIPTS:
             path = PACKAGING / "debian" / name
-            self.assertTrue(path.stat().st_mode & stat.S_IXUSR, f"{name} not executable")
+            self.assertTrue(
+                _is_executable_in_git(path),
+                f"{name} is not recorded executable by git -- dpkg would ship "
+                "a maintainer script it cannot run",
+            )
             first = path.read_text(encoding="utf-8").splitlines()[0]
             self.assertEqual(first, "#!/bin/sh")
 
