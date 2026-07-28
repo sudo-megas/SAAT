@@ -1,0 +1,10 @@
+saat (@VERSION@) unstable; urgency=medium
+
+  * New upstream release. The full list of changes is in
+    /usr/share/doc/saat/changelog.gz; the user-facing summary is in that
+    release's notes at https://github.com/sudo-megas/SAAT/releases
+  * Packaging and upstream are the same person and the same repository, so
+    this changelog records only the packaging revision. It carries no
+    entries of its own beyond that.
+
+ -- @MAINTAINER@  @DATE@

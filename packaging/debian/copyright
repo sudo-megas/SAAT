@@ -1,0 +1,536 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: SAAT
+Upstream-Contact: sudo-megas <gonzalorodriguez761@gmail.com>
+Source: https://github.com/sudo-megas/SAAT
+Comment:
+ This package ships a PyInstaller one-folder build under /usr/lib/saat. It
+ therefore redistributes not only SAAT itself but the Qt 6 libraries, the
+ CPython runtime and a substantial set of third-party C libraries that the
+ build bundles, all under /usr/lib/saat/_internal. Every one of them is
+ covered below.
+ .
+ The exact set of bundled shared libraries is decided by PyInstaller from
+ what the build machine's wheels link against, so it can shift slightly
+ between builds. /usr/share/doc/saat/bundled-libraries.txt is generated
+ from the actual contents of the package being built and lists every
+ shared object shipped, with its SONAME. packaging/check-licences.sh
+ fails the build if that manifest contains a library family this file does
+ not name, so the two cannot drift apart.
+ .
+ Qt is bundled as separate shared libraries and dynamically linked, never
+ statically linked, which is what the LGPL-3's terms for combined works
+ call for. Replacing the bundled Qt is a matter of substituting the
+ libQt6*.so.6 files under /usr/lib/saat/_internal.
+
+Files: *
+Copyright: 2026 sudo-megas
+License: GPL-3+
+
+Files: saat/ui/flow_layout.py
+Copyright: 2016 The Qt Company Ltd.
+License: BSD-3-clause
+Comment:
+ Adapted from Qt's own "Flow Layout" example. The full upstream copyright
+ and licence notice is reproduced at the top of the file.
+
+Files: saat/resources/fonts/*
+ usr/lib/saat/_internal/resources/fonts/*
+Copyright: 2010-2011 Canonical Ltd.
+License: UbuntuFontLicence-1.0
+Comment:
+ Ubuntu Sans, Ubuntu Sans Condensed and Ubuntu Mono. The licence text is
+ shipped alongside the fonts, at
+ /usr/lib/saat/_internal/resources/fonts/LICENCE.txt.
+
+Files: usr/lib/saat/_internal/PySide6/*
+ usr/lib/saat/_internal/shiboken6/*
+ usr/lib/saat/_internal/libpyside6*
+ usr/lib/saat/_internal/libshiboken6*
+Copyright: 2024 The Qt Company Ltd.
+License: LGPL-3
+
+Files: usr/lib/saat/_internal/PySide6/Qt/*
+ usr/lib/saat/_internal/libQt6*
+Copyright: 2024 The Qt Company Ltd.
+License: LGPL-3
+Comment: Qt 6, bundled as dynamically linked shared libraries.
+
+Files: usr/lib/saat/_internal/libpython3*
+ usr/lib/saat/_internal/python3*
+ usr/lib/saat/_internal/base_library.zip
+Copyright: 2001-2026 Python Software Foundation
+License: PSF-2.0
+
+Files: usr/lib/saat/_internal/PIL/*
+ usr/lib/saat/_internal/pillow.libs/*
+Copyright: 2010-2026 Jeffrey A. Clark and contributors
+ 1995-2011 Fredrik Lundh and contributors
+License: HPND
+
+Files: usr/lib/saat/_internal/tomlkit/*
+Copyright: 2018 Sébastien Eustace
+License: Expat
+
+Files: usr/lib/saat/_internal/libssl* usr/lib/saat/_internal/libcrypto*
+Copyright: 1998-2026 The OpenSSL Project Authors
+License: Apache-2.0
+
+Files: usr/lib/saat/_internal/libicu*
+Copyright: 1991-2026 Unicode, Inc. and others
+License: ICU
+
+Files: usr/lib/saat/_internal/libglib-2.0*
+ usr/lib/saat/_internal/libgio-2.0*
+ usr/lib/saat/_internal/libgobject-2.0*
+ usr/lib/saat/_internal/libgmodule-2.0*
+ usr/lib/saat/_internal/libgthread-2.0*
+ usr/lib/saat/_internal/libgtk-3*
+ usr/lib/saat/_internal/libgdk-3*
+ usr/lib/saat/_internal/libgdk_pixbuf-2.0*
+ usr/lib/saat/_internal/libatk-1.0*
+ usr/lib/saat/_internal/libatk-bridge-2.0*
+ usr/lib/saat/_internal/libatspi*
+ usr/lib/saat/_internal/libpango*
+ usr/lib/saat/_internal/libjson-glib*
+ usr/lib/saat/_internal/libcloudproviders*
+ usr/lib/saat/_internal/libglycin*
+ usr/lib/saat/_internal/libtinysparql*
+ usr/lib/saat/_internal/libfribidi*
+ usr/lib/saat/_internal/libthai* usr/lib/saat/_internal/libdatrie*
+ usr/lib/saat/_internal/libsystemd*
+ usr/lib/saat/_internal/libseccomp*
+ usr/lib/saat/_internal/libblkid* usr/lib/saat/_internal/libmount*
+Copyright: 1995-2026 the GNOME, freedesktop.org and util-linux contributors
+License: LGPL-2.1+
+Comment:
+ The GLib/GTK stack, reached through Qt's GTK platform-theme plugin, plus
+ the small LGPL libraries those pull in. Bundled as dynamically linked
+ shared libraries.
+
+Files: usr/lib/saat/_internal/libcairo* usr/lib/saat/_internal/libpixman*
+Copyright: 2002-2026 University of Southern California, Red Hat, Inc. and others
+License: LGPL-2.1+ or MPL-1.1
+
+Files: usr/lib/saat/_internal/libstdc++* usr/lib/saat/_internal/libgcc_s*
+Copyright: 1988-2026 Free Software Foundation, Inc.
+License: GPL-3+-with-GCC-exception
+
+Files: usr/lib/saat/_internal/libfreetype*
+Copyright: 1996-2026 David Turner, Robert Wilhelm, and Werner Lemberg
+License: FTL or GPL-2+
+
+Files: usr/lib/saat/_internal/libfontconfig*
+Copyright: 2000-2026 Keith Packard and others
+License: HPND
+
+Files: usr/lib/saat/_internal/libharfbuzz*
+ usr/lib/saat/_internal/liblcms2*
+ usr/lib/saat/_internal/libbrotli*
+ usr/lib/saat/_internal/libexpat*
+ usr/lib/saat/_internal/libffi*
+ usr/lib/saat/_internal/libxml2*
+ usr/lib/saat/_internal/libepoxy*
+ usr/lib/saat/_internal/libX11* usr/lib/saat/_internal/libxcb*
+ usr/lib/saat/_internal/libXau* usr/lib/saat/_internal/libXdmcp*
+ usr/lib/saat/_internal/libXext* usr/lib/saat/_internal/libXrender*
+ usr/lib/saat/_internal/libXi* usr/lib/saat/_internal/libXfixes*
+ usr/lib/saat/_internal/libXcursor* usr/lib/saat/_internal/libXrandr*
+ usr/lib/saat/_internal/libXinerama* usr/lib/saat/_internal/libXcomposite*
+ usr/lib/saat/_internal/libXdamage*
+ usr/lib/saat/_internal/libxkbcommon*
+ usr/lib/saat/_internal/libkrb5* usr/lib/saat/_internal/libk5crypto*
+ usr/lib/saat/_internal/libgssapi_krb5* usr/lib/saat/_internal/libcom_err*
+ usr/lib/saat/_internal/libkeyutils*
+Copyright: 1985-2026 the X.Org, freedesktop.org, MIT and HarfBuzz contributors
+License: Expat
+Comment:
+ The X11 client stack, plus the several small permissively licensed
+ libraries the bundle carries. All are MIT/Expat or an
+ indistinguishable variant of it.
+
+Files: usr/lib/saat/_internal/libgraphite2*
+Copyright: 2010-2026 SIL International
+License: LGPL-2.1+ or MPL-1.1 or GPL-2+
+
+Files: usr/lib/saat/_internal/libpng*
+Copyright: 1995-2026 The PNG Reference Library Authors
+License: libpng-2.0
+
+Files: usr/lib/saat/_internal/libjpeg*
+Copyright: 1991-2026 Thomas G. Lane, Guido Vollbeding, D. R. Commander
+License: IJG
+
+Files: usr/lib/saat/_internal/libwebp* usr/lib/saat/_internal/libsharpyuv*
+ usr/lib/saat/_internal/libzstd*
+ usr/lib/saat/_internal/libpcre2*
+Copyright: 2010-2026 Google Inc., Meta Platforms, Inc., University of Cambridge
+License: BSD-3-clause
+
+Files: usr/lib/saat/_internal/libopenjp2*
+ usr/lib/saat/_internal/libavif*
+ usr/lib/saat/_internal/libmpdec*
+Copyright: 2002-2026 the OpenJPEG, libavif and libmpdec authors
+License: BSD-2-clause
+
+Files: usr/lib/saat/_internal/libtiff*
+Copyright: 1988-1997 Sam Leffler
+ 1991-1997 Silicon Graphics, Inc.
+License: libtiff
+
+Files: usr/lib/saat/_internal/libz.so* usr/lib/saat/_internal/libz-*
+Copyright: 1995-2026 Jean-loup Gailly and Mark Adler
+License: Zlib
+
+Files: usr/lib/saat/_internal/liblzma*
+Copyright: 2005-2026 Lasse Collin and others
+License: 0BSD
+
+Files: usr/lib/saat/_internal/libbz2*
+Copyright: 1996-2010 Julian R Seward
+License: BSD-4-clause-bzip2
+
+Files: usr/lib/saat/_internal/libsqlite3*
+Copyright: 2000-2026 D. Richard Hipp
+License: public-domain-sqlite
+Comment:
+ Bundled because CPython's standard library links it, not because SAAT
+ uses it. SPEC.md §2 rule 3 bans a database outright; nothing in saat/
+ imports sqlite3.
+
+Files: usr/lib/saat/_internal/libdrm*
+Copyright: 1999-2026 Precision Insight, Inc., VA Linux Systems, Inc. and others
+License: Expat
+
+License: GPL-3+
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the
+ Free Software Foundation, either version 3 of the License, or (at your
+ option) any later version.
+ .
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+ Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+License: LGPL-3
+ This library is free software; you can redistribute it and/or modify it
+ under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation, version 3 of the License.
+ .
+ This library is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser
+ General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU Lesser General Public
+ License version 3 can be found in "/usr/share/common-licenses/LGPL-3".
+
+License: LGPL-2.1+
+ This library is free software; you can redistribute it and/or modify it
+ under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation; either version 2.1 of the License, or (at
+ your option) any later version.
+ .
+ This library is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser
+ General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU Lesser General Public
+ License version 2.1 can be found in "/usr/share/common-licenses/LGPL-2.1".
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the
+ Free Software Foundation; either version 2 of the License, or (at your
+ option) any later version.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 2 can be found in "/usr/share/common-licenses/GPL-2".
+
+License: GPL-3+-with-GCC-exception
+ The GCC runtime libraries are distributed under the terms of the GNU
+ General Public License version 3, with the GCC Runtime Library
+ Exception: you may propagate a work of Target Code formed by combining
+ the Runtime Library with Independent Modules, even if such propagation
+ would otherwise violate the terms of GPLv3, provided the work is not a
+ GPL-incompatible Combined Work as defined by that Exception.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in "/usr/share/common-licenses/GPL-3". The full
+ text of the exception is at
+ <https://www.gnu.org/licenses/gcc-exception-3.1.html>.
+
+License: MPL-1.1
+ The contents are subject to the Mozilla Public License Version 1.1; you
+ may not use the files except in compliance with the License. A copy of
+ the License is at <https://www.mozilla.org/MPL/1.1/>.
+ .
+ On Debian systems, the complete text of the Mozilla Public License
+ version 1.1 can be found in "/usr/share/common-licenses/MPL-1.1".
+
+License: Apache-2.0
+ Licensed under the Apache License, Version 2.0. You may obtain a copy of
+ the License at <https://www.apache.org/licenses/LICENSE-2.0>.
+ .
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ .
+ On Debian systems, the complete text of the Apache License version 2.0
+ can be found in "/usr/share/common-licenses/Apache-2.0".
+
+License: Expat
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the
+ "Software"), to deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify, merge, publish,
+ distribute, sublicense, and/or sell copies of the Software, and to
+ permit persons to whom the Software is furnished to do so, subject to
+ the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included
+ in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+License: BSD-2-clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are
+ met:
+ .
+ 1. Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
+ .
+ 2. Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES HOWEVER CAUSED AND ON ANY
+ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT,
+ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ THE POSSIBILITY OF SUCH DAMAGE.
+
+License: BSD-3-clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are
+ met:
+ .
+ 1. Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
+ .
+ 2. Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
+ .
+ 3. Neither the name of the copyright holder nor the names of its
+ contributors may be used to endorse or promote products derived from
+ this software without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES HOWEVER CAUSED AND ON ANY
+ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT,
+ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ THE POSSIBILITY OF SUCH DAMAGE.
+
+License: BSD-4-clause-bzip2
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are
+ met:
+ .
+ 1. Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
+ .
+ 2. The origin of this software must not be misrepresented; you must not
+ claim that you wrote the original software. If you use this software in
+ a product, an acknowledgment in the product documentation would be
+ appreciated but is not required.
+ .
+ 3. Altered source versions must be plainly marked as such, and must not
+ be misrepresented as being the original software.
+ .
+ 4. The name of the author may not be used to endorse or promote products
+ derived from this software without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+ IMPLIED WARRANTIES ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE
+ LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ CONSEQUENTIAL DAMAGES HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT, ARISING IN ANY WAY OUT
+ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ DAMAGE.
+
+License: 0BSD
+ Permission to use, copy, modify, and/or distribute this software for any
+ purpose with or without fee is hereby granted.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+License: public-domain-sqlite
+ SQLite is in the public domain. The author disclaims copyright to the
+ source code and grants unrestricted permission to use, copy, modify,
+ publish and distribute it, for any purpose, commercial or
+ non-commercial, and by any means. The author disclaims all warranties
+ with regard to this software.
+
+License: Zlib
+ This software is provided 'as-is', without any express or implied
+ warranty. In no event will the authors be held liable for any damages
+ arising from the use of this software.
+ .
+ Permission is granted to anyone to use this software for any purpose,
+ including commercial applications, and to alter it and redistribute it
+ freely, subject to the following restrictions:
+ .
+ 1. The origin of this software must not be misrepresented; you must not
+ claim that you wrote the original software.
+ .
+ 2. Altered source versions must be plainly marked as such, and must not
+ be misrepresented as being the original software.
+ .
+ 3. This notice may not be removed or altered from any source
+ distribution.
+
+License: HPND
+ Permission to use, copy, modify and distribute this software and its
+ documentation for any purpose and without fee is hereby granted,
+ provided that the above copyright notice appears in all copies and that
+ both that copyright notice and this permission notice appear in
+ supporting documentation, and that the name of the copyright holder not
+ be used in advertising or publicity pertaining to distribution of the
+ software without specific, written prior permission.
+ .
+ THE COPYRIGHT HOLDER DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+ SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ FITNESS. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+ SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+ RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+ CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+License: PSF-2.0
+ Python is released under the Python Software Foundation License Version
+ 2. PSF hereby grants a nonexclusive, royalty-free, world-wide licence to
+ reproduce, analyse, test, perform and/or display publicly, prepare
+ derivative works, distribute, and otherwise use Python alone or in any
+ derivative version, provided that PSF's License Agreement and PSF's
+ notice of copyright are retained in Python alone or in any derivative
+ version prepared by the licensee.
+ .
+ PYTHON IS PROVIDED ON AN "AS IS" BASIS. PSF MAKES NO REPRESENTATIONS OR
+ WARRANTIES, EXPRESS OR IMPLIED. BY WAY OF EXAMPLE, BUT NOT LIMITATION,
+ PSF MAKES NO AND DISCLAIMS ANY REPRESENTATION OR WARRANTY OF
+ MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF
+ PYTHON WILL NOT INFRINGE ANY THIRD PARTY RIGHTS.
+ .
+ The complete text is at <https://docs.python.org/3/license.html>.
+
+License: ICU
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of the Unicode data files and any associated documentation (the
+ "Data Files") or Unicode software and any associated documentation (the
+ "Software") to deal in the Data Files or Software without restriction,
+ including without limitation the rights to use, copy, modify, merge,
+ publish, distribute, and/or sell copies of the Data Files or Software,
+ and to permit persons to whom the Data Files or Software are furnished
+ to do so, provided that either (a) this copyright and permission notice
+ appear with all copies of the Data Files or Software, or (b) this
+ copyright and permission notice appear in associated Documentation.
+ .
+ THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF
+ ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT OF THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDER BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL
+ DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ PROFITS, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+ THE DATA FILES OR SOFTWARE.
+
+License: FTL
+ The FreeType Project License. This licence permits redistribution in
+ source and binary form, with or without modification, provided that
+ redistribution of the source code retains the licence file and its
+ credits, redistribution in binary form includes the credits in the
+ documentation, and the names "FreeType Project" and "FreeType Team" are
+ not used to endorse or promote products derived from this software
+ without specific prior written permission. The software is provided "as
+ is" without warranty of any kind.
+ .
+ The complete text is at <https://gitlab.freedesktop.org/freetype/freetype/-/raw/master/docs/FTL.TXT>.
+
+License: IJG
+ This software is based in part on the work of the Independent JPEG
+ Group. Permission is granted to use, copy, modify and distribute this
+ software (or portions thereof) for any purpose, without fee, subject to
+ these conditions: (1) if any part of the source code is distributed,
+ this README file must be included, with this copyright and no-warranty
+ notice unaltered; (2) if any part is distributed in binary form, the
+ accompanying documentation must acknowledge the use of the Independent
+ JPEG Group's software; (3) permission for use is granted only for the
+ purposes described, and the authors are not liable for damages.
+ .
+ The software is provided "AS IS", and the authors disclaim all
+ warranties, express or implied.
+
+License: libpng-2.0
+ The PNG Reference Library License version 2. Permission is hereby
+ granted to use, copy, modify and distribute this source code, or
+ portions hereof, for any purpose, without fee, subject to these
+ restrictions: (1) the origin of this source code must not be
+ misrepresented; (2) altered versions must be plainly marked as such and
+ must not be misrepresented as being the original source; (3) this
+ Copyright notice may not be removed or altered from any source or
+ altered source distribution.
+ .
+ The software is supplied "AS IS", without warranty of any kind, express
+ or implied.
+
+License: libtiff
+ Permission to use, copy, modify, distribute, and sell this software and
+ its documentation for any purpose is hereby granted without fee,
+ provided that (i) the above copyright notices and this permission notice
+ appear in all copies of the software and related documentation, and (ii)
+ the names of Sam Leffler and Silicon Graphics may not be used in any
+ advertising or publicity relating to the software without the specific,
+ prior written permission of Sam Leffler and Silicon Graphics.
+ .
+ THE SOFTWARE IS PROVIDED "AS-IS" AND WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS, IMPLIED OR OTHERWISE, INCLUDING WITHOUT LIMITATION, ANY
+ WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+License: UbuntuFontLicence-1.0
+ This Font Software is licensed under the Ubuntu Font Licence, Version
+ 1.0. It is provided free of charge and may be used, studied, modified
+ and redistributed freely as long as it is not sold by itself, and as
+ long as modified versions are renamed and carry the original copyright
+ and licence notice.
+ .
+ THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+ .
+ The complete licence text is shipped with the fonts, at
+ /usr/lib/saat/_internal/resources/fonts/LICENCE.txt, and is also at
+ <https://ubuntu.com/legal/font-licence>.

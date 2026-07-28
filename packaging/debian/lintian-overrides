@@ -1,0 +1,87 @@
+# Lintian overrides for saat.
+#
+# This package ships a PyInstaller one-folder build: SAAT plus its own Qt 6,
+# its own CPython and the C libraries those link against, all under
+# /usr/lib/saat/_internal. Debian's packaging conventions assume the
+# opposite arrangement -- one library per package, shared -- so a set of
+# tags fire that describe the bundling accurately and are not defects to
+# fix here. Each is justified below. Nothing is overridden merely to
+# quieten the report.
+#
+# The decision to bundle rather than depend on python3-pyside6 is recorded
+# in packaging/README.md.
+
+# The whole point of the package. Qt, CPython, and the image, text-shaping
+# and compression libraries they need are shipped inside it rather than
+# depended on. Recorded honestly in the package description and enumerated
+# in /usr/share/doc/saat/bundled-libraries.txt, which is generated from the
+# package's actual contents at build time.
+saat: embedded-library
+saat: embedded-library *
+
+# PyInstaller assembles the bundle from prebuilt upstream wheels. Stripping
+# those shared objects after the fact rewrites binaries this project did not
+# compile and cannot re-verify, for a saving on a package whose size is
+# dominated by Qt regardless.
+saat: unstripped-binary-or-object
+saat: unstripped-binary-or-object *
+
+# Hardening flags are decided by whoever built the upstream wheel -- the Qt
+# Company for Qt, the Python packaging authorities for CPython. Rebuilding
+# the world with Debian's hardening defaults is exactly the second,
+# differently-behaving build this package exists to avoid.
+saat: hardening-no-fortify-functions
+saat: hardening-no-fortify-functions *
+saat: hardening-no-relro
+saat: hardening-no-relro *
+
+# Private directory, not a public library path. Nothing outside
+# /usr/lib/saat links against these, they are never on the linker search
+# path, and no other package can or should use them.
+saat: shlib-without-versioned-soname
+saat: shlib-without-versioned-soname *
+saat: sharedobject-in-library-directory-missing-soname
+saat: sharedobject-in-library-directory-missing-soname *
+saat: package-name-doesnt-match-sonames *
+saat: no-symbols-control-file
+saat: no-symbols-control-file *
+saat: shared-library-lacks-prerequisites
+saat: shared-library-lacks-prerequisites *
+saat: library-not-linked-against-libc
+saat: library-not-linked-against-libc *
+saat: shlib-with-executable-bit
+saat: shlib-with-executable-bit *
+
+# The bundled Ubuntu fonts. They are the application's own typeface, loaded
+# from resource_dir() at startup, not a system font this package is trying
+# to provide -- installing them into /usr/share/fonts would put a font on
+# every user's system as a side effect of installing a watch cataloguer.
+# Their licence is shipped beside them and is covered in the copyright file.
+saat: font-in-non-font-package *
+saat: package-contains-font-outside-usr-share-fonts *
+saat: font-outside-font-package *
+saat: extra-license-file usr/lib/saat/_internal/resources/fonts/LICENCE.txt
+saat: package-contains-documentation-outside-usr-share-doc *
+
+# The application icon is installed into the hicolor theme so the launcher
+# entry can find it, and also stays inside the bundle because the running
+# app reads it from resource_dir() to set its own window icon. Two copies of
+# a 30 KB PNG is the cheapest correct answer.
+saat: duplicate-files *saat.png*
+
+# CPython's own standard library, as PyInstaller lays it out. It is the
+# interpreter this application runs on, in this application's private
+# directory -- not a Python module offered to the system.
+saat: python-module-in-wrong-location *
+saat: package-installs-python-bytecode *
+
+# Qt ships QML for the modules PySide6's wheel includes. SAAT itself uses
+# native widgets only (SPEC.md §2 rule 6) and instantiates no QML; these
+# come along inside the wheel.
+saat: embedded-javascript-library *
+
+# dpkg-deb builds this from an already-composed tree; there is no source
+# package, no debian/rules and no build system to declare. The upstream
+# source is the repository named in Homepage.
+saat: no-debian-source-directory
+saat: debian-watch-file-is-missing

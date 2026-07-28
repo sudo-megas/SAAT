@@ -1,0 +1,30 @@
+Package: saat
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: sudo-megas <gonzalorodriguez761@gmail.com>
+Installed-Size: @INSTALLED_SIZE@
+Depends: libc6 (>= 2.35), libegl1, libgl1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libxcb1
+Homepage: https://github.com/sudo-megas/SAAT
+Description: catalogue a mechanical-watch collection
+ SAAT is a local, offline desktop application for cataloguing a personal
+ wristwatch collection. It organises watches into a photo-forward grid, a
+ dense spec table and a wear calendar, shows a detail page per watch,
+ compares watches side by side, and records what was worn on which day.
+ .
+ It ships empty. Every watch is entered by its owner -- there is no seed
+ data, no demo collection and no online catalogue to import from.
+ .
+ There is no database and no network access. Each watch is a plain,
+ editable TOML file on disk beside its own images, under
+ ~/.local/share/saat, so a collection stays readable with a text editor
+ and survives this program being removed. Removing or purging this
+ package never deletes one.
+ .
+ This package bundles its own Qt 6 and Python runtime instead of using
+ the system's. That makes it large -- roughly 230 MB installed, almost
+ all of it Qt -- and it is the honest cost of the trade: the binary is
+ the same one the portable tarball ships, tested as one build, rather
+ than a second build against whichever PySide6 version a given Debian or
+ Ubuntu release happens to carry.

@@ -55,7 +55,7 @@ rather than used:
   line naming Debian's own `libqt6*` packages, which is precisely wrong here —
   the bundle must not resolve Qt from the system. The dependency list is
   instead derived by scanning only for libraries the bundle does *not* carry
-  (see `scan-deps.sh`).
+  (see `audit-bundle.py`).
 - `dh_strip`, `dh_dwz` and `dh_strip_nondeterminism` all want to rewrite the
   shipped binaries. Rewriting PyInstaller's bundled `.so` files invalidates
   the bundle's own integrity assumptions for no gain.
@@ -67,6 +67,30 @@ That is what `build-deb.sh` does, in about a hundred readable lines, with no
 `debian/rules` and no build-system indirection between the input and the
 output. The result is the same binary package format either way — `debhelper`
 is a convenience for source packages, not a requirement of the format.
+
+## `audit-bundle.py`
+
+The one part of this that is not simple file copying. It walks every ELF
+object in the staged tree and refuses to let the build continue unless three
+claims hold, each of which would otherwise be a fact somebody remembered:
+
+- **The `Depends` line is complete.** Every `DT_NEEDED` soname the bundle
+  does not carry itself is either mapped to a package named in `Depends`, or
+  listed as a deliberate exclusion with a reason. A soname in neither table
+  fails the build — nothing gets to be silently missing.
+- **`libc6 (>= 2.35)` is measured.** The highest `GLIBC_x.y` symbol version
+  referenced anywhere in the bundle is compared against that floor. Building
+  on a newer runner than `ubuntu-22.04` fails here rather than shipping a
+  package that will not start on the distributions the release notes
+  promise.
+- **`debian/copyright` covers everything shipped.** Each bundled shared
+  object is glob-matched against the copyright's own `Files:` stanzas. If
+  PyInstaller starts bundling a library nobody accounted for, the build stops
+  until it is licensed properly.
+
+It also writes `/usr/share/doc/saat/bundled-libraries.txt` — every shared
+object shipped, with its SONAME — from the actual package contents, so what
+is claimed and what is inside cannot drift.
 
 ## Layout
 

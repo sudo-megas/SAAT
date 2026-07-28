@@ -1,0 +1,32 @@
+#!/bin/sh
+# Refreshes the two desktop caches so the launcher entry and its icon
+# appear without a session restart.
+#
+# Both tools are guarded rather than depended on: neither is guaranteed
+# present (a minimal or non-GTK desktop may have neither), and their
+# absence only means the entry shows up a login later rather than
+# immediately -- not a reason to pull desktop-file-utils and
+# libgtk-3-bin onto every install.
+#
+# This script does not touch anything under $HOME, and there is no
+# circumstance under which it should start to. See postrm.
+set -e
+
+case "$1" in
+    configure)
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database -q /usr/share/applications || true
+        fi
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

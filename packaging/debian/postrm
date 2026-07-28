@@ -1,0 +1,54 @@
+#!/bin/sh
+# Reverses postinst: the launcher entry and icon are gone by now, so the
+# two desktop caches are refreshed again to drop them.
+#
+# ==========================================================================
+# THIS SCRIPT MUST NEVER REMOVE ~/.local/share/saat OR ~/.config/saat.
+#
+# Not on remove, and not on purge. A user's collection -- every watch they
+# have entered by hand, their photographs, their wear history -- lives
+# there. Uninstalling an application is not consent to delete the data it
+# was used to create, and `apt purge` is routinely typed by people who
+# only mean "remove it properly".
+#
+# This is not a judgement call that could be revisited later. It mirrors
+# the promise uninstall.sh has always made, it is stated in the package
+# description, in the manual page and in the release notes, and it is
+# asserted automatically on every CI run: the release workflow plants a
+# file under a fake ~/.local/share/saat, purges this package, and fails
+# the build if the file is missing afterwards.
+#
+# There is nothing under $HOME for this script to clean up in any case.
+# The package owns no file there and never creates one -- purge has
+# nothing to purge.
+# ==========================================================================
+#
+# One deliberate divergence from uninstall.sh, which removes the XDG
+# autostart entry a user may have enabled from the tray menu: this script
+# does not, and must not. Debian policy forbids maintainer scripts from
+# touching files under /home -- they run as root, dpkg gives them no
+# reliable notion of "the user", and SUDO_USER is absent under most of
+# the ways apt is actually invoked. A leftover
+# ~/.config/autostart/saat.desktop names a binary that is gone and is
+# inert; reinstalling makes it live again, which is the honest reading of
+# "is the entry there".
+set -e
+
+case "$1" in
+    remove|purge)
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database -q /usr/share/applications || true
+        fi
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+        fi
+        ;;
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

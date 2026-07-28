@@ -1,0 +1,21 @@
+#!/bin/sh
+# Runs while the package's files are still on disk. There is nothing to
+# undo here: the desktop caches are refreshed in postrm, once the entry
+# and icon this package installed are actually gone -- refreshing now
+# would just re-read the files that are about to be removed.
+#
+# Deliberately empty of anything that touches user data. A collection
+# lives in ~/.local/share/saat and ~/.config/saat, this package has never
+# written a byte there, and removing it must not either.
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure|failed-upgrade)
+        ;;
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
