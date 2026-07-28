@@ -51,12 +51,12 @@ build requirement.
 .venv/bin/pyside6-lrelease saat/resources/i18n/saat_tr.ts -qm saat/resources/i18n/saat_tr.qm
 ```
 
-Run this before `pyinstaller SAAT.spec` (step 5 below) every time — the
-`.spec`'s `datas` entry copies whatever's already in `saat/resources/i18n/`
-at build time, so a stale or missing `.qm` ships silently otherwise
-(SAAT falls back to English, which "looks almost right" rather than
-failing loudly). Qt's own dialog-chrome strings (`QMessageBox`/
-`QFileDialog`/`QDialogButtonBox` button labels) come from a *second*,
+Run this before `pyinstaller SAAT.spec` every time — locally for development, and in the
+same order in `.github/workflows/release.yml`'s build job for an actual release — since
+the `.spec`'s `datas` entry copies whatever's already in `saat/resources/i18n/` at build
+time, so a stale or missing `.qm` ships silently otherwise (SAAT falls back to English,
+which "looks almost right" rather than failing loudly). Qt's own dialog-chrome strings
+(`QMessageBox`/`QFileDialog`/`QDialogButtonBox` button labels) come from a *second*,
 separate translation file, `qtbase_tr.qm`, which ships inside the PySide6
 wheel itself, not this repo — nothing to regenerate here, and PyInstaller's
 PySide6 hook bundles it into the frozen build automatically (`QtCore` is
@@ -114,40 +114,52 @@ values themselves need adjusting, not the test.
 
 ## Release checklist
 
-Standing procedure for every milestone, once its feature work and tests are green.
-Later milestones can just say "follow the release checklist."
+Standing procedure for every milestone, once its feature work and tests are green. Later
+milestones can just say "follow the release checklist."
 
-1. Bump `__version__` in `saat/__init__.py` and add the matching `## [x.y.z]` entry to
-   `CHANGELOG.md`, in the same commit. Run `tests/test_version.py` to confirm they
-   match (see Release discipline above).
-2. Commit, following the repository's existing message convention (see recent
-   `git log` for tone and structure).
-3. Push to master.
-4. Tag and push the tag:
+The build, smoke test, and the GitHub release itself are handled by
+`.github/workflows/release.yml`, triggered by pushing a tag — there is no manual
+`pyinstaller`/`tar`/`gh release create` step in an actual release anymore. This checklist
+is about landing the right source commit and tagging it; CI does the rest.
+
+1. Write the release notes to `docs/release-notes/x.y.z.md` — user-facing changes only,
+   not implementation detail. Must include: what changed, the download-and-extract
+   instructions, the compatibility statement (PySide6's manylinux wheel needs glibc 2.35+;
+   building on `ubuntu-22.04` gives that floor, so the binary runs on anything with glibc
+   2.35 or newer — in practice Ubuntu 22.04+, Debian 12+, Fedora 36+, Mint 21+, and current
+   Arch), and a line stating data lives beside the executable.
+2. Bump `__version__` in `saat/__init__.py` and add the matching `## [x.y.z]` entry to
+   `CHANGELOG.md`, in the same commit as the release notes file above. Run
+   `tests/test_version.py` to confirm `__version__` and the CHANGELOG heading agree (see
+   Release discipline above).
+3. Commit, following the repository's existing message convention (see recent `git log`
+   for tone and structure).
+4. Push to master.
+5. Tag and push the tag:
    ```
    git tag -a vX.Y.Z -m "SAAT vX.Y.Z - <one-line summary>"
    git push origin vX.Y.Z
    ```
-5. Compile `saat_tr.qm` first (see Localisation above) — `pyinstaller`
-   bundles whatever's already on disk, silently, so a stale translation
-   ships if this is skipped. Then build the portable tarball:
+6. Watch the Release workflow run in the Actions tab: it re-runs the full test suite as a
+   gate, checks the tag matches `__version__`, compiles the Turkish translation, builds
+   the portable tarball on `ubuntu-22.04` (see the workflow file's own comment for why
+   that runner specifically), smoke-tests the built binary headless, and — only once
+   every prior step has succeeded — publishes the GitHub release using the notes file
+   from step 1. If a step fails, fix it on master and replace the tag rather than
+   reusing it:
    ```
-   .venv/bin/pyside6-lrelease saat/resources/i18n/saat_tr.ts -qm saat/resources/i18n/saat_tr.qm
-   .venv/bin/pyinstaller SAAT.spec
-   cd dist && tar -czf SAAT-vX.Y.Z-linux-x86_64.tar.gz SAAT && cd ..
+   git push --delete origin vX.Y.Z && git tag -d vX.Y.Z
    ```
-   Then verify it: extract the tarball to a fresh path under `/tmp`, run the binary
-   from there, and confirm the window title reads the new version. Do not skip this
-   — it is the only check that the shipped artifact matches the tagged source.
-6. Write release notes to a temporary file — user-facing changes only, not
-   implementation detail — then:
-   ```
-   gh release create vX.Y.Z \
-     --title "SAAT vX.Y.Z - <one-line summary>" \
-     --notes-file <that file> \
-     dist/SAAT-vX.Y.Z-linux-x86_64.tar.gz
-   ```
-   Notes must include: what changed, the download-and-extract instruction, the
-   standing caveat that the build is produced on Arch and may not run on older
-   distributions, and a line stating data lives beside the executable.
+   then repeat step 5 — re-pushing an unchanged tag just rebuilds the same broken commit.
 7. Report back: the commit SHA(s), the tag, and the release URL.
+
+## Local builds (development only)
+
+`.venv/bin/pyinstaller SAAT.spec` (see README's "Build a portable version") still works
+locally and is useful for testing a `SAAT.spec` change or a new bundled resource before
+tagging — a free local iteration instead of spending a tag/wait-for-CI/delete-tag cycle on
+what's really a spec-content problem. It is development tooling only now: an actual
+release is never built or published by hand anymore — `git tag` + `git push` is the
+entire release action on the source side, and `.github/workflows/release.yml` is the only
+path to a published release, gated on the full test suite and a headless smoke test that
+neither a by-hand build nor the old checklist ever enforced.

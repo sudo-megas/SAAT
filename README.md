@@ -26,6 +26,12 @@ into it, sets `QT_QPA_PLATFORM=wayland`, and launches the app. Your data —
 
 ## Build a portable version
 
+Official releases are built by CI, not by hand — see the
+[Releases page](https://github.com/sudo-megas/SAAT/releases) for a ready-to-run tarball
+covering Ubuntu 22.04+, Debian 12+, Fedora 36+, Mint 21+, and current Arch. The steps
+below are for building it yourself: local development, testing a packaging change, or
+running on something the published build doesn't cover.
+
 The portable build is a self-contained folder you can copy anywhere — it carries its
 own Qt and Python runtime and needs nothing installed on the target machine.
 

@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.8.2] - 2026-07-28
+
+### Changed
+
+- Releases are now built and published by GitHub Actions on Ubuntu 22.04 instead of by
+  hand on the maintainer's Arch machine, removing the "produced on Arch, may not run on
+  older distributions" caveat every prior release carried. A binary built against Ubuntu
+  22.04's glibc 2.35 runs on anything with glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+,
+  Fedora 36+, Mint 21+, current Arch), since glibc is forward- but not
+  backward-compatible — the reverse was never true and is why hand-built releases carried
+  the caveat. No application behavior changes in this release.
+
 ## [1.8.0] - 2026-07-28
 
 ### Added
