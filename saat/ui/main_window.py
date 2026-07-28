@@ -21,6 +21,8 @@ from saat.selection import MODE_WEIGHTED
 from saat.sellers import Seller, load_sellers
 from saat.sellers import sellers_path as default_sellers_path
 from saat.storage import WatchRecord, create_watch, delete_watch, load_collection, save_watch
+from saat.ui.bottom_bar import BottomBar
+from saat.ui.collection_summary import CollectionSummary, WishlistSummary
 from saat.ui.collection_view import CollectionView
 from saat.ui.compare_view import CompareView
 from saat.ui.detail_view import DetailView
@@ -65,6 +67,9 @@ class MainWindow(QMainWindow):
 
         self._stack = QStackedWidget()
         self.setCentralWidget(self._stack)
+        self._bottom_bar = BottomBar()
+        self._bottom_bar.palette_selected.connect(self._on_palette_selected)
+        self.setStatusBar(self._bottom_bar)
         self._collection_view: CollectionView | None = None
         self._detail_view: DetailView | None = None
         self._compare_view: CompareView | None = None
@@ -76,6 +81,12 @@ class MainWindow(QMainWindow):
         # rather than adding a parallel rebuild mechanism to either class.
         self._last_detail_record: WatchRecord | None = None
         self._last_compare_records: list[WatchRecord] | None = None
+        # BottomBar's summary text is CollectionView-specific (SPEC.md §6)
+        # -- blanked while Detail/Compare is on screen (_show_detail/
+        # _show_compare) and restored from here on the way back
+        # (_show_collection), rather than left showing a stale figure from
+        # whatever was last visible in the collection view.
+        self._last_summary: CollectionSummary | WishlistSummary | None = None
         self._retranslate_pending = False
 
         # Capability detection before any UI (SPEC.md milestone 18 §5):
@@ -214,6 +225,8 @@ class MainWindow(QMainWindow):
         self._collection_view = None
         self._detail_view = None
         self._compare_view = None
+        self._last_summary = None
+        self._bottom_bar.set_summary(None)
 
         records = load_collection(self._watches_dir)
         if records:
@@ -222,7 +235,7 @@ class MainWindow(QMainWindow):
             self._collection_view.add_watch_requested.connect(self._show_add_form)
             self._collection_view.assign_worn_requested.connect(self._on_assign_worn)
             self._collection_view.clear_worn_requested.connect(self._on_clear_worn)
-            self._collection_view.theme_toggle_requested.connect(self._on_theme_toggle)
+            self._collection_view.summary_changed.connect(self._on_summary_changed)
             self._collection_view.wore_today_requested.connect(self._on_wore_today)
             self._collection_view.compare_requested.connect(self._show_compare)
             self._collection_view.export_requested.connect(self._export_pdf)
@@ -230,6 +243,13 @@ class MainWindow(QMainWindow):
             self._collection_view.language_selected.connect(self._on_language_selected)
             self._stack.addWidget(self._collection_view)
             self._stack.setCurrentWidget(self._collection_view)
+            # summary_changed already fired once, from _recompute() during
+            # CollectionView's own __init__ above -- before the connect()
+            # just above could have caught it. Primed the same way
+            # _top_bar.set_view()/set_scope() are primed after CollectionView
+            # finishes wiring its own top bar (collection_view.py), rather
+            # than adding a second, redundant emit inside __init__ itself.
+            self._on_summary_changed(self._collection_view.current_summary)
         else:
             empty_state = EmptyStateView(self._watches_dir, self)
             empty_state.add_watch_requested.connect(self._show_add_form)
@@ -240,6 +260,7 @@ class MainWindow(QMainWindow):
 
     def _show_detail(self, record: WatchRecord) -> None:
         self._last_detail_record = record
+        self._bottom_bar.set_summary(None)
 
         def _apply() -> None:
             if self._detail_view is not None:
@@ -261,9 +282,11 @@ class MainWindow(QMainWindow):
     def _show_collection(self) -> None:
         if self._collection_view is not None:
             motion.fade_transition(self._stack, lambda: self._stack.setCurrentWidget(self._collection_view))
+            self._bottom_bar.set_summary(self._last_summary)
 
     def _show_compare(self, records: list[WatchRecord]) -> None:
         self._last_compare_records = records
+        self._bottom_bar.set_summary(None)
 
         def _apply() -> None:
             if self._compare_view is not None:
@@ -365,15 +388,24 @@ class MainWindow(QMainWindow):
             QApplication.restoreOverrideCursor()
             self._collection_view.set_export_enabled(True)
 
-    def _on_theme_toggle(self) -> None:
-        # Interim shim (Milestone 21b-b): the sun/moon toggle is retired in
-        # 21b-e in favor of the bottom bar's ten-way palette picker. Until
-        # then it stays a binary flip, just against palette ids instead of
-        # mode strings, so the tree stays green commit-by-commit.
-        new_id = "default-light" if theme.active_palette().is_dark else "default-dark"
-        theme.apply_theme(QApplication.instance(), new_id)
-        self._config.set_palette_id(new_id)
+    def _on_palette_selected(self, palette_id: str) -> None:
+        theme.apply_theme(QApplication.instance(), palette_id)
+        self._config.set_palette_id(palette_id)
         self._config.save()
+
+    def _on_summary_changed(self, summary: CollectionSummary | WishlistSummary) -> None:
+        # _last_summary always tracks the latest figure, even while a
+        # different page is showing (e.g. a worn-date edit made from
+        # DetailView still runs CollectionView.set_records() underneath,
+        # via _apply_worn_update() below) -- but the bar's own visible text
+        # only follows it while CollectionView is actually the current
+        # page, so a background recompute can't silently repopulate the
+        # bar out from under Detail/Compare (both of which explicitly
+        # blank it going in) before _show_collection() explicitly restores
+        # it on the way back.
+        self._last_summary = summary
+        if self._stack.currentWidget() is self._collection_view:
+            self._bottom_bar.set_summary(summary)
 
     def _manage_sellers(self) -> list[Seller]:
         """Passed into WatchForm as a callback so it can open the dialog

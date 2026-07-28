@@ -196,6 +196,19 @@ QWidget[class="top-bar"] {
     border-bottom: 1px solid @rule@;
 }
 
+QWidget[class="bottom-bar"] {
+    background: @plate-high@;
+    border-top: 1px solid @rule@;
+}
+
+/* BottomBar is the app's only QStatusBar -- the unscoped type selector
+   below is exactly as narrow as a class-scoped one would be here, and is
+   the documented, canonical way to target this specific subcontrol
+   (::item resolves against the widget type, not an attribute selector). */
+QStatusBar::item {
+    border: none;
+}
+
 QWidget[class="sidebar"] {
     background: @plate-high@;
     border-right: 1px solid @rule@;

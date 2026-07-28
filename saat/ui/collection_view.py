@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 from saat.config import Config
 from saat.storage import WatchRecord
 from saat.ui.calendar_view import CalendarView
+from saat.ui.collection_summary import CollectionSummary, WishlistSummary, compute_collection_summary, compute_wishlist_summary
 from saat.ui.columns import COLUMN_PRESETS, DEFAULT_COLUMN_KEYS, DEFAULT_WISHLIST_COLUMN_KEYS, sort_key
 from saat.ui.compare import MAX_COMPARE
 from saat.ui.facets import VALUE_FACETS, is_not_worn_90d
@@ -31,7 +32,7 @@ class CollectionView(QWidget):
 
     record_activated = Signal(object)
     add_watch_requested = Signal()
-    theme_toggle_requested = Signal()
+    summary_changed = Signal(object)  # CollectionSummary | WishlistSummary
     wore_today_requested = Signal(object)  # WatchRecord
     compare_requested = Signal(list)  # list[WatchRecord]
     assign_worn_requested = Signal(list, object)  # list[date], WatchRecord
@@ -93,7 +94,6 @@ class CollectionView(QWidget):
         self._grid_view.compare_toggled.connect(self._on_compare_toggled)
         self._table_view.selection_changed.connect(self._on_table_selection_changed)
         self._top_bar.add_watch_requested.connect(self.add_watch_requested.emit)
-        self._top_bar.theme_toggle_requested.connect(self.theme_toggle_requested.emit)
         self._top_bar.export_requested.connect(self.export_requested.emit)
         self._top_bar.pick_requested.connect(self.pick_requested.emit)
         self._calendar_view.assign_requested.connect(self.assign_worn_requested.emit)
@@ -124,6 +124,22 @@ class CollectionView(QWidget):
         returns. A copy, so a caller can't mutate _ordered_records out
         from under the next _recompute()."""
         return list(self._ordered_records)
+
+    @property
+    def current_summary(self) -> CollectionSummary | WishlistSummary:
+        """SPEC.md §6: the bottom bar's live summary -- the current scope
+        AND the current filter/search state (_ordered_records), unlike the
+        sidebar's own whole-scope footer (§5.10), which only updates on a
+        scope change, not on every filter tweak. Deliberately two different
+        numbers on screen at once: "your collection" beside "what you're
+        looking at right now." A plain computed property, not a cached
+        field -- MainWindow reads this once to prime BottomBar right after
+        wiring summary_changed, since _recompute() (and its first emit)
+        already ran once during __init__, before any external connect()
+        could have caught it."""
+        if self._scope == SCOPE_WISHLIST:
+            return compute_wishlist_summary(self._ordered_records)
+        return compute_collection_summary(self._ordered_records)
 
     def current_scope(self) -> str:
         """SPEC.md §5.12: MainWindow reads this to default a newly-added
@@ -200,6 +216,7 @@ class CollectionView(QWidget):
         self._grid_view.set_records(self._ordered_records, frozenset(self._compare_selection))
         self._table_view.set_records(self._ordered_records)
         self._table_view.set_selected_slugs(self._compare_selection)
+        self.summary_changed.emit(self.current_summary)
 
         self._sidebar.update_counts(*self._compute_counts(valid, state))
 

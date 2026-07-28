@@ -93,6 +93,31 @@ class MainWindowEntryPointTests(UITestCase):
         window._detail_view.back_requested.emit()
         self.assertIs(window.centralWidget().currentWidget(), collection_view)
 
+    def test_a_recompute_while_detail_view_is_showing_does_not_repopulate_the_bottom_bar(self) -> None:
+        """Milestone 21b-e: _apply_worn_update() (main_window.py) calls
+        CollectionView.set_records() -- which always re-emits
+        summary_changed via _recompute() -- for every wear edit, including
+        ones made from DetailView, which stays on screen the whole time
+        unless the edited record itself needs re-showing. Caught directly:
+        without the _stack.currentWidget() guard in _on_summary_changed(),
+        this call alone was enough to repopulate the bottom bar's text
+        while DetailView was still the visible page, even though
+        _show_detail() had already blanked it."""
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+
+        window = MainWindow(self.watches_dir, self.backups_dir, self._config())
+        collection_view = window.centralWidget().currentWidget()
+        [record] = collection_view._records
+
+        collection_view.record_activated.emit(record)
+        self.assertIsInstance(window.centralWidget().currentWidget(), DetailView)
+        self.assertEqual(window._bottom_bar._summary_label.text(), "")
+
+        window._collection_view.set_records(load_collection(self.watches_dir))
+
+        self.assertIsInstance(window.centralWidget().currentWidget(), DetailView)
+        self.assertEqual(window._bottom_bar._summary_label.text(), "")
+
 
 class CollectionViewBehaviorTests(UITestCase):
     def setUp(self) -> None:

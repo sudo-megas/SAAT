@@ -10,6 +10,29 @@
     </message>
 </context>
 <context>
+    <name>BottomBar</name>
+    <message>
+        <location filename="../../ui/bottom_bar.py" line="54"/>
+        <source>1 watch</source>
+        <translation>1 saat</translation>
+    </message>
+    <message>
+        <location filename="../../ui/bottom_bar.py" line="54"/>
+        <source>{count} watches</source>
+        <translation>{count} saat</translation>
+    </message>
+    <message>
+        <location filename="../../ui/bottom_bar.py" line="69"/>
+        <source>Due within 12mo: </source>
+        <translation>12 ay içinde: </translation>
+    </message>
+    <message>
+        <location filename="../../ui/bottom_bar.py" line="73"/>
+        <source>Due within 12mo: 0</source>
+        <translation>12 ay içinde: 0</translation>
+    </message>
+</context>
+<context>
     <name>CalendarStats</name>
     <message>
         <location filename="../../ui/calendar_stats.py" line="30"/>
@@ -132,7 +155,7 @@
     </message>
     <message>
         <location filename="../../ui/columns.py" line="32"/>
-        <location filename="../../ui/columns.py" line="125"/>
+        <location filename="../../ui/columns.py" line="137"/>
         <source>Movement</source>
         <translation>Mekanizma</translation>
     </message>
@@ -157,238 +180,248 @@
         <translation>Edinim</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="113"/>
+        <location filename="../../ui/columns.py" line="123"/>
+        <source>Photo</source>
+        <translation>Görsel</translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="124"/>
+        <source>Watch</source>
+        <translation>Saat</translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="125"/>
         <source>Brand</source>
         <translation>Marka</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="114"/>
+        <location filename="../../ui/columns.py" line="126"/>
         <source>Model</source>
         <translation>Model</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="115"/>
+        <location filename="../../ui/columns.py" line="127"/>
         <source>Reference</source>
         <translation>Referans</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="116"/>
+        <location filename="../../ui/columns.py" line="128"/>
         <source>Nickname</source>
         <translation>Takma Ad</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="117"/>
+        <location filename="../../ui/columns.py" line="129"/>
         <source>Group</source>
         <translation>Grup</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="118"/>
+        <location filename="../../ui/columns.py" line="130"/>
         <source>Style</source>
         <translation>Stil</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="119"/>
+        <location filename="../../ui/columns.py" line="131"/>
         <source>Status</source>
         <translation>Durum</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="120"/>
+        <location filename="../../ui/columns.py" line="132"/>
         <source>Storage</source>
         <translation>Saklama</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="121"/>
+        <location filename="../../ui/columns.py" line="133"/>
         <source>Rating</source>
         <translation>Puan</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="122"/>
+        <location filename="../../ui/columns.py" line="134"/>
         <source>Tags</source>
         <translation>Etiketler</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="124"/>
+        <location filename="../../ui/columns.py" line="136"/>
         <source>Caliber</source>
         <translation>Kalibre</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="126"/>
+        <location filename="../../ui/columns.py" line="138"/>
         <source>Power Reserve</source>
         <translation>Güç Rezervi</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="127"/>
+        <location filename="../../ui/columns.py" line="139"/>
         <source>Battery Life</source>
         <translation>Pil Ömrü</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="128"/>
+        <location filename="../../ui/columns.py" line="140"/>
         <source>Accuracy</source>
         <translation>Hassasiyet</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="129"/>
+        <location filename="../../ui/columns.py" line="141"/>
         <source>Jewels</source>
         <translation>Taş</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="130"/>
+        <location filename="../../ui/columns.py" line="142"/>
         <source>Frequency</source>
         <translation>Frekans</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="131"/>
+        <location filename="../../ui/columns.py" line="143"/>
         <source>Hacking</source>
         <translation>Saniye Durdurma</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="132"/>
+        <location filename="../../ui/columns.py" line="144"/>
         <source>Handwinding</source>
         <translation>Elle Kurma</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="133"/>
+        <location filename="../../ui/columns.py" line="145"/>
         <source>Origin</source>
         <translation>Menşei</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="135"/>
+        <location filename="../../ui/columns.py" line="147"/>
         <source>Diameter</source>
         <translation>Çap</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="136"/>
+        <location filename="../../ui/columns.py" line="148"/>
         <source>Lug-to-Lug</source>
         <translation>Kulak Arası</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="137"/>
+        <location filename="../../ui/columns.py" line="149"/>
         <source>Thickness</source>
         <translation>Kalınlık</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="138"/>
+        <location filename="../../ui/columns.py" line="150"/>
         <source>Lug Width</source>
         <translation>Kulak Genişliği</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="139"/>
-        <location filename="../../ui/columns.py" line="148"/>
+        <location filename="../../ui/columns.py" line="151"/>
+        <location filename="../../ui/columns.py" line="160"/>
         <source>Material</source>
         <translation>Malzeme</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="140"/>
+        <location filename="../../ui/columns.py" line="152"/>
         <source>Crystal</source>
         <translation>Cam</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="141"/>
+        <location filename="../../ui/columns.py" line="153"/>
         <source>Crown</source>
         <translation>Kurma Kolu</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="142"/>
+        <location filename="../../ui/columns.py" line="154"/>
         <source>Bezel</source>
         <translation>Çevre Halkası</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="143"/>
+        <location filename="../../ui/columns.py" line="155"/>
         <source>Caseback</source>
         <translation>Kasa Arkası</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="144"/>
+        <location filename="../../ui/columns.py" line="156"/>
         <source>Water Resistance</source>
         <translation>Su Direnci</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="145"/>
+        <location filename="../../ui/columns.py" line="157"/>
         <source>Weight</source>
         <translation>Ağırlık</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="147"/>
+        <location filename="../../ui/columns.py" line="159"/>
         <source>Colour</source>
         <translation>Renk</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="149"/>
+        <location filename="../../ui/columns.py" line="161"/>
         <source>Indices</source>
         <translation>İndeksler</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="150"/>
+        <location filename="../../ui/columns.py" line="162"/>
         <source>Lume</source>
         <translation>Lüme</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="151"/>
+        <location filename="../../ui/columns.py" line="163"/>
         <source>Complications</source>
         <translation>Komplikasyonlar</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="153"/>
+        <location filename="../../ui/columns.py" line="165"/>
         <source>Strap Material</source>
         <translation>Kayış Malzemesi</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="154"/>
+        <location filename="../../ui/columns.py" line="166"/>
         <source>Strap Colour</source>
         <translation>Kayış Rengi</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="155"/>
+        <location filename="../../ui/columns.py" line="167"/>
         <source>Strap Width</source>
         <translation>Kayış Genişliği</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="156"/>
+        <location filename="../../ui/columns.py" line="168"/>
         <source>Clasp</source>
         <translation>Toka</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="158"/>
+        <location filename="../../ui/columns.py" line="170"/>
         <source>Acquired</source>
         <translation>Edinim Tarihi</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="159"/>
+        <location filename="../../ui/columns.py" line="171"/>
         <source>Price</source>
         <translation>Fiyat</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="160"/>
+        <location filename="../../ui/columns.py" line="172"/>
         <source>Target Price</source>
         <translation>Hedef Fiyat</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="161"/>
+        <location filename="../../ui/columns.py" line="173"/>
         <source>Target Date</source>
         <translation>Hedef Tarih</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="162"/>
+        <location filename="../../ui/columns.py" line="174"/>
         <source>Seller</source>
         <translation>Satıcı</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="163"/>
+        <location filename="../../ui/columns.py" line="175"/>
         <source>Condition</source>
         <translation>Kondisyon</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="164"/>
+        <location filename="../../ui/columns.py" line="176"/>
         <source>Box &amp; Papers</source>
         <translation>Kutu ve Belgeler</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="165"/>
+        <location filename="../../ui/columns.py" line="177"/>
         <source>Warranty Until</source>
         <translation>Garanti Bitiş</translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="170"/>
+        <location filename="../../ui/columns.py" line="182"/>
         <source>Least Worn</source>
         <translation>En Az Giyilen</translation>
     </message>
@@ -1405,37 +1438,37 @@ Başlamak için ilkini ekleyin.</translation>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="341"/>
+        <location filename="../../ui/main_window.py" line="364"/>
         <source>There is nothing to export in the current view.</source>
         <translation>Geçerli görünümde dışa aktarılacak bir şey yok.</translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="348"/>
+        <location filename="../../ui/main_window.py" line="371"/>
         <source>SAAT Wishlist</source>
         <translation>SAAT İstek Listesi</translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="348"/>
+        <location filename="../../ui/main_window.py" line="371"/>
         <source>SAAT Collection</source>
         <translation>SAAT Koleksiyonu</translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="354"/>
+        <location filename="../../ui/main_window.py" line="377"/>
         <source>Export to PDF</source>
         <translation>PDF&apos;e Aktar</translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="354"/>
+        <location filename="../../ui/main_window.py" line="377"/>
         <source>PDF files (*.pdf)</source>
         <translation>PDF dosyaları (*.pdf)</translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="363"/>
+        <location filename="../../ui/main_window.py" line="386"/>
         <source>Could not export the PDF: {error}</source>
         <translation>PDF dışa aktarılamadı: {error}</translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="532"/>
+        <location filename="../../ui/main_window.py" line="558"/>
         <source>Could not update the autostart entry: {error}</source>
         <translation>Otomatik başlatma girdisi güncellenemedi: {error}</translation>
     </message>
@@ -1451,6 +1484,19 @@ Başlamak için ilkini ekleyin.</translation>
         <location filename="../../ui/maintenance.py" line="56"/>
         <source>Service due {date}</source>
         <translation>Bakım {date} tarihinde gerekiyor</translation>
+    </message>
+</context>
+<context>
+    <name>Palettes</name>
+    <message>
+        <location filename="../../ui/theme.py" line="54"/>
+        <source>Default Light</source>
+        <translation>Varsayılan Açık</translation>
+    </message>
+    <message>
+        <location filename="../../ui/theme.py" line="55"/>
+        <source>Default Dark</source>
+        <translation>Varsayılan Koyu</translation>
     </message>
 </context>
 <context>
@@ -1816,7 +1862,7 @@ Başlamak için ilkini ekleyin.</translation>
 <context>
     <name>TableView</name>
     <message>
-        <location filename="../../ui/table_view.py" line="117"/>
+        <location filename="../../ui/table_view.py" line="339"/>
         <source>⚠ Couldn&apos;t load {slug}</source>
         <translation>⚠ {slug} yüklenemedi</translation>
     </message>
@@ -1880,82 +1926,82 @@ Başlamak için ilkini ekleyin.</translation>
 <context>
     <name>TopBar</name>
     <message>
-        <location filename="../../ui/top_bar.py" line="100"/>
-        <location filename="../../ui/top_bar.py" line="339"/>
+        <location filename="../../ui/top_bar.py" line="43"/>
+        <location filename="../../ui/top_bar.py" line="278"/>
         <source>Collection</source>
         <translation>Koleksiyon</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="103"/>
-        <location filename="../../ui/top_bar.py" line="340"/>
+        <location filename="../../ui/top_bar.py" line="46"/>
+        <location filename="../../ui/top_bar.py" line="279"/>
         <source>Wishlist</source>
         <translation>İstek Listesi</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="110"/>
-        <location filename="../../ui/top_bar.py" line="341"/>
+        <location filename="../../ui/top_bar.py" line="53"/>
+        <location filename="../../ui/top_bar.py" line="280"/>
         <source>Search brand, model, reference, caliber, tags…</source>
         <translation>Marka, model, referans, kalibre, etiket ara…</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="117"/>
-        <location filename="../../ui/top_bar.py" line="342"/>
+        <location filename="../../ui/top_bar.py" line="60"/>
+        <location filename="../../ui/top_bar.py" line="281"/>
         <source>Grid</source>
         <translation>Izgara</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="120"/>
-        <location filename="../../ui/top_bar.py" line="343"/>
+        <location filename="../../ui/top_bar.py" line="63"/>
+        <location filename="../../ui/top_bar.py" line="282"/>
         <source>Table</source>
         <translation>Tablo</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="123"/>
-        <location filename="../../ui/top_bar.py" line="344"/>
+        <location filename="../../ui/top_bar.py" line="66"/>
+        <location filename="../../ui/top_bar.py" line="283"/>
         <source>Calendar</source>
         <translation>Takvim</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="137"/>
-        <location filename="../../ui/top_bar.py" line="279"/>
+        <location filename="../../ui/top_bar.py" line="80"/>
+        <location filename="../../ui/top_bar.py" line="218"/>
         <source>Sort ascending</source>
         <translation>Artan sırala</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="331"/>
+        <location filename="../../ui/top_bar.py" line="270"/>
         <source>Default</source>
         <translation>Varsayılan</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="156"/>
-        <location filename="../../ui/top_bar.py" line="348"/>
+        <location filename="../../ui/top_bar.py" line="99"/>
+        <location filename="../../ui/top_bar.py" line="287"/>
         <source>Add watch</source>
         <translation>Saat ekle</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="168"/>
-        <location filename="../../ui/top_bar.py" line="350"/>
+        <location filename="../../ui/top_bar.py" line="111"/>
+        <location filename="../../ui/top_bar.py" line="289"/>
         <source>Export to PDF (Ctrl+P)</source>
         <translation>PDF&apos;e Aktar (Ctrl+P)</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="173"/>
-        <location filename="../../ui/top_bar.py" line="351"/>
+        <location filename="../../ui/top_bar.py" line="116"/>
+        <location filename="../../ui/top_bar.py" line="290"/>
         <source>Pick a watch for today</source>
         <translation>Bugün için bir saat seç</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="227"/>
+        <location filename="../../ui/top_bar.py" line="166"/>
         <source>Compare ({count})</source>
         <translation>Karşılaştır ({count})</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="279"/>
+        <location filename="../../ui/top_bar.py" line="218"/>
         <source>Sort descending</source>
         <translation>Azalan sırala</translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="320"/>
+        <location filename="../../ui/top_bar.py" line="259"/>
         <source>Sort: {label}</source>
         <translation>Sırala: {label}</translation>
     </message>
@@ -2023,22 +2069,22 @@ Başlamak için ilkini ekleyin.</translation>
 <context>
     <name>WatchCard</name>
     <message>
-        <location filename="../../ui/cards.py" line="314"/>
+        <location filename="../../ui/cards.py" line="394"/>
         <source>{value:g} mm lugs</source>
         <translation>{value:g} mm kulak</translation>
     </message>
     <message>
-        <location filename="../../ui/cards.py" line="333"/>
+        <location filename="../../ui/cards.py" line="358"/>
         <source>Compare</source>
         <translation>Karşılaştır</translation>
     </message>
     <message>
-        <location filename="../../ui/cards.py" line="343"/>
+        <location filename="../../ui/cards.py" line="368"/>
         <source>Wore this today</source>
         <translation>Bugün taktım</translation>
     </message>
     <message>
-        <location filename="../../ui/cards.py" line="400"/>
+        <location filename="../../ui/cards.py" line="487"/>
         <source>⚠ Couldn&apos;t load {slug}</source>
         <translation>⚠ {slug} yüklenemedi</translation>
     </message>

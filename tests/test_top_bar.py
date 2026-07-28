@@ -27,7 +27,7 @@ def _row_widgets(top_bar: TopBar, row: str) -> list:
     else:
         widgets = [
             top_bar._sort_combo, top_bar._sort_direction_button, top_bar._preset_combo,
-            top_bar._compare_button, top_bar._pick_button, top_bar._export_button, top_bar._theme_toggle,
+            top_bar._compare_button, top_bar._pick_button, top_bar._export_button,
         ]
     return [w for w in widgets if w.isVisible()]
 

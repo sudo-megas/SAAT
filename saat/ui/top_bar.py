@@ -1,7 +1,4 @@
-import math
-
-from PySide6.QtCore import QCoreApplication, QEvent, QPointF, Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPainterPath, QPen
+from PySide6.QtCore import QCoreApplication, QEvent, Qt, Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from saat.ui import icons, theme
@@ -21,61 +18,6 @@ PRESET_DEFAULT = "Default"
 SCOPE_COLLECTION = "collection"
 SCOPE_WISHLIST = "wishlist"
 
-_TOGGLE_SIZE = 28
-
-
-class _ThemeToggle(QWidget):
-    """Sun/moon glyph, hand-drawn to match the app's line weight rather than a
-    font icon — SPEC.md §6 is explicit on that point. Shows the mode a click
-    switches *to*: a sun while a dark palette is active, a moon while a light
-    one is. Reads theme.colors()/active_palette() fresh every paint, so it's
-    always correct after a toggle or after TopBar gets rebuilt from scratch.
-    Interim shim (Milestone 21b-b): retired in 21b-e for the bottom bar's
-    ten-way palette picker."""
-
-    clicked = Signal()
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setFixedSize(_TOGGLE_SIZE, _TOGGLE_SIZE)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def mouseReleaseEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.pos()):
-            self.clicked.emit()
-        super().mouseReleaseEvent(event)
-
-    def paintEvent(self, event: QPaintEvent) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color = QColor(theme.colors().text_muted)
-        cx, cy = self.width() / 2, self.height() / 2
-
-        if theme.active_palette().is_dark:
-            r = 5.0
-            painter.setPen(QPen(color, 1.5))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawEllipse(QPointF(cx, cy), r, r)
-            for i in range(8):
-                angle = i * math.pi / 4
-                inner, outer = r + 3, r + 7
-                painter.drawLine(
-                    QPointF(cx + math.cos(angle) * inner, cy + math.sin(angle) * inner),
-                    QPointF(cx + math.cos(angle) * outer, cy + math.sin(angle) * outer),
-                )
-        else:
-            r = 7.0
-            full = QPainterPath()
-            full.addEllipse(QPointF(cx, cy), r, r)
-            bite = QPainterPath()
-            bite.addEllipse(QPointF(cx + r * 0.6, cy - r * 0.3), r, r)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(color)
-            painter.drawPath(full.subtracted(bite))
-
-        painter.end()
-
-
 class TopBar(QWidget):
     """Search, view toggle, sort, column presets, and the one primary-weight
     control in the app. See SPEC.md §5.1."""
@@ -87,7 +29,6 @@ class TopBar(QWidget):
     preset_changed = Signal(str)
     search_changed = Signal(str)
     add_watch_requested = Signal()
-    theme_toggle_requested = Signal()
     compare_requested = Signal()
     export_requested = Signal()
     pick_requested = Signal()
@@ -176,9 +117,6 @@ class TopBar(QWidget):
         icons.set_icon(self._pick_button, "pick")
         self._pick_button.clicked.connect(self.pick_requested.emit)
 
-        self._theme_toggle = _ThemeToggle()
-        self._theme_toggle.clicked.connect(self.theme_toggle_requested.emit)
-
         # Two rows, not one -- SPEC.md's "minimum 1100x700" only holds if the
         # bar actually fits it. A single row cramming scope + search + view
         # toggle + sort + presets + every action button overflowed that
@@ -213,7 +151,6 @@ class TopBar(QWidget):
         row2.addWidget(self._add_button)
         row2.addWidget(self._pick_button)
         row2.addWidget(self._export_button)
-        row2.addWidget(self._theme_toggle)
 
         outer.addLayout(row1)
         outer.addLayout(row2)

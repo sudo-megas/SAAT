@@ -10,6 +10,29 @@
     </message>
 </context>
 <context>
+    <name>BottomBar</name>
+    <message>
+        <location filename="../../ui/bottom_bar.py" line="54"/>
+        <source>1 watch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/bottom_bar.py" line="54"/>
+        <source>{count} watches</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/bottom_bar.py" line="69"/>
+        <source>Due within 12mo: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/bottom_bar.py" line="73"/>
+        <source>Due within 12mo: 0</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>CalendarStats</name>
     <message>
         <location filename="../../ui/calendar_stats.py" line="30"/>
@@ -132,7 +155,7 @@
     </message>
     <message>
         <location filename="../../ui/columns.py" line="32"/>
-        <location filename="../../ui/columns.py" line="125"/>
+        <location filename="../../ui/columns.py" line="137"/>
         <source>Movement</source>
         <translation type="unfinished"></translation>
     </message>
@@ -157,238 +180,248 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="113"/>
-        <source>Brand</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="114"/>
-        <source>Model</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="115"/>
-        <source>Reference</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="116"/>
-        <source>Nickname</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="117"/>
-        <source>Group</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="118"/>
-        <source>Style</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="119"/>
-        <source>Status</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="120"/>
-        <source>Storage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="121"/>
-        <source>Rating</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="122"/>
-        <source>Tags</source>
+        <location filename="../../ui/columns.py" line="123"/>
+        <source>Photo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="124"/>
-        <source>Caliber</source>
+        <source>Watch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="125"/>
+        <source>Brand</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="126"/>
-        <source>Power Reserve</source>
+        <source>Model</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="127"/>
-        <source>Battery Life</source>
+        <source>Reference</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="128"/>
-        <source>Accuracy</source>
+        <source>Nickname</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="129"/>
-        <source>Jewels</source>
+        <source>Group</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="130"/>
-        <source>Frequency</source>
+        <source>Style</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="131"/>
-        <source>Hacking</source>
+        <source>Status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="132"/>
-        <source>Handwinding</source>
+        <source>Storage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="133"/>
-        <source>Origin</source>
+        <source>Rating</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="135"/>
-        <source>Diameter</source>
+        <location filename="../../ui/columns.py" line="134"/>
+        <source>Tags</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="136"/>
-        <source>Lug-to-Lug</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="137"/>
-        <source>Thickness</source>
+        <source>Caliber</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="138"/>
-        <source>Lug Width</source>
+        <source>Power Reserve</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="139"/>
-        <location filename="../../ui/columns.py" line="148"/>
-        <source>Material</source>
+        <source>Battery Life</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="140"/>
-        <source>Crystal</source>
+        <source>Accuracy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="141"/>
-        <source>Crown</source>
+        <source>Jewels</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="142"/>
-        <source>Bezel</source>
+        <source>Frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="143"/>
-        <source>Caseback</source>
+        <source>Hacking</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="144"/>
-        <source>Water Resistance</source>
+        <source>Handwinding</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="145"/>
-        <source>Weight</source>
+        <source>Origin</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="147"/>
-        <source>Colour</source>
+        <source>Diameter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="148"/>
+        <source>Lug-to-Lug</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="149"/>
-        <source>Indices</source>
+        <source>Thickness</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="150"/>
-        <source>Lume</source>
+        <source>Lug Width</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="151"/>
-        <source>Complications</source>
+        <location filename="../../ui/columns.py" line="160"/>
+        <source>Material</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="152"/>
+        <source>Crystal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="153"/>
-        <source>Strap Material</source>
+        <source>Crown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="154"/>
-        <source>Strap Colour</source>
+        <source>Bezel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="155"/>
-        <source>Strap Width</source>
+        <source>Caseback</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="156"/>
-        <source>Clasp</source>
+        <source>Water Resistance</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/columns.py" line="158"/>
-        <source>Acquired</source>
+        <location filename="../../ui/columns.py" line="157"/>
+        <source>Weight</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="159"/>
-        <source>Price</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="160"/>
-        <source>Target Price</source>
+        <source>Colour</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="161"/>
-        <source>Target Date</source>
+        <source>Indices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="162"/>
-        <source>Seller</source>
+        <source>Lume</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="163"/>
-        <source>Condition</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../ui/columns.py" line="164"/>
-        <source>Box &amp; Papers</source>
+        <source>Complications</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="165"/>
-        <source>Warranty Until</source>
+        <source>Strap Material</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="166"/>
+        <source>Strap Colour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="167"/>
+        <source>Strap Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="168"/>
+        <source>Clasp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../ui/columns.py" line="170"/>
+        <source>Acquired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="171"/>
+        <source>Price</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="172"/>
+        <source>Target Price</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="173"/>
+        <source>Target Date</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="174"/>
+        <source>Seller</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="175"/>
+        <source>Condition</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="176"/>
+        <source>Box &amp; Papers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="177"/>
+        <source>Warranty Until</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/columns.py" line="182"/>
         <source>Least Worn</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1404,37 +1437,37 @@ Add your first one to get started.</source>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../ui/main_window.py" line="341"/>
+        <location filename="../../ui/main_window.py" line="364"/>
         <source>There is nothing to export in the current view.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="348"/>
+        <location filename="../../ui/main_window.py" line="371"/>
         <source>SAAT Wishlist</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="348"/>
+        <location filename="../../ui/main_window.py" line="371"/>
         <source>SAAT Collection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="354"/>
+        <location filename="../../ui/main_window.py" line="377"/>
         <source>Export to PDF</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="354"/>
+        <location filename="../../ui/main_window.py" line="377"/>
         <source>PDF files (*.pdf)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="363"/>
+        <location filename="../../ui/main_window.py" line="386"/>
         <source>Could not export the PDF: {error}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/main_window.py" line="532"/>
+        <location filename="../../ui/main_window.py" line="558"/>
         <source>Could not update the autostart entry: {error}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1449,6 +1482,19 @@ Add your first one to get started.</source>
     <message>
         <location filename="../../ui/maintenance.py" line="56"/>
         <source>Service due {date}</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Palettes</name>
+    <message>
+        <location filename="../../ui/theme.py" line="54"/>
+        <source>Default Light</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../ui/theme.py" line="55"/>
+        <source>Default Dark</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1815,7 +1861,7 @@ Add your first one to get started.</source>
 <context>
     <name>TableView</name>
     <message>
-        <location filename="../../ui/table_view.py" line="117"/>
+        <location filename="../../ui/table_view.py" line="339"/>
         <source>⚠ Couldn&apos;t load {slug}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1879,82 +1925,82 @@ Add your first one to get started.</source>
 <context>
     <name>TopBar</name>
     <message>
-        <location filename="../../ui/top_bar.py" line="100"/>
-        <location filename="../../ui/top_bar.py" line="339"/>
+        <location filename="../../ui/top_bar.py" line="43"/>
+        <location filename="../../ui/top_bar.py" line="278"/>
         <source>Collection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="103"/>
-        <location filename="../../ui/top_bar.py" line="340"/>
+        <location filename="../../ui/top_bar.py" line="46"/>
+        <location filename="../../ui/top_bar.py" line="279"/>
         <source>Wishlist</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="110"/>
-        <location filename="../../ui/top_bar.py" line="341"/>
+        <location filename="../../ui/top_bar.py" line="53"/>
+        <location filename="../../ui/top_bar.py" line="280"/>
         <source>Search brand, model, reference, caliber, tags…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="117"/>
-        <location filename="../../ui/top_bar.py" line="342"/>
+        <location filename="../../ui/top_bar.py" line="60"/>
+        <location filename="../../ui/top_bar.py" line="281"/>
         <source>Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="120"/>
-        <location filename="../../ui/top_bar.py" line="343"/>
+        <location filename="../../ui/top_bar.py" line="63"/>
+        <location filename="../../ui/top_bar.py" line="282"/>
         <source>Table</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="123"/>
-        <location filename="../../ui/top_bar.py" line="344"/>
+        <location filename="../../ui/top_bar.py" line="66"/>
+        <location filename="../../ui/top_bar.py" line="283"/>
         <source>Calendar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="137"/>
-        <location filename="../../ui/top_bar.py" line="279"/>
+        <location filename="../../ui/top_bar.py" line="80"/>
+        <location filename="../../ui/top_bar.py" line="218"/>
         <source>Sort ascending</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="331"/>
+        <location filename="../../ui/top_bar.py" line="270"/>
         <source>Default</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="156"/>
-        <location filename="../../ui/top_bar.py" line="348"/>
+        <location filename="../../ui/top_bar.py" line="99"/>
+        <location filename="../../ui/top_bar.py" line="287"/>
         <source>Add watch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="168"/>
-        <location filename="../../ui/top_bar.py" line="350"/>
+        <location filename="../../ui/top_bar.py" line="111"/>
+        <location filename="../../ui/top_bar.py" line="289"/>
         <source>Export to PDF (Ctrl+P)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="173"/>
-        <location filename="../../ui/top_bar.py" line="351"/>
+        <location filename="../../ui/top_bar.py" line="116"/>
+        <location filename="../../ui/top_bar.py" line="290"/>
         <source>Pick a watch for today</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="227"/>
+        <location filename="../../ui/top_bar.py" line="166"/>
         <source>Compare ({count})</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="279"/>
+        <location filename="../../ui/top_bar.py" line="218"/>
         <source>Sort descending</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/top_bar.py" line="320"/>
+        <location filename="../../ui/top_bar.py" line="259"/>
         <source>Sort: {label}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2022,22 +2068,22 @@ Add your first one to get started.</source>
 <context>
     <name>WatchCard</name>
     <message>
-        <location filename="../../ui/cards.py" line="314"/>
+        <location filename="../../ui/cards.py" line="394"/>
         <source>{value:g} mm lugs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/cards.py" line="333"/>
+        <location filename="../../ui/cards.py" line="358"/>
         <source>Compare</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/cards.py" line="343"/>
+        <location filename="../../ui/cards.py" line="368"/>
         <source>Wore this today</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../ui/cards.py" line="400"/>
+        <location filename="../../ui/cards.py" line="487"/>
         <source>⚠ Couldn&apos;t load {slug}</source>
         <translation type="unfinished"></translation>
     </message>

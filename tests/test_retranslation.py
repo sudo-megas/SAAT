@@ -187,6 +187,24 @@ class MainWindowRetranslationTests(unittest.TestCase):
         new_back_button = current.findChild(QPushButton, "back-button")
         self.assertEqual(new_back_button.text(), "Geri")
 
+    def test_bottom_bar_summary_retranslates_after_a_language_switch(self) -> None:
+        """Milestone 21b-e: BottomBar.set_summary() (bottom_bar.py) stores
+        the raw CollectionSummary/WishlistSummary dataclass and reformats
+        it on every changeEvent(LanguageChange), rather than being handed
+        pre-formatted text -- otherwise the bottom bar would keep showing
+        English until the next filter change re-triggered CollectionView.
+        _recompute()'s own summary_changed emit. One real watch (setUp) is
+        already primed into English "1 watch" by MainWindow's own initial
+        wiring (_load_and_show_collection's post-connect current_summary
+        priming) before this test ever touches language."""
+        summary_label = self.window._bottom_bar._summary_label
+        self.assertEqual(summary_label.text(), "1 watch")
+
+        self.window._on_language_selected("tr")
+        _pump()
+
+        self.assertEqual(summary_label.text(), "1 saat")
+
     def test_language_change_while_on_the_collection_view_does_not_touch_detail_state(self) -> None:
         """MainWindow's changeEvent guards on currentWidget() is the detail/
         compare view -- while the collection view is showing, a language

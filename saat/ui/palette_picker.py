@@ -98,6 +98,19 @@ class PalettePickerButton(QWidget):
         super().mouseReleaseEvent(event)
 
     def _show_popover(self) -> None:
+        menu = self._build_menu()
+        menu.exec(self.mapToGlobal(self.rect().bottomLeft()))
+
+    def _build_menu(self) -> QMenu:
+        """Split from _show_popover() so tests can build and interact with
+        the real menu -- its row order, checkmarks, and click -> _apply()
+        wiring -- without ever calling QMenu.exec() themselves. exec() runs
+        a real nested Qt event loop, which this codebase has already hit a
+        confirmed segfault from late in a full `unittest discover` run with
+        its accumulated deleteLater() backlog (see test_retranslation.py's
+        _pump() docstring for the original repro) -- not worth risking
+        again for a test that doesn't need a shown, positioned popup to
+        verify its actual logic."""
         menu = QMenu(self)
         active_id = theme.current_palette_id()
         for entry in theme.palettes():
@@ -107,7 +120,7 @@ class PalettePickerButton(QWidget):
             row.clicked.connect(lambda palette_id, m=menu: self._apply(palette_id, m))
             action.triggered.connect(lambda checked=False, palette_id=entry.id, m=menu: self._apply(palette_id, m))
             menu.addAction(action)
-        menu.exec(self.mapToGlobal(self.rect().bottomLeft()))
+        return menu
 
     def _apply(self, palette_id: str, menu: QMenu) -> None:
         menu.close()
