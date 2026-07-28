@@ -1,0 +1,81 @@
+.TH SAAT 1 "2026-07-29" "SAAT" "User Commands"
+.SH NAME
+saat \- catalogue a mechanical-watch collection
+.SH SYNOPSIS
+.B saat
+.RI [ --autostart ]
+.SH DESCRIPTION
+.B SAAT
+is a local, offline desktop application for cataloguing a personal wristwatch
+collection. It organises watches into a photo-forward grid, a dense spec
+table and a wear calendar, shows a detail page per watch, compares watches
+side by side, and records what was worn on which day.
+.PP
+It ships empty. Every watch is entered by its owner.
+.PP
+There is no database and no network access: each watch is a plain, editable
+TOML file on disk beside its own images, so the collection remains readable
+and portable without this program.
+.SH OPTIONS
+.TP
+.B \-\-autostart
+Signals that this launch came from the XDG autostart entry rather than from
+the user. Only meaningful together with the tray menu's
+.B Start minimised
+option, which must never affect a manual launch. Not intended to be typed by
+hand.
+.SH FILES
+When installed from a package, SAAT uses the standard per-user locations:
+.TP
+.I ~/.local/share/saat/watches/
+One directory per watch, each holding a
+.I watch.toml
+and an
+.I images/
+subdirectory.
+.TP
+.I ~/.local/share/saat/backups/
+Timestamped copies of
+.IR watch.toml ,
+written before any destructive change and pruned to the newest 20. Deleted
+watches are moved to
+.I backups/deleted/
+rather than erased.
+.TP
+.I ~/.local/share/saat/sellers.toml
+Optional seller directory. Created on first use.
+.TP
+.I ~/.config/saat/config.toml
+Window geometry, the active view, column choices, language and palette.
+.PP
+Removing or purging the package does not delete any of the above.
+.PP
+A portable copy of SAAT \(em the tarball from the releases page, extracted
+anywhere \(em keeps all of these beside its own executable instead, so the
+whole folder can be moved to another machine with the collection intact.
+Which mode is in use is decided by a
+.I .installed
+marker file beside the executable, which only a package or
+.I install.sh
+creates.
+.SH ENVIRONMENT
+.TP
+.B SAAT_DATA_DIR
+Overrides both locations above at once, collapsing data and configuration
+into the named directory regardless of installed or portable mode.
+.TP
+.B XDG_DATA_HOME
+.TQ
+.B XDG_CONFIG_HOME
+Honoured in installed mode, per the XDG Base Directory specification. SAAT
+appends
+.I /saat
+to each.
+.SH LICENSE
+GNU General Public License, version 3 or later.
+.SH AUTHOR
+sudo-megas
+.SH "SEE ALSO"
+Full documentation and the project specification at
+.UR https://github.com/sudo-megas/SAAT
+.UE .

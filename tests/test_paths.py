@@ -135,6 +135,63 @@ class SaatDataDirPrecedenceTests(PathsTestCase):
         self.assertEqual(paths.config_dir(), override)
 
 
+class SymlinkedEntryPointTests(PathsTestCase):
+    """Milestone 23's packaged layout: the executable lives at
+    /usr/lib/saat/SAAT with the marker beside it, and /usr/bin/saat is a
+    symlink to it. Everything about installed-mode detection has to survive
+    being reached through that symlink -- if it did not, a packaged install
+    would silently try to write a collection into /usr/bin.
+
+    Both branches of paths.py that look at sys.executable call .resolve()
+    first, which is what makes this work regardless of whether PyInstaller's
+    bootloader reports the symlink or the real path. Asserted here rather
+    than reasoned about, and asserted again end-to-end by the release
+    workflow's deb job, which launches a genuinely installed /usr/bin/saat."""
+
+    def _freeze_via_symlink(self, marker: bool) -> tuple[Path, Path]:
+        real_dir = self.tmp / "usr" / "lib" / "saat"
+        real_dir.mkdir(parents=True)
+        (real_dir / "SAAT").touch()
+        if marker:
+            (real_dir / paths.INSTALLED_MARKER).touch()
+
+        bin_dir = self.tmp / "usr" / "bin"
+        bin_dir.mkdir(parents=True)
+        link = bin_dir / "saat"
+        link.symlink_to(Path("..") / "lib" / "saat" / "SAAT")
+
+        frozen_patch = patch.object(sys, "frozen", True, create=True)
+        frozen_patch.start()
+        self.addCleanup(frozen_patch.stop)
+        executable_patch = patch.object(sys, "executable", str(link))
+        executable_patch.start()
+        self.addCleanup(executable_patch.stop)
+
+        return real_dir, bin_dir
+
+    def test_marker_beside_the_real_executable_is_found_through_the_symlink(self) -> None:
+        self._freeze_via_symlink(marker=True)
+        xdg_data = self.tmp / "xdg-data"
+        xdg_config = self.tmp / "xdg-config"
+        os.environ["XDG_DATA_HOME"] = str(xdg_data)
+        os.environ["XDG_CONFIG_HOME"] = str(xdg_config)
+
+        self.assertTrue(paths.is_installed())
+        self.assertEqual(paths.data_dir(), xdg_data / "saat")
+        self.assertEqual(paths.config_dir(), xdg_config / "saat")
+
+    def test_portable_through_a_symlink_resolves_beside_the_real_executable(self) -> None:
+        """No marker: still portable, and the data directory must be the
+        real /usr/lib/saat, never the /usr/bin the symlink was reached
+        through -- otherwise the two modes disagree about where 'beside the
+        executable' is."""
+        real_dir, bin_dir = self._freeze_via_symlink(marker=False)
+
+        self.assertFalse(paths.is_installed())
+        self.assertEqual(paths.data_dir(), real_dir)
+        self.assertNotEqual(paths.data_dir(), bin_dir)
+
+
 class PublicInstalledModeCheckTests(PathsTestCase):
     """is_installed() is the public wrapper autostart.py (milestone 18)
     uses to decide whether to offer autostart at all -- must track

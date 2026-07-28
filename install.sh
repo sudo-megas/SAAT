@@ -38,16 +38,15 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
 fi
 
 echo "Installing application-launcher entry..."
-install -Dm644 /dev/stdin /usr/share/applications/saat.desktop <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=SAAT
-Comment=Catalogue a mechanical-watch collection
-Exec=/usr/local/bin/saat
-Icon=saat
-Terminal=false
-Categories=Utility;
-EOF
+# packaging/saat.desktop, not a heredoc: the .deb installs this same file to
+# this same path, so composing a second copy here is exactly the drift
+# milestone 23 set out to remove. Its Exec is the bare command `saat` rather
+# than an absolute path, which is what lets one file serve both installs --
+# /usr/local/bin/saat here, /usr/bin/saat from the package, both on PATH.
+install -Dm644 packaging/saat.desktop /usr/share/applications/saat.desktop
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications >/dev/null 2>&1 || true
+fi
 
 echo "Done. Your collection will live in \$XDG_DATA_HOME/saat (default ~/.local/share/saat)"
 echo "and config in \$XDG_CONFIG_HOME/saat (default ~/.config/saat) — never in /opt."

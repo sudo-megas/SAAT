@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SAAT
+Comment=Catalogue a mechanical-watch collection
+Exec=saat
+Icon=saat
+Terminal=false
+Categories=Utility;

@@ -20,6 +20,9 @@ rm -f /usr/local/bin/saat
 
 echo "Removing application-launcher entry..."
 rm -f /usr/share/applications/saat.desktop
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications >/dev/null 2>&1 || true
+fi
 
 echo "Removing autostart entry..."
 # Running as root under sudo means $HOME here is root's, not the invoking

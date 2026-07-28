@@ -35,7 +35,9 @@ Non-negotiable. Do not improve past them.
    copying the folder to a USB stick and running it elsewhere must work with all data
    intact. Installed mode redirects both to the OS's standard per-user locations, and
    only activates when the executable is frozen *and* a `.installed` marker file sits
-   beside it, written by `install.sh` or a future `.deb` postinst — never inferred from
+   beside it, written by `install.sh` or shipped inside the `.deb` as a package file
+   (milestone 23 — shipped rather than written by `postinst`, so dpkg owns it and
+   removes it on purge instead of leaving it orphaned) — never inferred from
    XDG variables alone. The marker opts IN; portable never opts OUT. A missing marker
    must never silently relocate a portable user's collection into their home directory,
    so a mispackaged installer should fail loudly (a permissions error writing beside a
@@ -935,9 +937,41 @@ application-launcher entry. The marker is what switches the app to installed mod
 ```
 
 `uninstall.sh` reverses everything `install.sh` did and never touches
-`~/.local/share/saat` or `~/.config/saat`. Both scripts are the reference a future
-`.deb`'s postinst/prerm will follow — same steps, just invoked by dpkg instead of by
-hand.
+`~/.local/share/saat` or `~/.config/saat`. Both scripts were the reference the `.deb`'s
+own maintainer scripts follow — same steps, just invoked by dpkg instead of by hand.
+
+**Debian package (milestone 23):** the same one-folder build again, wrapped for `apt`
+rather than copied by a shell script. Built by CI from the tarball job's own output —
+one build, two artifacts, so they cannot diverge — and attached to the GitHub release
+beside the tarball.
+
+```
+/usr/lib/saat/                    the one-folder build, plus the .installed marker
+/usr/bin/saat                     relative symlink → ../lib/saat/SAAT
+/usr/share/applications/saat.desktop
+/usr/share/icons/hicolor/256x256/apps/saat.png
+/usr/share/man/man1/saat.1.gz
+/usr/share/doc/saat/{copyright,changelog.Debian.gz,changelog.gz}
+```
+
+The marker is a **package file**, not something `postinst` writes, so dpkg removes it
+cleanly. `/usr/bin/saat` being a symlink is safe because both branches of the path layer
+`.resolve()` the executable before looking beside it — asserted in `tests/test_paths.py`
+and again end-to-end by the release workflow, which launches a genuinely installed
+`/usr/bin/saat`.
+
+**Removal and purge never delete a collection.** The package owns nothing under `$HOME`;
+no maintainer script reads or writes there, which is also why they deliberately do *not*
+remove the XDG autostart entry `uninstall.sh` removes — Debian policy forbids maintainer
+scripts from touching `/home`, and an entry naming a binary that is gone is inert. The
+guarantee is automated, not eyeballed: CI plants a file under a fake
+`~/.local/share/saat`, purges the package, and fails if it is missing.
+
+The bundled runtime is **not** repackaged against Debian's `python3-pyside6`. That would
+mean a second, differently-behaving build to test for no benefit here, and would hand the
+app's Qt version to whatever each derivative ships despite `requirements.txt` pinning it
+exactly. The cost is size — a few hundred megabytes, almost all Qt — stated plainly in
+the package description rather than hidden. See `packaging/README.md`.
 
 Do **not** use `--onefile`: it extracts to a temp directory on every launch, which is
 slow with Qt bundled and puts application files outside the data directory.
