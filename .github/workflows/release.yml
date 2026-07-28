@@ -27,6 +27,10 @@ permissions:
 
 env:
   QT_QPA_PLATFORM: offscreen
+  # See test.yml for why this is set -- the test suite run in this job's
+  # gate step needs it for the same reason.
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
 
 jobs:
   build:
