@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.8] - 2026-07-28
+
+### Added
+
+- Turkish UI translation alongside English, switched live from a small language menu —
+  the system tray's submenu when a tray is available, a fallback control in the sidebar's
+  footer otherwise. English stays the default always; SAAT never reads the OS locale to
+  pick a UI language, and switching updates every visible label, combo and computed
+  figure in place, without a restart or losing whatever's currently on screen (the detail
+  or compare page, if either is open). Storage is unaffected: every enum* field keeps
+  writing and comparing against its English canonical value regardless of which language
+  built the combo box that offered it. Turkish month, weekday and casing rules (e.g.
+  dotted İ) come from Qt's own locale data, not a hand-rolled word list. SPEC.md §5.13
+  documents the feature; §9 records that the language menu is not the start of a settings
+  panel.
+
 ## [1.7.6] - 2026-07-27
 
 ### Fixed

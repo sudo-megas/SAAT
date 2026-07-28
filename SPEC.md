@@ -623,6 +623,30 @@ into `price` as a default, only when `price` isn't already set; `target_price` a
 Wishlist scope defaults its status to Wishlist for the same reason a Collection-scope
 add defaults to Owned — otherwise it would vanish from the scope it was just added from.
 
+### 5.13 Localisation
+Two UI languages: English and Türkçe (Turkish), chosen by endonym in a small language
+menu — the system tray's submenu when a tray is available, a fallback control in the
+sidebar's summary footer (§5.10) otherwise, since a tray is not always present (none on
+the desktop, or lost mid-session) and the control must stay reachable either way. Not a
+preferences panel: one menu, two choices — see §9.
+
+**English is always the default. SAAT never reads the OS locale to choose a UI
+language** — an explicit choice, not an oversight. The active language is persisted in
+`config.toml`; absent means English, the same convention as every other absent-means-
+default setting there (theme mode, picker mode). A selected language whose translation
+file fails to load falls back to English and says so, rather than mixing languages
+silently.
+
+**Storage stays canonical English regardless of UI language.** Every `enum*` field (§4)
+is translated for display only — the combo box label a Turkish UI shows for a value is
+never what gets written to `watch.toml` or compared against elsewhere in the code, which
+always stays the English canonical form. A collection edited under either language must
+be byte-identical for the same input.
+
+**Switching language applies live.** No restart: every visible label, combo, and computed
+figure updates in place, and whatever's currently on screen — including the detail or
+compare page — stays in place rather than resetting to the collection view.
+
 ---
 
 ## 6. Visual direction
@@ -938,7 +962,9 @@ and document it.
 
 - Add a database, a settings GUI for the settings file, a plugin system, or a theme
   editor. The two fixed palettes in §6 and their single toggle are not a theme editor:
-  no arbitrary colors, no user-saved palettes, no theme file import or export.
+  no arbitrary colors, no user-saved palettes, no theme file import or export. Nor is
+  §5.13's language menu the start of a settings panel: one menu, two choices, nothing
+  else configurable through it.
 - Add cloud sync, sharing, or a showcase mode. **One narrow exception, added in milestone
   19:** local document generation — rendering the current collection or wishlist to a PDF,
   written to a path the user chooses via a save dialog. Nothing is transmitted anywhere;
