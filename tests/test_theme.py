@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QFontInfo
+from PySide6.QtGui import QColor, QFont, QFontInfo
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
@@ -151,16 +151,28 @@ class LiveSwitchRepaintTests(ThemeModeResetMixin, unittest.TestCase):
         header.repaint()
 
     def test_a_live_watched_widget_actually_reflects_the_new_palettes_color(self) -> None:
-        from saat.ui.top_bar import _ThemeToggle
+        # _PaletteSwatch(entry=None) reads theme.colors() fresh at paint
+        # time (palette_picker.py) -- unlike _ThemeToggle, this one survives
+        # Milestone 21b-e, so it's the live widget worth pinning here.
+        from saat.ui.palette_picker import _PaletteSwatch
 
-        toggle = _ThemeToggle()
+        swatch = _PaletteSwatch(entry=None)
         apply_theme(_app, "nord")
-        expected = theme.colors().text_muted
-        toggle.repaint()
-        # theme.colors() is read fresh inside paintEvent -- confirming the
-        # module-level active palette actually changed is the meaningful
-        # assertion here; the widget doesn't expose sampled pixels itself.
-        self.assertEqual(theme.colors().text_muted, expected)
+        swatch.repaint()
+        QApplication.processEvents()
+        nord_pixel = swatch.grab().toImage().pixelColor(3, 3)
+
+        apply_theme(_app, "catppuccin-latte")
+        swatch.repaint()
+        QApplication.processEvents()
+        latte_pixel = swatch.grab().toImage().pixelColor(3, 3)
+
+        # Sampled pixel (the leftmost "plate" dot) must actually change
+        # colour, and match each palette's own plate exactly -- not just
+        # "differ", which a rendering glitch could also produce.
+        self.assertNotEqual(nord_pixel.name(), latte_pixel.name())
+        self.assertEqual(nord_pixel.name(), QColor(theme.palette("nord").palette.plate).name())
+        self.assertEqual(latte_pixel.name(), QColor(theme.palette("catppuccin-latte").palette.plate).name())
 
 
 class ConfigPaletteIdTests(unittest.TestCase):
