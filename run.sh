@@ -12,5 +12,10 @@ fi
 # release build get identical versions.
 .venv/bin/pip install --quiet -r requirements.txt
 
+# Linux-only, and deliberately not mirrored into run.ps1: Qt would
+# otherwise sometimes pick the X11 backend on the Wayland session this app
+# targets. Windows has one platform plugin, Qt selects it correctly, and
+# forcing anything there is wrong -- see run.ps1. Nothing in saat/ reads
+# this variable; it is a launcher concern on both platforms.
 export QT_QPA_PLATFORM=wayland
 exec .venv/bin/python main.py

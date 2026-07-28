@@ -2,11 +2,13 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import gc
 import shutil
 import socket
 import tempfile
 import time
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from PySide6.QtNetwork import QLocalServer
@@ -120,6 +122,14 @@ class PrimaryInstanceTests(SingleInstanceTestCase):
 
 
 class StaleSocketRecoveryTests(SingleInstanceTestCase):
+    @unittest.skipIf(
+        os.name == "nt",
+        "AF_UNIX-specific: a Windows named pipe is destroyed by the kernel "
+        "when its last handle closes, so a crashed process cannot leave one "
+        "behind. The condition this test fabricates does not exist there -- "
+        "see WindowsNamedPipeTests for the Windows half of the same "
+        "guarantee.",
+    )
     def test_stale_socket_left_by_a_crash_is_recovered(self) -> None:
         data_dir = self.tmp / "collection"
         data_dir.mkdir()
@@ -156,6 +166,89 @@ class StaleSocketRecoveryTests(SingleInstanceTestCase):
 
         second = self._guard(data_dir)
         self.assertTrue(second.try_become_primary())
+
+
+class WindowsNamedPipeTests(SingleInstanceTestCase):
+    """QLocalServer is AF_UNIX on Linux and a named pipe on Windows, and the
+    difference matters in exactly one place: recovery after a hard kill.
+
+    A Unix domain socket's filesystem entry outlives the process that bound
+    it, which is why StaleSocketRecoveryTests exists and why
+    try_become_primary() calls QLocalServer.removeServer(). A named pipe is
+    a kernel object destroyed when its last handle closes, so a killed
+    process leaves nothing behind and a fresh instance simply listens. The
+    recovery path is therefore harmless-but-unused on Windows rather than
+    wrong -- removeServer() there returns without doing anything.
+
+    These tests run everywhere. The point is that the guarantee -- a second
+    launch raises the first window, and a hard kill does not lock the
+    collection out -- holds on both, by different mechanisms."""
+
+    def test_the_socket_name_is_legal_as_a_windows_pipe_name(self) -> None:
+        """Qt prefixes the name with \\\\.\\pipe\\ itself, so the name this
+        module derives has to be legal in that namespace: no backslashes,
+        nothing Windows forbids in a filename, and short enough to leave
+        room for the prefix within 256 characters."""
+        name = single_instance.socket_name(self.tmp)
+
+        self.assertNotIn("\\", name)
+        for forbidden in '<>:"/|?*':
+            self.assertNotIn(forbidden, name)
+        self.assertLess(len(name), 200)
+        self.assertTrue(name.isascii())
+
+    def test_the_socket_name_is_a_stable_ascii_hex_digest(self) -> None:
+        """Derived from a sha256 of the data directory, so nothing about a
+        user's own path -- their name, a drive letter, a UNC share, a
+        non-ASCII folder -- can reach the pipe name and make it illegal."""
+        awkward = self.tmp / "Ünïcode Ädam" / "collection (1)"
+        awkward.mkdir(parents=True)
+        name = single_instance.socket_name(awkward)
+
+        self.assertRegex(name, r"^saat-[0-9a-f]{16}$")
+
+    def test_a_hard_kill_does_not_lock_the_collection_out(self) -> None:
+        """The cross-platform statement of what StaleSocketRecoveryTests
+        checks on Linux: however the previous owner died, the next launch
+        must be able to become primary. On Linux that goes through the
+        stale-socket recovery path; on Windows the pipe is already gone."""
+        data_dir = self.tmp / "collection"
+        data_dir.mkdir()
+
+        # Deliberately NOT registered with self._guard(): the owner has to
+        # become genuinely unreachable, the way a killed process's socket
+        # does, rather than merely going out of local scope while the
+        # fixture still holds it.
+        first = single_instance.SingleInstanceGuard(data_dir)
+        self.assertTrue(first.try_become_primary())
+        self.assertTrue(first.is_primary)
+
+        # No close(), no removeServer() -- the orderly shutdown a killed
+        # process never gets to perform.
+        del first
+        gc.collect()
+        QApplication.processEvents()
+
+        second = self._guard(data_dir)
+        self.assertTrue(
+            second.try_become_primary(),
+            "a new instance could not take ownership after the previous one died",
+        )
+        self.assertTrue(second.is_primary)
+
+    def test_failing_to_listen_never_blocks_the_app_from_starting(self) -> None:
+        """try_become_primary() deliberately fails open: if the socket or
+        pipe cannot be had at all, it warns and runs anyway. Losing
+        single-instance enforcement is worse than losing the app."""
+        data_dir = self.tmp / "collection"
+        data_dir.mkdir()
+        guard = self._guard(data_dir)
+
+        with unittest.mock.patch.object(
+            single_instance.QLocalServer, "listen", return_value=False
+        ):
+            self.assertTrue(guard.try_become_primary())
+        self.assertFalse(guard.is_primary)
 
 
 if __name__ == "__main__":

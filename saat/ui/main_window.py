@@ -582,7 +582,17 @@ class MainWindow(QMainWindow):
         in the milestone. Restores the window and falls back to the same
         shape a fresh no-tray launch would have for the rest of this run,
         rather than leaving a half-torn-down tray around to reference
-        again."""
+        again.
+
+        Deliberately unchanged for Windows (milestone 24 §9). The tray is
+        always present there, so isSystemTrayAvailable() simply always
+        answers yes and this never fires -- a runtime capability check that
+        costs nothing when the capability is never in doubt. The Linux
+        no-tray fallback it guards must not be deleted on that basis: it is
+        the only thing standing between a Linux user and an unreachable
+        hidden window, and the Sidebar language control it reveals
+        (set_tray_available(False), below) is the only language switcher
+        reachable once the tray submenu is gone."""
         if self._tray is None or QSystemTrayIcon.isSystemTrayAvailable():
             return
 
