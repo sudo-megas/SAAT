@@ -52,9 +52,16 @@ class TopBar(QWidget):
         self._search_field = QLineEdit()
         self._search_field.setPlaceholderText(self.tr("Search brand, model, reference, caliber, tags…"))
         self._search_field.setMinimumWidth(120)
-        self._search_field.addAction(
+        search_action = self._search_field.addAction(
             icons.icon("search", theme.colors().text_muted), QLineEdit.ActionPosition.LeadingPosition
         )
+
+        def _refresh_search_icon() -> None:
+            search_action.setIcon(icons.icon("search", theme.colors().text_muted))
+
+        # QAction isn't a QWidget, so apply_theme()'s sweep can't reach it
+        # directly -- hang the hook on the field itself, which the sweep does visit.
+        self._search_field._refresh_icon = _refresh_search_icon
         self._search_field.textChanged.connect(self.search_changed.emit)
 
         self._grid_button = QPushButton(self.tr("Grid"))

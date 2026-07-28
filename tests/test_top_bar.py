@@ -6,6 +6,7 @@ import unittest
 
 from PySide6.QtWidgets import QApplication
 
+from saat.ui import theme
 from saat.ui.top_bar import SCOPE_COLLECTION, SCOPE_WISHLIST, VIEW_CALENDAR, VIEW_GRID, TopBar
 
 _app = QApplication.instance() or QApplication([])
@@ -81,6 +82,32 @@ class TopBarNoOverlapTests(unittest.TestCase):
         top_bar.set_view(VIEW_CALENDAR)
         for width in (_SPEC_FLOOR_CONTENT_WIDTH, _GENEROUS_WIDTH):
             self._assert_no_overlap_at(top_bar, width)
+
+
+class TopBarSearchIconThemeTests(unittest.TestCase):
+    """The search field's leading icon is a QAction, not a QWidget -- it's
+    invisible to apply_theme()'s QApplication.allWidgets() sweep unless
+    something with a _refresh_icon hook stands in for it. Regression for a
+    real bug: the icon was baked once at construction and stayed on the
+    startup palette's text_muted through every later switch."""
+
+    def setUp(self) -> None:
+        self.addCleanup(theme.set_palette, "default-dark")
+
+    def test_search_icon_hook_present_on_field(self) -> None:
+        top_bar = TopBar()
+        self.assertTrue(callable(getattr(top_bar._search_field, "_refresh_icon", None)))
+
+    def test_search_icon_tracks_palette_switch(self) -> None:
+        theme.set_palette("default-dark")
+        top_bar = TopBar()
+        before = top_bar._search_field.actions()[0].icon().pixmap(18, 18).toImage()
+
+        theme.set_palette("nord")
+        top_bar._search_field._refresh_icon()
+        after = top_bar._search_field.actions()[0].icon().pixmap(18, 18).toImage()
+
+        self.assertNotEqual(before, after)
 
 
 if __name__ == "__main__":
