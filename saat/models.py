@@ -1,5 +1,5 @@
+import datetime
 from dataclasses import dataclass, field
-from datetime import date
 
 
 @dataclass
@@ -54,34 +54,34 @@ class Strap:
 
 @dataclass
 class Acquisition:
-    date: date | None = None
+    date: datetime.date | None = None
     price: float | None = None
     currency: str | None = None
     seller: str | None = None
     url: str | None = None
     condition: str | None = None
     box_and_papers: bool | None = None
-    warranty_until: date | None = None
+    warranty_until: datetime.date | None = None
     target_price: float | None = None
-    target_date: date | None = None
+    target_date: datetime.date | None = None
 
 
 @dataclass
 class Maintenance:
     service_interval_years: float | None = None
-    battery_due: date | None = None
+    battery_due: datetime.date | None = None
 
 
 @dataclass
 class LogEntry:
-    date: date | None = None
+    date: datetime.date | None = None
     kind: str | None = None
     note: str | None = None
 
 
 @dataclass
 class TimingEntry:
-    date: date | None = None
+    date: datetime.date | None = None
     deviation_sec: float | None = None
     position: str | None = None
 
@@ -107,7 +107,7 @@ class Watch:
     acquisition: Acquisition = field(default_factory=Acquisition)
     maintenance: Maintenance = field(default_factory=Maintenance)
     log: list[LogEntry] = field(default_factory=list)
-    worn: list[date] = field(default_factory=list)
+    worn: list[datetime.date] = field(default_factory=list)
     timing: list[TimingEntry] = field(default_factory=list)
     notes: str | None = None
 

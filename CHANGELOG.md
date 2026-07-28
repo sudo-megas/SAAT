@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [1.8.2] - 2026-07-28
 
+### Fixed
+
+- `Acquisition`, `LogEntry` and `TimingEntry` each declare a `date` field typed
+  `date | None`, shadowing the `datetime.date` import of the same name: Python
+  evaluates a class body's annotated assignment by binding the value first and the
+  annotation second, so by the time `date | None` was evaluated, `date` was already
+  `None` in the class namespace, raising `TypeError: unsupported operand type(s) for
+  |: 'NoneType' and 'NoneType'`. Invisible on this project's own Python 3.14 (PEP 649
+  defers annotation evaluation there), it fails immediately and unconditionally on
+  Python 3.11 — the version this milestone's CI now builds against — which is exactly
+  how it surfaced. Fixed by importing the `datetime` module rather than the bare
+  `date` name, so every reference is the module-qualified `datetime.date`, which no
+  field name can shadow.
+
 ### Changed
 
 - Releases are now built and published by GitHub Actions on Ubuntu 22.04 instead of by
@@ -14,7 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   22.04's glibc 2.35 runs on anything with glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+,
   Fedora 36+, Mint 21+, current Arch), since glibc is forward- but not
   backward-compatible — the reverse was never true and is why hand-built releases carried
-  the caveat. No application behavior changes in this release.
+  the caveat. No user-visible behavior changes for anyone running a previous release —
+  the fix above is required only for the app to run at all under this new toolchain.
 
 ## [1.8.0] - 2026-07-28
 
