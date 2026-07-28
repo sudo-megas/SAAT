@@ -1,3 +1,4 @@
+import gc
 import tomllib
 from dataclasses import dataclass, fields
 
@@ -243,8 +244,25 @@ def apply_theme(app: QApplication, palette_id: str | None = None) -> None:
     # every widget to redraw so the hand-painted ones pick up the new palette.
     # A themed QIcon (saat.ui.icons.set_icon) is a cached pixmap, not a live
     # paintEvent — the same sweep also calls its _refresh_icon hook if set.
-    for widget in QApplication.allWidgets():
-        widget.update()
-        refresh_icon = getattr(widget, "_refresh_icon", None)
-        if refresh_icon is not None:
-            refresh_icon()
+    #
+    # allWidgets() materialises a snapshot of raw C++ widget pointers, and
+    # both building that snapshot and walking it run Python that allocates.
+    # Any allocation can trip CPython's cyclic collector, and a widget the
+    # collector frees mid-sweep takes its children down with it — leaving
+    # pointers already sitting in the snapshot dangling. Dereferencing one
+    # is a segfault, not an exception, so it cannot be caught and retried:
+    # hold the collector off for the duration instead, so nothing can be
+    # destroyed while the snapshot is in use. Restores the previous state
+    # rather than unconditionally enabling, so a caller that deliberately
+    # disabled the collector still finds it disabled afterwards.
+    collecting = gc.isenabled()
+    gc.disable()
+    try:
+        for widget in QApplication.allWidgets():
+            widget.update()
+            refresh_icon = getattr(widget, "_refresh_icon", None)
+            if refresh_icon is not None:
+                refresh_icon()
+    finally:
+        if collecting:
+            gc.enable()

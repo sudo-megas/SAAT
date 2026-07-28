@@ -2,7 +2,9 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import gc
 import unittest
+import weakref
 from pathlib import Path
 
 from PySide6.QtGui import QImage
@@ -136,6 +138,75 @@ class SetCheckableIconTests(ThemeModeResetMixin, unittest.TestCase):
 
         rendered = button.icon().pixmap(icons.ICON_SIZE, icons.ICON_SIZE)
         self.assertTrue(_has_pixel_matching(rendered, theme.colors().text_muted.lower()))
+
+
+class RefreshHookLifetimeTests(ThemeModeResetMixin, unittest.TestCase):
+    """The `_refresh_icon` hook is stored on the widget it refreshes, so a
+    hook that captured that widget strongly would close a reference cycle
+    and leave every icon-bearing widget collectable only by the cyclic
+    collector -- never by refcount. That is what let a widget be destroyed
+    at the collector's convenience partway through apply_theme()'s sweep
+    (tests/test_theme.py's SweepCollectorSafetyTests), and it also meant a
+    closed dialog's widgets outlived the dialog until some later, unrelated
+    allocation happened to trigger a collection.
+
+    Each test drops the last reference with the collector switched off, so
+    a surviving widget proves a cycle rather than merely slow collection."""
+
+    def _assert_dies_by_refcount_alone(self, make) -> None:
+        was_enabled = gc.isenabled()
+        gc.disable()
+        try:
+            widget = make()
+            ref = weakref.ref(widget)
+            del widget
+            self.assertIsNone(ref(), "widget outlived its last reference -- hook left a cycle")
+        finally:
+            if was_enabled:
+                gc.enable()
+
+    def test_set_icon_leaves_no_reference_cycle(self) -> None:
+        def make():
+            button = QPushButton()
+            icons.set_icon(button, "search")
+            return button
+
+        self._assert_dies_by_refcount_alone(make)
+
+    def test_set_checkable_icon_leaves_no_reference_cycle(self) -> None:
+        """Doubly at risk: the `toggled` connection keeps the closure alive
+        as well as the widget attribute does."""
+        def make():
+            button = QPushButton()
+            button.setCheckable(True)
+            icons.set_checkable_icon(button, "grid")
+            return button
+
+        self._assert_dies_by_refcount_alone(make)
+
+    def test_the_hook_still_repaints_a_live_widget(self) -> None:
+        """The weakref must not have turned the hook into a no-op -- it
+        still has to do its actual job while the widget is alive."""
+        theme.set_palette("default-dark")
+        button = QPushButton()
+        icons.set_icon(button, "search", color_role="text")
+
+        theme.set_palette("default-light")
+        button._refresh_icon()
+
+        repainted = button.icon().pixmap(icons.ICON_SIZE, icons.ICON_SIZE)
+        self.assertTrue(_has_pixel_matching(repainted, theme.colors().text.lower()))
+
+    def test_a_checkable_widgets_hook_still_tracks_its_checked_state(self) -> None:
+        theme.set_palette("default-dark")
+        button = QPushButton()
+        button.setCheckable(True)
+        icons.set_checkable_icon(button, "grid")
+
+        button.setChecked(True)
+
+        rendered = button.icon().pixmap(icons.ICON_SIZE, icons.ICON_SIZE)
+        self.assertTrue(_has_pixel_matching(rendered, theme.colors().gilt.lower()))
 
 
 if __name__ == "__main__":

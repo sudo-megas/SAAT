@@ -19,6 +19,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   how it surfaced. Fixed by importing the `datetime` module rather than the bare
   `date` name, so every reference is the module-qualified `datetime.date`, which no
   field name can shadow.
+- Switching palette could crash the app outright. `apply_theme()` walks a snapshot of
+  every live widget to force a repaint, and `icons.set_icon()` hung a refresh closure on
+  each icon-bearing widget that captured that same widget — a reference cycle, so those
+  widgets could only ever be freed by Python's cyclic collector, at a moment of its
+  choosing rather than their owner's. When the collector fired partway through the
+  sweep it destroyed a widget the sweep was still holding a raw pointer to, taking that
+  widget's children with it, and the sweep then read freed memory. Fixed at both ends:
+  the refresh closures hold their widget through a weak reference, so an icon-bearing
+  widget dies when its owner drops it; and the sweep holds the collector off for its own
+  duration, so no widget can be destroyed while the snapshot is in use. Most likely to
+  bite after closing a dialog and then changing palette.
 
 ### Changed
 

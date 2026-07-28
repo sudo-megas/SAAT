@@ -1,3 +1,5 @@
+import weakref
+
 from PySide6.QtCore import QCoreApplication, QEvent, Qt, Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
@@ -56,8 +58,15 @@ class TopBar(QWidget):
             icons.icon("search", theme.colors().text_muted), QLineEdit.ActionPosition.LeadingPosition
         )
 
+        # Weakref for the same reason icons.set_icon() uses one: the hook
+        # hangs on the field, the action is parented to the field, so a
+        # strong capture would close the loop into a reference cycle.
+        action_ref = weakref.ref(search_action)
+
         def _refresh_search_icon() -> None:
-            search_action.setIcon(icons.icon("search", theme.colors().text_muted))
+            action = action_ref()
+            if action is not None:
+                action.setIcon(icons.icon("search", theme.colors().text_muted))
 
         # QAction isn't a QWidget, so apply_theme()'s sweep can't reach it
         # directly -- hang the hook on the field itself, which the sweep does visit.

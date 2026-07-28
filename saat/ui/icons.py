@@ -1,3 +1,5 @@
+import weakref
+
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
@@ -49,10 +51,23 @@ def set_icon(widget, name: str, color_role: str = "text_muted", size: int = ICON
     instead sweeps every live widget and calls back into a `_refresh_icon`
     hook if one exists, the same duck-typed pattern that sweep already uses
     for repainting hand-drawn widgets. `color_role` names a Palette field
-    (theme.py) read fresh on every refresh, never cached as a color."""
+    (theme.py) read fresh on every refresh, never cached as a color.
+
+    The hook is stored *on* the widget, so it holds the widget back through
+    a weakref rather than capturing it: a strong capture would put every
+    icon-bearing widget in a reference cycle, leaving it collectable only
+    by the cyclic collector and never by refcount. A widget that dies at
+    the collector's convenience rather than its owner's is exactly what
+    used to crash apply_theme()'s sweep — see the comment there."""
+    ref = weakref.ref(widget)
+
     def _refresh() -> None:
+        target = ref()
+        if target is None:
+            return
         color = getattr(theme.colors(), color_role)
-        widget.setIcon(icon(name, color, size))
+        target.setIcon(icon(name, color, size))
+
     widget._refresh_icon = _refresh
     _refresh()
 
@@ -66,11 +81,22 @@ def set_checkable_icon(
     things that are interactive or currently active, and these buttons
     already turn their *text* gilt when checked (theme.qss). Refreshed on
     toggle (covers both a user click and a programmatic setChecked()) in
-    addition to the usual theme-apply sweep."""
+    addition to the usual theme-apply sweep.
+
+    Holds the widget through a weakref for the same reason set_icon does,
+    doubly so here: the `toggled` connection keeps the closure alive too,
+    so a strong capture would tie the widget's lifetime to its own signal
+    connection as well as to its own attribute."""
+    ref = weakref.ref(widget)
+
     def _refresh() -> None:
-        role = checked_color_role if widget.isChecked() else unchecked_color_role
+        target = ref()
+        if target is None:
+            return
+        role = checked_color_role if target.isChecked() else unchecked_color_role
         color = getattr(theme.colors(), role)
-        widget.setIcon(icon(name, color, size))
+        target.setIcon(icon(name, color, size))
+
     widget._refresh_icon = _refresh
     widget.toggled.connect(_refresh)
     _refresh()

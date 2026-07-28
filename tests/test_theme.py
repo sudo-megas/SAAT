@@ -2,18 +2,19 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import gc
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 from PySide6.QtGui import QColor, QFont, QFontInfo
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QPushButton, QWidget
 
 from saat.config import Config
 from saat.models import Watch
 from saat.storage import create_watch
-from saat.ui import theme
+from saat.ui import icons, theme
 from saat.ui.main_window import MainWindow
 from saat.ui.theme import apply_theme
 
@@ -170,6 +171,55 @@ class LiveSwitchRepaintTests(ThemeModeResetMixin, unittest.TestCase):
         self.assertNotEqual(nord_pixel.name(), latte_pixel.name())
         self.assertEqual(nord_pixel.name(), QColor(theme.palette("nord").palette.plate).name())
         self.assertEqual(latte_pixel.name(), QColor(theme.palette("catppuccin-latte").palette.plate).name())
+
+
+class SweepCollectorSafetyTests(ThemeModeResetMixin, unittest.TestCase):
+    """apply_theme()'s sweep walks a snapshot of raw C++ widget pointers.
+    A widget freed by the cyclic collector while that snapshot is in use
+    takes its children with it and leaves the remaining pointers dangling
+    -- a segfault, which no test can catch after the fact. These pin the
+    guard that stops it happening rather than the crash itself."""
+
+    def test_the_sweep_runs_with_the_cyclic_collector_held_off(self) -> None:
+        seen = []
+
+        class Probe(QWidget):
+            def update(self, *args) -> None:
+                seen.append(gc.isenabled())
+                super().update(*args)
+
+        probe = Probe()
+        apply_theme(_app, "nord")
+        self.assertTrue(seen, "the sweep never reached the probe widget")
+        self.assertNotIn(True, seen, "collector was live during the sweep")
+        probe.deleteLater()
+
+    def test_the_collector_is_running_again_afterwards(self) -> None:
+        self.assertTrue(gc.isenabled())
+        apply_theme(_app, "nord")
+        self.assertTrue(gc.isenabled())
+
+    def test_a_caller_that_disabled_the_collector_still_finds_it_disabled(self) -> None:
+        """Restores the previous state rather than unconditionally
+        enabling -- otherwise applying a theme would silently switch the
+        collector back on underneath whoever turned it off."""
+        gc.disable()
+        try:
+            apply_theme(_app, "nord")
+            self.assertFalse(gc.isenabled())
+        finally:
+            gc.enable()
+
+    def test_sweeping_past_a_widget_whose_hook_outlived_it_does_not_raise(self) -> None:
+        """The weakref inside set_icon()'s hook can legitimately come back
+        empty -- a hook reached through some other still-live object after
+        its own widget is gone must no-op, not raise AttributeError on
+        None."""
+        button = QPushButton()
+        icons.set_icon(button, "search")
+        orphaned_hook = button._refresh_icon
+        del button
+        orphaned_hook()  # must not raise
 
 
 class ConfigPaletteIdTests(unittest.TestCase):
