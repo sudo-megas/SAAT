@@ -479,7 +479,28 @@ jobs:
       - name: Build the installer
         run: |
           & "$env:ISCC" "/DAppVersion=${{ steps.identity.outputs.version }}" packaging\windows\saat.iss
-          Get-ChildItem dist\*.exe
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Inno Setup failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+
+          # Inno names its output from AppVersion, which on a dry run would
+          # produce a file indistinguishable from a released installer.
+          # Renamed to carry the same label the zip and the tarball use, so
+          # the rule holds for every artifact: only a tagged build is named
+          # like a release. A no-op on a tag, where label and version are
+          # the same string.
+          $produced = "dist\SAAT-v${{ steps.identity.outputs.version }}-windows-x64-setup.exe"
+          $wanted = "dist\SAAT-${{ steps.identity.outputs.label }}-windows-x64-setup.exe"
+          if (-not (Test-Path $produced)) {
+            Write-Host "::error::Inno Setup reported success but $produced does not exist"
+            Get-ChildItem dist
+            exit 1
+          }
+          if ($produced -ne $wanted) {
+            Move-Item -Force $produced $wanted
+          }
+          Get-ChildItem dist\*.exe, dist\*.zip
 
       # Same reasoning as the Linux smoke test: this is a GUI event-loop
       # app with no --version path, so it never exits on its own and
