@@ -4,14 +4,28 @@
 # forward- but not backward-compatible, so building here gives the widest
 # downstream compatibility achievable on a GitHub-hosted runner today --
 # Ubuntu 22.04+, Debian 12+, Fedora 36+, Mint 21+, and current Arch.
+# (PySide6's own wheel is manylinux_2_34, so 2.35 is the runner's floor,
+# not the wheel's -- the runner is the binding constraint.)
 #
-# GitHub keeps at most 2 GA images plus 1 preview at a time and retires the
-# oldest GA label once the newest goes GA (ubuntu-26.04 is already in
-# preview as of this writing, so ubuntu-22.04 is next in line). When that
-# happens, replace this pin with a pinned container image
-# (e.g. `container: ubuntu:22.04`), not with ubuntu-latest -- that would
-# silently raise the glibc floor again and reintroduce exactly the
-# compatibility problem this workflow exists to fix.
+# Decision, recorded rather than rediscovered later: stay on the
+# `runs-on: ubuntu-22.04` runner label. Do NOT pre-emptively move to
+# `container: ubuntu:22.04`.
+#
+#   Trigger condition -- migrate when, and only when, GitHub actually
+#   deprecates the ubuntu-22.04 runner label. GitHub keeps at most 2 GA
+#   images plus 1 preview and retires the oldest GA label once the newest
+#   goes GA (ubuntu-26.04 is already in preview as of this writing, so
+#   ubuntu-22.04 is next in line). Migrate to `container: ubuntu:22.04`
+#   then -- never to ubuntu-latest, which would silently raise the glibc
+#   floor again and reintroduce exactly the compatibility problem this
+#   workflow exists to fix.
+#
+#   Why not now: a container loses the runner's passwordless sudo, and
+#   changes what actions/setup-python and actions/checkout do (no
+#   pre-installed tool cache, no git preinstalled). Every apt and python
+#   step below would need reworking at the same time as whatever else is
+#   in flight. That is a change worth making on its own, against a
+#   pipeline that is otherwise known-good -- not folded into a milestone.
 #
 # CI green (this workflow, or test.yml) is not equivalent to this project's
 # manual visual-verification practice -- see test.yml's own header comment.
@@ -21,6 +35,13 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # Dry run. Runs every build, gate and smoke test below and leaves the
+  # tarball as a downloadable workflow artifact, but publishes nothing:
+  # the release job is gated on the tag-push event. Without this, every
+  # packaging experiment (milestone 24's Windows/Inno Setup work is
+  # expected to take several iterations) would cost a public tag and a
+  # public release to find out whether the build works.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -33,18 +54,15 @@ env:
   LC_ALL: en_US.UTF-8
 
 jobs:
-  build:
+  # One build job per artifact. Adding a platform in a later milestone
+  # (the .deb in 23, the Windows installer in 24) means adding a sibling
+  # job here that uploads its own named artifact, plus its job name in the
+  # release job's `needs:` list. Nothing else below changes: the release
+  # job downloads whatever artifacts exist rather than naming one.
+  build-linux-x86_64:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-
-      - name: Guard release notes exist
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          test -f "docs/release-notes/${VERSION}.md" || {
-            echo "::error::missing docs/release-notes/${VERSION}.md"
-            exit 1
-          }
 
       - uses: actions/setup-python@v5
         with:
@@ -55,12 +73,36 @@ jobs:
             requirements.txt
             requirements-build.txt
 
-      - name: Guard tag matches __version__
+      # A dry run has no tag, so it labels its tarball from __version__ plus
+      # the short SHA -- never mistakable for a release artifact, and never
+      # colliding with one in the artifact store.
+      - name: Resolve build identity
+        id: identity
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          ACTUAL=$(python -c "import saat; print(saat.__version__)")
-          [ "$VERSION" = "$ACTUAL" ] || {
-            echo "::error::tag $GITHUB_REF_NAME does not match saat.__version__ ($ACTUAL)"
+          VERSION=$(python -c "import saat; print(saat.__version__)")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "label=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "label=v${VERSION}-dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Both halves of the release-discipline invariant (docs/DEVELOPMENT.md),
+      # checked on a dry run too -- so a missing notes file or a stale
+      # __version__ surfaces before a tag is spent, which is the whole
+      # point of having a dry run.
+      - name: Guard tag, __version__ and release notes agree
+        run: |
+          VERSION="${{ steps.identity.outputs.version }}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            [ "$TAG_VERSION" = "$VERSION" ] || {
+              echo "::error::tag $GITHUB_REF_NAME does not match saat.__version__ ($VERSION)"
+              exit 1
+            }
+          fi
+          test -f "docs/release-notes/${VERSION}.md" || {
+            echo "::error::missing docs/release-notes/${VERSION}.md"
             exit 1
           }
 
@@ -97,7 +139,7 @@ jobs:
       - name: Create tarball
         run: |
           cd dist
-          tar -czf SAAT-${{ github.ref_name }}-linux-x86_64.tar.gz SAAT
+          tar -czf SAAT-${{ steps.identity.outputs.label }}-linux-x86_64.tar.gz SAAT
           cd ..
 
       # Extracts the tarball itself (not the pre-tar dist/SAAT), so a broken
@@ -112,7 +154,7 @@ jobs:
         run: |
           set -e
           mkdir -p /tmp/smoke
-          tar -xzf dist/SAAT-${{ github.ref_name }}-linux-x86_64.tar.gz -C /tmp/smoke
+          tar -xzf dist/SAAT-${{ steps.identity.outputs.label }}-linux-x86_64.tar.gz -C /tmp/smoke
 
           test -f /tmp/smoke/SAAT/_internal/resources/i18n/saat_tr.qm
           test -f /tmp/smoke/SAAT/_internal/ui/theme.qss
@@ -141,32 +183,84 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: saat-linux-x86_64
-          path: dist/SAAT-${{ github.ref_name }}-linux-x86_64.tar.gz
+          path: dist/SAAT-${{ steps.identity.outputs.label }}-linux-x86_64.tar.gz
           if-no-files-found: error
           compression-level: 0
 
   release:
-    needs: build
+    # Every build job must succeed before anything is published, so a
+    # second platform failing can never leave a half-populated release
+    # behind. A later milestone's build job goes in this list.
+    needs: [build-linux-x86_64]
+    # The dry run stops here: workflow_dispatch builds, tests and smoke-
+    # tests, then leaves the artifact attached to the workflow run and
+    # publishes nothing at all.
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
+      # No `name:` -- downloads every artifact every build job uploaded,
+      # merged into one flat directory. Adding a platform therefore needs
+      # no change here at all.
       - uses: actions/download-artifact@v4
         with:
-          name: saat-linux-x86_64
-          path: dist
+          path: artifacts
+          merge-multiple: true
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          set -euo pipefail
+
+          # Belt and braces alongside the job-level `if` above: publishing
+          # is the one irreversible thing this workflow does.
+          [ "${{ github.event_name }}" = "push" ] || {
+            echo "::error::refusing to publish from a ${{ github.event_name }} event"
+            exit 1
+          }
+
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
           NOTES="docs/release-notes/${VERSION}.md"
           test -f "$NOTES" || {
             echo "::error::missing $NOTES"
             exit 1
           }
-          gh release create "${{ github.ref_name }}" \
-            --title "SAAT ${{ github.ref_name }}" \
-            --notes-file "$NOTES" \
-            "dist/SAAT-${{ github.ref_name }}-linux-x86_64.tar.gz"
+
+          shopt -s nullglob
+          ASSETS=(artifacts/*)
+          [ ${#ASSETS[@]} -gt 0 ] || {
+            echo "::error::no build artifacts were downloaded -- nothing to attach"
+            exit 1
+          }
+          printf 'attaching: %s\n' "${ASSETS[@]}"
+
+          # Idempotent, because re-running a tag has to be free. `gh release
+          # create` errors outright when the release already exists, which
+          # is what failed the first attempt at this release and is
+          # guaranteed to recur once a milestone needs several passes.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists -- updating it in place"
+            gh release edit "$TAG" --title "SAAT $TAG" --notes-file "$NOTES"
+          else
+            # Created as a draft so a failure between here and the promote
+            # step below leaves an unpublished draft rather than a public
+            # release with some of its assets missing.
+            gh release create "$TAG" --draft --title "SAAT $TAG" --notes-file "$NOTES"
+          fi
+
+          # --clobber overwrites an asset of the same name instead of
+          # failing, so a re-run replaces a bad binary rather than being
+          # blocked by it.
+          gh release upload "$TAG" "${ASSETS[@]}" --clobber
+
+          # Promote last, once every asset is attached. A no-op when the
+          # release was already published, which is the re-run case -- an
+          # existing published release is deliberately never forced back to
+          # draft first, since that would briefly retract a live download.
+          gh release edit "$TAG" --draft=false
+
+          gh release view "$TAG" --json url,isDraft \
+            -q '"published: " + .url + "  draft=" + (.isDraft|tostring)'

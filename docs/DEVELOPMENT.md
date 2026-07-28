@@ -122,6 +122,9 @@ The build, smoke test, and the GitHub release itself are handled by
 `pyinstaller`/`tar`/`gh release create` step in an actual release anymore. This checklist
 is about landing the right source commit and tagging it; CI does the rest.
 
+The same workflow also runs on `workflow_dispatch` as a dry run that builds and verifies
+without publishing anything (step 5) — use it before spending a tag.
+
 1. Write the release notes to `docs/release-notes/x.y.z.md` — user-facing changes only,
    not implementation detail. Must include: what changed, the download-and-extract
    instructions, the compatibility statement (PySide6's manylinux wheel needs glibc 2.35+;
@@ -134,24 +137,53 @@ is about landing the right source commit and tagging it; CI does the rest.
    Release discipline above).
 3. Commit, following the repository's existing message convention (see recent `git log`
    for tone and structure).
-4. Push to master.
-5. Tag and push the tag:
+4. Push to master, and confirm the Test workflow goes green on it before going further.
+5. **Dry-run the release build before spending a tag.** Run the Release workflow manually
+   — Actions → Release → "Run workflow" on `master`, or:
+   ```
+   gh workflow run release.yml --ref master
+   ```
+   `workflow_dispatch` runs everything a real release runs — both guards, the full test
+   suite, the translation compile, the PyInstaller build and the headless smoke test —
+   and then stops. It publishes nothing: the release job is gated on the tag-push event,
+   so a manual run leaves the tarball as a downloadable workflow artifact and creates no
+   tag and no release. Its artifact is labelled `vX.Y.Z-dev-<sha>` so it can never be
+   confused with a released one.
+
+   Do this whenever the change touches packaging at all — `SAAT.spec`, a bundled
+   resource, the workflow itself, a dependency pin. A tag is a public, awkward-to-retract
+   thing; a dry run is free and repeatable, so packaging problems should be found here,
+   not by watching a tagged release fail.
+6. Tag and push the tag:
    ```
    git tag -a vX.Y.Z -m "SAAT vX.Y.Z - <one-line summary>"
    git push origin vX.Y.Z
    ```
-6. Watch the Release workflow run in the Actions tab: it re-runs the full test suite as a
-   gate, checks the tag matches `__version__`, compiles the Turkish translation, builds
-   the portable tarball on `ubuntu-22.04` (see the workflow file's own comment for why
-   that runner specifically), smoke-tests the built binary headless, and — only once
-   every prior step has succeeded — publishes the GitHub release using the notes file
-   from step 1. If a step fails, fix it on master and replace the tag rather than
-   reusing it:
+7. Watch the Release workflow run in the Actions tab. On a tag it does everything the dry
+   run did, and then publishes: it creates the GitHub release as a **draft**, attaches
+   every artifact each build job produced, and only then promotes the draft to published
+   — so a second platform's build failing can never leave a half-populated release on the
+   Releases page. Publishing is idempotent (the release is created only if absent, and
+   assets upload with `--clobber`), so re-running the same tag replaces a bad binary
+   rather than failing on it.
+
+   If it still fails and the fix needs a new commit, **delete the release and the tag
+   together, in that order**:
    ```
-   git push --delete origin vX.Y.Z && git tag -d vX.Y.Z
+   gh release delete vX.Y.Z --cleanup-tag --yes
+   git fetch --prune --prune-tags
+   git tag -l vX.Y.Z          # must print nothing
    ```
-   then repeat step 5 — re-pushing an unchanged tag just rebuilds the same broken commit.
-7. Report back: the commit SHA(s), the tag, and the release URL.
+   The order is the point. `--cleanup-tag` removes the tag *after* the release it belongs
+   to; deleting the tag first — the old `git push --delete origin vX.Y.Z` on its own —
+   leaves the release behind, orphaned against a ref that no longer exists, still on the
+   Releases page and still serving whatever binary it was built from. That stale release
+   is also what makes a plain re-tag fail: `gh release create` refuses a release that
+   already exists.
+
+   Then fix it on master and repeat from step 5 — re-pushing an unchanged tag just
+   rebuilds the same broken commit.
+8. Report back: the commit SHA(s), the tag, and the release URL.
 
 ## Local builds (development only)
 
