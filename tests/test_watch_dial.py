@@ -10,7 +10,6 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication
 
 from saat.ui import theme
-from saat.ui.theme import MODE_DARK, MODE_LIGHT
 from saat.ui.watch_dial import (
     DIAL_DIAMETER,
     MARGIN,
@@ -111,7 +110,7 @@ class PaintTests(unittest.TestCase):
     FIXED_NOW = datetime(2024, 6, 1, 3, 15, 0, 0)
 
     def tearDown(self) -> None:
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
 
     def _painted(self):
         with patch("saat.ui.watch_dial.datetime") as mock_datetime:
@@ -121,8 +120,8 @@ class PaintTests(unittest.TestCase):
         return widget, image
 
     def test_renders_in_both_modes_without_error(self) -> None:
-        for mode in (MODE_DARK, MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 widget, image = self._painted()
                 self.assertFalse(image.isNull())

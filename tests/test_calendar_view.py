@@ -92,15 +92,15 @@ class DayCellNumberColorTests(unittest.TestCase):
     measured at 1.5:1, effectively invisible. See SPEC.md §6's contrast pass."""
 
     def tearDown(self) -> None:
-        theme.set_mode(theme.MODE_DARK)
+        theme.set_palette("default-dark")
 
     def test_number_colour_over_a_photo_is_fixed_regardless_of_theme_mode(self) -> None:
         record = _record("seiko-sarb033", "Seiko", "SARB033")
         cell = _DayCell(GridDay(day=date.today(), in_month=True), record, is_today=False)
         cell._pixmap = QPixmap(10, 10)
 
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 self.assertEqual(cell._number_color(theme.colors()).name(), "#e8e4dc")
 
@@ -110,8 +110,8 @@ class DayCellNumberColorTests(unittest.TestCase):
         cell_empty = _DayCell(GridDay(day=date.today(), in_month=True), None, is_today=False)
         self.assertIsNone(cell_assigned._pixmap)
 
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             palette = theme.colors()
             with self.subTest(mode=mode):
                 self.assertEqual(cell_assigned._number_color(palette).name(), QColor(palette.text).name())
@@ -499,7 +499,7 @@ class RotationEmphasisTests(unittest.TestCase):
     """Click-through from Stats mode's Rotation list. See SPEC.md §5.5."""
 
     def tearDown(self) -> None:
-        theme.set_mode(theme.MODE_DARK)
+        theme.set_palette("default-dark")
 
     def test_persists_across_month_navigation(self) -> None:
         record = _record("seiko-sarb033", "Seiko", "SARB033")
@@ -547,8 +547,8 @@ class RotationEmphasisTests(unittest.TestCase):
         self.assertIsNone(view._emphasized_slug)
 
     def test_dimmed_cell_is_visibly_different_from_an_emphasized_cell_in_both_themes(self) -> None:
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 today = date.today()
                 other_day = today + timedelta(days=1) if today.day < 27 else today - timedelta(days=1)
@@ -924,15 +924,15 @@ class DayCellProposedTests(unittest.TestCase):
     def test_proposed_cell_paints_without_error_in_both_themes(self) -> None:
         record = _record("seiko-sarb033", "Seiko", "SARB033")
         grid_day = GridDay(date.today(), in_month=True)
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 cell = _DayCell(grid_day, record, is_today=False)
                 cell.set_proposed(True)
                 cell.resize(72, 72)
                 image = cell.grab().toImage()
                 self.assertFalse(image.isNull())
-        theme.set_mode(theme.MODE_DARK)
+        theme.set_palette("default-dark")
 
 
 if __name__ == "__main__":

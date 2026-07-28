@@ -22,7 +22,6 @@ from saat.ui.case_silhouette import (
     drawing_scale,
 )
 from saat.ui.compare import build_silhouette_entries
-from saat.ui.theme import MODE_DARK, MODE_LIGHT
 from saat.ui.year_view import slug_color
 
 _app = QApplication.instance() or QApplication([])
@@ -211,15 +210,15 @@ class BothThemesRenderTests(unittest.TestCase):
     only really be judged by looking at the rendered screenshot pass."""
 
     def tearDown(self) -> None:
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
 
     def test_renders_in_both_modes(self) -> None:
         records = [
             _record("a", "Seiko", "A", case=Case(diameter_mm=40, lug_to_lug_mm=47, thickness_mm=12)),
             _record("b", "Casio", "B", case=Case(diameter_mm=44, lug_to_lug_mm=50, thickness_mm=13)),
         ]
-        for mode in (MODE_DARK, MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 section = _shown(build_case_silhouette_section(records))
                 section.grab()  # must not raise

@@ -1,0 +1,22 @@
+# Catppuccin Macchiato -- catppuccin/palette (palette.json, v1.8.0), cross-
+# checked against catppuccin/catppuccin's README.md; both agree exactly.
+# https://github.com/catppuccin/palette/blob/main/palette.json
+#
+# Role mapping: see catppuccin-latte.toml for the full citation -- identical
+# mapping across all four flavors (Base / Surface 0 / Overlay 0 / Text /
+# Subtext 0 / Mauve / Red).
+#
+# Contrast: every role clears its bar with Catppuccin's own official values
+# as published -- no substitution needed (text_muted 6.62:1/5.03:1, gilt
+# 6.84:1/5.21:1, ruby 5.96:1/4.54:1).
+id = "catppuccin-macchiato"
+name = "Catppuccin Macchiato"
+is_dark = true
+
+plate = "#24273a"
+plate_high = "#363a4f"
+rule = "#6e738d"
+text = "#cad3f5"
+text_muted = "#a5adcb"
+gilt = "#c6a0f6"
+ruby = "#ed8796"

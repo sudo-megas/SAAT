@@ -159,11 +159,11 @@ class RotationBarPixelTests(unittest.TestCase):
     than assumed, since _RotationBar only sets a *minimum* width."""
 
     def tearDown(self) -> None:
-        theme.set_mode(theme.MODE_DARK)
+        theme.set_palette("default-dark")
 
     def test_bar_fill_and_tick_land_at_the_expected_offsets(self) -> None:
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 # days_worn (8/10) and even_split (3/10) deliberately differ, so the
                 # fill edge (80%) and tick (30%) land at different offsets. A tick

@@ -1,0 +1,53 @@
+# Kanagawa Lotus -- rebelot/kanagawa.nvim, lua/kanagawa/colors.lua (the raw
+# 40 lotus*-prefixed values) and lua/kanagawa/themes.lua's own `lotus`
+# theme-role mapping (which UI/syntax role each color is actually assigned
+# to in the source, not a guess from color names).
+# https://github.com/rebelot/kanagawa.nvim/blob/master/lua/kanagawa/colors.lua
+# https://github.com/rebelot/kanagawa.nvim/blob/master/lua/kanagawa/themes.lua
+#
+# Role mapping:
+#   plate       = lotusWhite3  (themes.lua ui.bg: "Default background")
+#   plate_high  = lotusWhite0  (themes.lua ui.float.bg: floating windows/
+#                                popups -- the literal "elevated surface" in
+#                                this theme's own UI model. Reads slightly
+#                                darker/more saturated than plate rather than
+#                                lighter -- the same light-mode-elevation-
+#                                goes-darker pattern as Catppuccin Latte,
+#                                not a mistake.)
+#   rule        = lotusGray2   (themes.lua ui.float.fg_border -- literally
+#                                named border in source)
+#   text        = lotusInk1    (themes.lua ui.fg: "Default foreground")
+#   text_muted  = lotusGray2, not lotusGray3 (see contrast note -- shares a
+#                                value with rule above, disclosed rather than
+#                                hidden)
+#   gilt        = lotusBlue4   (themes.lua syn.fun -- the structural
+#                                analogue of Kanagawa Wave's signature
+#                                crystalBlue, itself mapped to syn.fun in the
+#                                Wave theme; the closest thing this palette
+#                                has to a brand hue)
+#   ruby        = lotusRed, not lotusRed3 (see contrast note)
+#
+# Contrast, two substitutions:
+#   - text_muted: lotusGray3 (themes.lua syn.comment, the theme's own
+#     designated muted/de-emphasized role) measures 2.93:1 on plate /
+#     2.21:1 on plate-high -- far under 4.5:1. lotusGray2, the next step
+#     toward text in the same ink/gray family, measures 4.26:1 / 3.21:1 --
+#     closer but still short of 4.5:1, reported honestly rather than
+#     invented around. It happens to equal `rule`'s own value; visually
+#     distinct in practice (a 1px hairline vs. label text), not a role
+#     collision.
+#   - ruby: lotusRed3 (themes.lua diag.error, the theme's own designated
+#     error color) measures 3.72:1 on plate (passes) but 2.80:1 on
+#     plate-high (fails 3:1). `lotusRed` (undecorated, the family's other
+#     red) clears both at 4.06:1 / 3.06:1.
+id = "kanagawa-lotus"
+name = "Kanagawa Lotus"
+is_dark = false
+
+plate = "#f2ecbc"
+plate_high = "#d5cea3"
+rule = "#716e61"
+text = "#545464"
+text_muted = "#716e61"
+gilt = "#4d699b"
+ruby = "#c84053"

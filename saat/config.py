@@ -13,6 +13,7 @@ class Config:
     def __init__(self, path: Path | None = None) -> None:
         self.path = path if path is not None else config_dir() / "config.toml"
         self.data = self._load()
+        self._migrate_theme_to_palette()
 
     def _load(self) -> tomlkit.TOMLDocument:
         if not self.path.exists():
@@ -25,6 +26,26 @@ class Config:
 
     def save(self) -> None:
         write_atomic(self.path, tomlkit.dumps(self.data))
+
+    def _migrate_theme_to_palette(self) -> None:
+        """Milestone 21b: the old two-value [theme] mode key becomes
+        [palette] id, once. Guarded on "id" actually being present, not just
+        the [palette] table existing, and never re-fires once it is -- a
+        user who has since picked, say, Nord must never be silently reverted
+        to default-dark on a later launch just because a stale [theme] table
+        still lingers. A fresh config (no [theme] table at all) writes
+        nothing here; palette_id()'s own fallback handles "absent means
+        default-dark" at read time, the same convention every other
+        accessor in this file uses."""
+        if "palette" in self.data and "id" in self.data["palette"]:
+            return
+        theme_table = self.data.get("theme")
+        old_mode = theme_table.get("mode") if theme_table else None
+        if old_mode is None:
+            return
+        self.set_palette_id("default-light" if old_mode == "light" else "default-dark")
+        self.data.pop("theme", None)
+        self.save()
 
     def window_geometry(self) -> dict | None:
         return self.data.get("window")
@@ -60,23 +81,27 @@ class Config:
     def picker_mode(self) -> str | None:
         """Milestone 20: Random/Weighted, remembered across launches. §9
         still bans a settings dialog -- this is the picker surface's own
-        single toggle persisting itself, the same shape as theme_mode()."""
+        single toggle persisting itself, the same shape as palette_id()."""
         picker = self.data.get("picker")
         return picker.get("mode") if picker else None
 
     def set_picker_mode(self, mode: str) -> None:
         self.data.setdefault("picker", tomlkit.table())["mode"] = mode
 
-    def theme_mode(self) -> str | None:
-        theme = self.data.get("theme")
-        return theme.get("mode") if theme else None
+    def palette_id(self) -> str:
+        """Active palette id — absent means default-dark (SPEC.md §6: default
+        on first launch stays dark), the same absence-means-default
+        convention as every other accessor here rather than an Optional the
+        caller has to fall back on."""
+        palette = self.data.get("palette")
+        return palette["id"] if palette and "id" in palette else "default-dark"
 
-    def set_theme_mode(self, mode: str) -> None:
-        self.data.setdefault("theme", tomlkit.table())["mode"] = mode
+    def set_palette_id(self, palette_id: str) -> None:
+        self.data.setdefault("palette", tomlkit.table())["id"] = palette_id
 
     def language(self) -> str | None:
         """UI language code ("tr") — absent means English, same as
-        theme_mode()'s None-means-default shape. Never read from the OS
+        picker_mode()'s None-means-default shape. Never read from the OS
         locale: the app always starts in English on first run and the
         language is changed manually, by explicit design (SPEC.md)."""
         language = self.data.get("language")

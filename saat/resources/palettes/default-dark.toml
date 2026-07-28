@@ -1,0 +1,16 @@
+# SAAT's own reference plate (SPEC.md §6) — a movement plate as seen with the
+# case back off, under a loupe. Byte-identical to the pre-milestone-21b
+# hardcoded _DARK values; not sourced from anywhere external.
+id = "default-dark"
+name = "Default Dark"
+is_dark = true
+
+plate = "#1C1B19"
+plate_high = "#262421"
+rule = "#38352F"
+text = "#E8E4DC"
+# nudged from SPEC's #8E877C: measured 4.35:1 on plate-high, below the 4.5:1 bar
+text_muted = "#938C81"
+gilt = "#C9A227"
+# nudged from SPEC's #9E2B25: measured 2.08:1 on plate-high, below the 3:1 bar
+ruby = "#CF3931"

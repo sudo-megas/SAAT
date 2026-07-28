@@ -1,0 +1,22 @@
+# Catppuccin Mocha -- catppuccin/palette (palette.json, v1.8.0), cross-
+# checked against catppuccin/catppuccin's README.md; both agree exactly.
+# https://github.com/catppuccin/palette/blob/main/palette.json
+#
+# Role mapping: see catppuccin-latte.toml for the full citation -- identical
+# mapping across all four flavors (Base / Surface 0 / Overlay 0 / Text /
+# Subtext 0 / Mauve / Red).
+#
+# Contrast: every role clears its bar with Catppuccin's own official values
+# as published -- no substitution needed (text_muted 7.37:1/5.65:1, gilt
+# 8.07:1/6.19:1, ruby 7.08:1/5.43:1).
+id = "catppuccin-mocha"
+name = "Catppuccin Mocha"
+is_dark = true
+
+plate = "#1e1e2e"
+plate_high = "#313244"
+rule = "#6c7086"
+text = "#cdd6f4"
+text_muted = "#a6adc8"
+gilt = "#cba6f7"
+ruby = "#f38ba8"

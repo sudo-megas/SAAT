@@ -27,9 +27,11 @@ _TOGGLE_SIZE = 28
 class _ThemeToggle(QWidget):
     """Sun/moon glyph, hand-drawn to match the app's line weight rather than a
     font icon — SPEC.md §6 is explicit on that point. Shows the mode a click
-    switches *to*: a sun while dark is active, a moon while light is active.
-    Reads theme.colors()/current_mode() fresh every paint, so it's always
-    correct after a toggle or after TopBar gets rebuilt from scratch."""
+    switches *to*: a sun while a dark palette is active, a moon while a light
+    one is. Reads theme.colors()/active_palette() fresh every paint, so it's
+    always correct after a toggle or after TopBar gets rebuilt from scratch.
+    Interim shim (Milestone 21b-b): retired in 21b-e for the bottom bar's
+    ten-way palette picker."""
 
     clicked = Signal()
 
@@ -49,7 +51,7 @@ class _ThemeToggle(QWidget):
         color = QColor(theme.colors().text_muted)
         cx, cy = self.width() / 2, self.height() / 2
 
-        if theme.current_mode() == theme.MODE_DARK:
+        if theme.active_palette().is_dark:
             r = 5.0
             painter.setPen(QPen(color, 1.5))
             painter.setBrush(Qt.BrushStyle.NoBrush)

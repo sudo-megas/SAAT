@@ -59,8 +59,8 @@ class HairlineDieTests(unittest.TestCase):
         self.assertEqual(die._face, 1)
 
     def test_paints_without_error_in_both_themes(self) -> None:
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 die = HairlineDie(face_count=3)
                 die.show()
@@ -69,7 +69,7 @@ class HairlineDieTests(unittest.TestCase):
                 self.assertFalse(image.isNull())
                 self.assertEqual(die.size().width(), DIE_SIZE)
                 die.close()
-        theme.set_mode(theme.MODE_DARK)
+        theme.set_palette("default-dark")
 
 
 class TodayPickerDialogTests(unittest.TestCase):

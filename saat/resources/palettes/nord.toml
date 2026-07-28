@@ -1,0 +1,43 @@
+# Nord -- nordtheme/nord, src/nord.scss, cross-checked byte-for-byte against
+# the live nordtheme.com/docs/colors-and-palettes page.
+# https://github.com/nordtheme/nord/blob/main/src/nord.scss
+#
+# Role mapping (Nord's own SassDoc):
+#   plate       = nord0  ("base component color of Polar Night... for dark
+#                          ambiance themes")
+#   plate_high  = nord1  ("a lighter background color for UI elements like
+#                          status bars")
+#   rule        = nord2  (nearest structural step between plate and
+#                          text_muted; Nord's docs don't name a dedicated
+#                          border color)
+#   text        = nord4  ("for dark ambiance themes, .text { color: $nord4 }")
+#   text_muted  = nord3  ("used for comments, invisibles... disabled
+#                          elements" -- Nord's own designated muted role)
+#   gilt        = nord8  (explicit: "Bluish core accent color. Represents
+#                          THE accent color of the color palette." -- the one
+#                          unambiguous, hardcoded answer in this research)
+#   ruby        = nord11 ("used for errors, git/diff deletion and linter
+#                          marker")
+#
+# Contrast, two honest shortfalls, both reported per SPEC.md §6 items 10/37
+# rather than invented around:
+#   - text_muted (nord3) measures 1.69:1 on plate / 1.36:1 on plate-high,
+#     far under the 4.5:1 bar. Nord's 16-color system has no intermediate
+#     step between Polar Night's darkest (nord3) and Snow Storm's lightest
+#     (nord4, already assigned to primary text) -- there is nothing left in
+#     the same family to substitute.
+#   - ruby (nord11) measures 3.05:1 on plate (passes) but 2.46:1 on
+#     plate-high (fails the 3:1 bar). nord11 is Nord's only red; the Aurora
+#     group's other four colors (orange/yellow/green/purple) aren't
+#     substitutes for a destructive-action red.
+id = "nord"
+name = "Nord"
+is_dark = true
+
+plate = "#2e3440"
+plate_high = "#3b4252"
+rule = "#434c5e"
+text = "#d8dee9"
+text_muted = "#4c566a"
+gilt = "#88c0d0"
+ruby = "#bf616a"

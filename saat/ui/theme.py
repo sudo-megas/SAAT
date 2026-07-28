@@ -1,13 +1,11 @@
-from dataclasses import dataclass
+import tomllib
+from dataclasses import dataclass, fields
 
-from PySide6.QtCore import QEasingCurve
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, QEasingCurve
 from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 from saat.paths import resource_dir
-
-MODE_DARK = "dark"
-MODE_LIGHT = "light"
 
 
 @dataclass(frozen=True)
@@ -21,67 +19,136 @@ class Palette:
     ruby: str
 
 
-# Two movement plates, not a generic dark-mode app. See SPEC.md §6. Light is
-# the same plate under daylight, not an inverted dark mode — same hue
-# relationships, lightness re-tuned, gilt/ruby deepened for AA contrast.
-_DARK = Palette(
-    plate="#1C1B19",
-    plate_high="#262421",
-    rule="#38352F",
-    text="#E8E4DC",
-    text_muted="#938C81",  # nudged from spec's #8E877C: measured 4.35:1 on plate-high, below the 4.5:1 bar
-    gilt="#C9A227",
-    ruby="#CF3931",  # nudged from spec's #9E2B25: measured 2.08:1 on plate-high, below the 3:1 bar
-)
-_LIGHT = Palette(
-    plate="#F1EEE6",
-    plate_high="#FFFFFF",
-    rule="#DAD4C5",
-    text="#2B2822",
-    text_muted="#70695E",  # nudged from spec's #7C7568: measured 3.94:1 on plate, below the 4.5:1 bar
-    gilt="#8A6A16",
-    ruby="#A82F24",
-)
-_PALETTES = {MODE_DARK: _DARK, MODE_LIGHT: _LIGHT}
+@dataclass(frozen=True)
+class PaletteEntry:
+    id: str
+    name: str
+    is_dark: bool
+    palette: Palette
 
-# A render target, not a theme (SPEC.md §9, milestone 19) — deliberately absent
-# from _PALETTES and unreachable through set_mode()/colors(), so nothing can
-# select it from the light/dark toggle and PDF rendering never has to mutate
-# the live window's global theme state to borrow it. Pure white rather than
-# _LIGHT's off-white plate, near-black text rather than _LIGHT's charcoal, and
-# a darker rule than _LIGHT's — screen contrast tuning doesn't guarantee a
-# hairline survives a home printer's reproduction. gilt/ruby are already
-# contrast-checked against a pure white plate_high (_LIGHT's own), so paper
-# reuses them rather than guessing fresh, unverified values.
+
+_PALETTE_FIELD_NAMES = tuple(f.name for f in fields(Palette))
+
+# Ten fixed presets (SPEC.md §6/§9 -- data, not a theme editor). Explicit
+# display order, not alphabetical glob order: the popover lists palettes in
+# exactly this sequence, and "catppuccin-frappe" would sort ahead of
+# "default-light" alphabetically.
+_PALETTE_ORDER = (
+    "default-light",
+    "default-dark",
+    "noctalia",
+    "catppuccin-latte",
+    "catppuccin-frappe",
+    "catppuccin-macchiato",
+    "catppuccin-mocha",
+    "rose-pine-dawn",
+    "nord",
+    "kanagawa-lotus",
+)
+
+# The two generic English names aren't visible to pyside6-lupdate (it only
+# scans Python source, never TOML) -- marked here and translated at the call
+# site via display_name(), same split columns.py's own GROUP_ORDER uses. The
+# other eight are proper nouns and pass through PaletteEntry.name untranslated.
+_TRANSLATABLE_NAMES = {
+    "default-light": QT_TRANSLATE_NOOP("Palettes", "Default Light"),
+    "default-dark": QT_TRANSLATE_NOOP("Palettes", "Default Dark"),
+}
+
+_palette_registry: dict[str, PaletteEntry] | None = None
+
+
+def _load_palette_registry() -> dict[str, PaletteEntry]:
+    palettes_dir = resource_dir() / "resources" / "palettes"
+    registry: dict[str, PaletteEntry] = {}
+    for palette_id in _PALETTE_ORDER:
+        path = palettes_dir / f"{palette_id}.toml"
+        with path.open("rb") as handle:
+            data = tomllib.load(handle)
+        palette_colors = Palette(**{name: data[name] for name in _PALETTE_FIELD_NAMES})
+        registry[palette_id] = PaletteEntry(
+            id=data["id"], name=data["name"], is_dark=data["is_dark"], palette=palette_colors
+        )
+    return registry
+
+
+def _registry() -> dict[str, PaletteEntry]:
+    # Lazy, not import-time: theme.py stays free of disk I/O at import, and a
+    # missing/renamed TOML file fails loudly the first time a palette is
+    # actually needed rather than crashing every import of this module.
+    global _palette_registry
+    if _palette_registry is None:
+        _palette_registry = _load_palette_registry()
+    return _palette_registry
+
+
+def palettes() -> tuple[PaletteEntry, ...]:
+    """All ten presets, in the fixed display order (SPEC.md §6)."""
+    registry = _registry()
+    return tuple(registry[palette_id] for palette_id in _PALETTE_ORDER)
+
+
+def palette(palette_id: str) -> PaletteEntry:
+    registry = _registry()
+    if palette_id not in registry:
+        raise ValueError(f"unknown palette id: {palette_id!r}")
+    return registry[palette_id]
+
+
+def display_name(entry: PaletteEntry) -> str:
+    """Default Light/Default Dark translate; the other eight are proper
+    nouns (Nord, Catppuccin Mocha, ...) shown exactly as named upstream."""
+    source = _TRANSLATABLE_NAMES.get(entry.id)
+    if source is not None:
+        return QCoreApplication.translate("Palettes", source)
+    return entry.name
+
+
+_current_palette_id = "default-dark"
+
+
+def current_palette_id() -> str:
+    return _current_palette_id
+
+
+def set_palette(palette_id: str) -> None:
+    global _current_palette_id
+    if palette_id not in _registry():
+        raise ValueError(f"unknown palette id: {palette_id!r}")
+    _current_palette_id = palette_id
+
+
+def active_palette() -> PaletteEntry:
+    return palette(_current_palette_id)
+
+
+def colors() -> Palette:
+    """The active palette. Read this at paint time, not import time — a
+    `from saat.ui.theme import GILT`-style import binds the string once and
+    never sees a later switch. See SPEC.md §6's palette-picker requirement."""
+    return active_palette().palette
+
+
+# A render target, not a theme (SPEC.md §9, milestone 19) — deliberately
+# outside the ten-preset registry and unreachable through set_palette()/
+# colors(), so nothing can select it from the picker and PDF rendering never
+# has to mutate the live window's global theme state to borrow it. Pure
+# white rather than any preset's own plate, near-black text rather than a
+# charcoal one, and a darker rule than default-light's — screen contrast
+# tuning doesn't guarantee a hairline survives a home printer's reproduction.
+# gilt/ruby are literal copies of default-light's own values (already
+# contrast-checked against a pure white plate_high) rather than a live
+# registry lookup, so PAPER stays a self-contained constant with no loading
+# dependency of its own.
 PAPER = Palette(
     plate="#FFFFFF",
     plate_high="#FFFFFF",
     rule="#B0A992",
     text="#1A1815",
     text_muted="#5C5548",
-    gilt=_LIGHT.gilt,
-    ruby=_LIGHT.ruby,
+    gilt="#8A6A16",
+    ruby="#A82F24",
 )
-
-_current_mode = MODE_DARK
-
-
-def current_mode() -> str:
-    return _current_mode
-
-
-def set_mode(mode: str) -> None:
-    global _current_mode
-    if mode not in _PALETTES:
-        raise ValueError(f"unknown theme mode: {mode!r}")
-    _current_mode = mode
-
-
-def colors() -> Palette:
-    """The active palette. Read this at paint time, not import time — a
-    `from saat.ui.theme import GILT`-style import binds the string once and
-    never sees a later toggle. See SPEC.md §6's toggle requirement."""
-    return _PALETTES[_current_mode]
 
 # Type scale. Weights 400 and 600 only.
 SIZE_XS = 11
@@ -146,32 +213,28 @@ def resolve_fonts() -> dict[str, str]:
 def _load_stylesheet(fonts: dict[str, str]) -> str:
     qss_path = resource_dir() / "ui" / "theme.qss"
     text = qss_path.read_text(encoding="utf-8")
-    palette = colors()
-    tokens = {
-        "@plate@": palette.plate,
-        "@plate-high@": palette.plate_high,
-        "@rule@": palette.rule,
-        "@text@": palette.text,
-        "@text-muted@": palette.text_muted,
-        "@gilt@": palette.gilt,
-        "@ruby@": palette.ruby,
-        "@font-sans@": fonts["sans"],
-        "@font-sans-condensed@": fonts["sans_condensed"],
-        "@font-mono@": fonts["mono"],
-        "@size-xs@": str(SIZE_XS),
-        "@size-sm@": str(SIZE_SM),
-        "@size-md@": str(SIZE_MD),
-        "@size-lg@": str(SIZE_LG),
-        "@size-xl@": str(SIZE_XL),
-    }
+    active = colors()
+    tokens = {f"@{name.replace('_', '-')}@": getattr(active, name) for name in _PALETTE_FIELD_NAMES}
+    tokens.update(
+        {
+            "@font-sans@": fonts["sans"],
+            "@font-sans-condensed@": fonts["sans_condensed"],
+            "@font-mono@": fonts["mono"],
+            "@size-xs@": str(SIZE_XS),
+            "@size-sm@": str(SIZE_SM),
+            "@size-md@": str(SIZE_MD),
+            "@size-lg@": str(SIZE_LG),
+            "@size-xl@": str(SIZE_XL),
+        }
+    )
     for token, value in tokens.items():
         text = text.replace(token, value)
     return text
 
 
-def apply_theme(app: QApplication, mode: str | None = None) -> None:
-    if mode is not None:
-        set_mode(mode)
+def apply_theme(app: QApplication, palette_id: str | None = None) -> None:
+    if palette_id is not None:
+        set_palette(palette_id)
     fonts = resolve_fonts()
     app.setFont(QFont(fonts["sans"], SIZE_SM))
     app.setStyleSheet(_load_stylesheet(fonts))

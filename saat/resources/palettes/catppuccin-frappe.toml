@@ -1,0 +1,22 @@
+# Catppuccin Frappé -- catppuccin/palette (palette.json, v1.8.0), cross-
+# checked against catppuccin/catppuccin's README.md; both agree exactly.
+# https://github.com/catppuccin/palette/blob/main/palette.json
+#
+# Role mapping: see catppuccin-latte.toml for the full citation -- identical
+# mapping across all four flavors (Base / Surface 0 / Overlay 0 / Text /
+# Subtext / Mauve / Red).
+#
+# Contrast: text_muted substituted from Subtext 0 (#a5adce, measured 4.26:1
+# on plate-high -- below the 4.5:1 bar) to Subtext 1, the next-nearest step
+# in the same family (6.75:1 / 5.19:1, both compliant).
+id = "catppuccin-frappe"
+name = "Catppuccin Frappé"
+is_dark = true
+
+plate = "#303446"
+plate_high = "#414559"
+rule = "#737994"
+text = "#c6d0f5"
+text_muted = "#b5bfe2"
+gilt = "#ca9ee6"
+ruby = "#e78284"

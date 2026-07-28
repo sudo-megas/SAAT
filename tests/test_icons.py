@@ -11,7 +11,6 @@ from PySide6.QtWidgets import QApplication, QPushButton
 
 from saat.paths import resource_dir
 from saat.ui import icons, theme
-from saat.ui.theme import MODE_DARK, MODE_LIGHT
 
 _app = QApplication.instance() or QApplication([])
 
@@ -30,7 +29,7 @@ def _has_pixel_matching(pixmap, hex_color: str) -> bool:
 
 class ThemeModeResetMixin:
     def tearDown(self) -> None:
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
         super().tearDown()
 
 
@@ -88,11 +87,11 @@ class SetIconRefreshTests(ThemeModeResetMixin, unittest.TestCase):
         self.assertFalse(button.icon().isNull())
 
     def test_theme_toggle_repaints_the_icon_in_the_new_palettes_color(self) -> None:
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
         button = QPushButton()
         icons.set_icon(button, "search", color_role="text")
 
-        theme.apply_theme(_app, MODE_LIGHT)
+        theme.apply_theme(_app, "default-light")
 
         repainted = button.icon().pixmap(icons.ICON_SIZE, icons.ICON_SIZE)
         self.assertTrue(_has_pixel_matching(repainted, theme.colors().text.lower()))
@@ -102,12 +101,12 @@ class SetIconRefreshTests(ThemeModeResetMixin, unittest.TestCase):
         true no-op for the hundreds of plain widgets that never called
         set_icon — nothing to assert beyond "this doesn't raise"."""
         QPushButton("Plain button, no icon")
-        theme.apply_theme(_app, MODE_DARK)
+        theme.apply_theme(_app, "default-dark")
 
 
 class SetCheckableIconTests(ThemeModeResetMixin, unittest.TestCase):
     def test_unchecked_uses_the_unchecked_color_role(self) -> None:
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
         button = QPushButton()
         button.setCheckable(True)
         icons.set_checkable_icon(button, "grid")
@@ -116,7 +115,7 @@ class SetCheckableIconTests(ThemeModeResetMixin, unittest.TestCase):
         self.assertTrue(_has_pixel_matching(rendered, theme.colors().text_muted.lower()))
 
     def test_checking_it_switches_to_the_checked_color_role(self) -> None:
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
         button = QPushButton()
         button.setCheckable(True)
         icons.set_checkable_icon(button, "grid")
@@ -127,7 +126,7 @@ class SetCheckableIconTests(ThemeModeResetMixin, unittest.TestCase):
         self.assertTrue(_has_pixel_matching(rendered, theme.colors().gilt.lower()))
 
     def test_unchecking_it_again_reverts_the_color(self) -> None:
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
         button = QPushButton()
         button.setCheckable(True)
         icons.set_checkable_icon(button, "grid")

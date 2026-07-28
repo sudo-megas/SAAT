@@ -1,0 +1,46 @@
+# Rosé Pine Dawn -- rose-pine/rose-pine-site's own palette.json (the data
+# that renders rosepinetheme.com/palette), corroborated by rose-pine/neovim
+# and rose-pine/rose-pine-palette.
+# https://github.com/rose-pine/rose-pine-site/blob/main/src/data/palette.json
+#
+# Role mapping (Rosé Pine's own published role descriptions):
+#   plate       = base     ("Primary background")
+#   plate_high  = surface  ("Secondary background atop base -- floating
+#                            panels, popups, autocomplete menus, status
+#                            bars")
+#   rule        = highlightHigh ("Borders, visual dividers, separators" --
+#                            verbatim from the official doc)
+#   text        = text     ("High contrast foreground -- body text, variable
+#                            names")
+#   text_muted  = subtle, not muted (see contrast note below)
+#   gilt        = iris     (not pine, despite pine's prominence in the brand
+#                            badge: pine's own documented role is
+#                            constructive/affirmative/success signals, which
+#                            would collide with a generic identity accent.
+#                            Iris carries no competing semantic.)
+#   ruby        = love     ("Errors, destructive actions" -- verbatim)
+#
+# One value with an unresolved upstream discrepancy: `text` is #464261 on
+# the current live site and in rose-pine/neovim (a 2025 change titled
+# "use experimental darker text for dawn"), but the still-actively-updated
+# VS Code port ships the older #575279. Using the live-site/current-Neovim
+# value as canonical; flagged here rather than picked silently (SPEC.md §6
+# item 37).
+#
+# Contrast: text_muted substituted from `muted` (#9893a5, measured 2.73:1
+# on plate / 2.87:1 on plate-high -- both far under 4.5:1) to `subtle`
+# (#797593), Rosé Pine's own next-brighter foreground step. Subtle still
+# falls short of 4.5:1 (4.02:1 / 4.23:1) -- reported honestly, not invented
+# around; there is no fully-compliant tone in the same family between
+# `subtle` and `text` itself.
+id = "rose-pine-dawn"
+name = "Rosé Pine Dawn"
+is_dark = false
+
+plate = "#faf4ed"
+plate_high = "#fffaf3"
+rule = "#cecacd"
+text = "#464261"
+text_muted = "#797593"
+gilt = "#907aa9"
+ruby = "#b4637a"

@@ -26,7 +26,7 @@ from saat.paths import data_dir, resource_dir
 from saat.single_instance import SingleInstanceGuard
 from saat.ui.i18n import SUPPORTED_LANGUAGES, install_language
 from saat.ui.main_window import MainWindow
-from saat.ui.theme import MODE_DARK, apply_theme, load_bundled_fonts
+from saat.ui.theme import apply_theme, load_bundled_fonts
 
 
 def main() -> int:
@@ -61,7 +61,7 @@ def main() -> int:
     # see saat/ui/i18n.py) -- guarded here defensively even though Commit
     # C's language menu is designed to clear config's language key for
     # English rather than ever writing "en", the same absent-means-default
-    # shape as theme_mode(). Without this guard, an explicit "en" would
+    # shape as palette_id(). Without this guard, an explicit "en" would
     # trigger a false "failed to load" warning on the one language that
     # can't fail.
     if language and language != "en" and not install_language(app, language):
@@ -76,7 +76,7 @@ def main() -> int:
             None, "SAAT",
             f"Could not load the {SUPPORTED_LANGUAGES.get(language, language)} translation. Continuing in English.",
         )
-    apply_theme(app, config.theme_mode() or MODE_DARK)
+    apply_theme(app, config.palette_id())
 
     window = MainWindow(config=config)
     guard.raise_requested.connect(window.bring_to_front)

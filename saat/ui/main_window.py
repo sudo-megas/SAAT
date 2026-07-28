@@ -366,9 +366,13 @@ class MainWindow(QMainWindow):
             self._collection_view.set_export_enabled(True)
 
     def _on_theme_toggle(self) -> None:
-        new_mode = theme.MODE_LIGHT if theme.current_mode() == theme.MODE_DARK else theme.MODE_DARK
-        theme.apply_theme(QApplication.instance(), new_mode)
-        self._config.set_theme_mode(new_mode)
+        # Interim shim (Milestone 21b-b): the sun/moon toggle is retired in
+        # 21b-e in favor of the bottom bar's ten-way palette picker. Until
+        # then it stays a binary flip, just against palette ids instead of
+        # mode strings, so the tree stays green commit-by-commit.
+        new_id = "default-light" if theme.active_palette().is_dark else "default-dark"
+        theme.apply_theme(QApplication.instance(), new_id)
+        self._config.set_palette_id(new_id)
         self._config.save()
 
     def _manage_sellers(self) -> list[Seller]:

@@ -9,7 +9,6 @@ from PySide6.QtWidgets import QApplication
 
 from saat.ui import theme
 from saat.ui.perlage import TILE_SIZE, render_perlage_tile
-from saat.ui.theme import MODE_DARK, MODE_LIGHT
 
 _app = QApplication.instance() or QApplication([])
 
@@ -44,11 +43,11 @@ class ContrastCeilingTests(unittest.TestCase):
     combinations this app actually renders."""
 
     def tearDown(self) -> None:
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
 
     def test_every_real_surface_and_mode_combination_stays_under_the_ceiling(self) -> None:
-        for mode in (MODE_DARK, MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             colors = theme.colors()
             for surface_name, base_hex in (("plate", colors.plate), ("plate_high", colors.plate_high)):
                 with self.subTest(mode=mode, surface=surface_name):
@@ -76,9 +75,9 @@ class TileCachingTests(unittest.TestCase):
         new key, the same self-invalidating pattern icons.py's own pixmap
         cache already relies on."""
         dark_tile = render_perlage_tile(theme.colors().plate, theme.colors().rule)
-        theme.set_mode(MODE_LIGHT)
+        theme.set_palette("default-light")
         light_tile = render_perlage_tile(theme.colors().plate, theme.colors().rule)
-        theme.set_mode(MODE_DARK)
+        theme.set_palette("default-dark")
         self.assertIsNot(dark_tile, light_tile)
 
 

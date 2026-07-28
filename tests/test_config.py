@@ -35,7 +35,7 @@ class LanguageConfigTests(ConfigTestCase):
     """Milestone 21: absent means English, never "follow system" -- the app
     never reads QLocale.system()/LANG/LC_ALL to choose a UI language, so an
     absent key must resolve to English at the call site, the same
-    None-means-default shape as theme_mode()/picker_mode()."""
+    None-means-default shape as picker_mode()/palette_id()."""
 
     def test_language_defaults_to_none(self) -> None:
         self.assertIsNone(self._config().language())
@@ -46,13 +46,13 @@ class LanguageConfigTests(ConfigTestCase):
         config.save()
         self.assertEqual(Config(config.path).language(), "tr")
 
-    def test_language_is_independent_of_theme_mode(self) -> None:
+    def test_language_is_independent_of_palette_id(self) -> None:
         config = self._config()
-        config.set_theme_mode("light")
+        config.set_palette_id("default-light")
         config.set_language("tr")
         config.save()
         reloaded = Config(config.path)
-        self.assertEqual(reloaded.theme_mode(), "light")
+        self.assertEqual(reloaded.palette_id(), "default-light")
         self.assertEqual(reloaded.language(), "tr")
 
     def test_set_language_none_clears_the_key(self) -> None:

@@ -427,6 +427,10 @@ QMenu::indicator:checked {
     border-color: @gilt@;
 }
 
+QWidget[class="palette-row"] {
+    background: transparent;
+}
+
 QToolTip {
     background: @plate-high@;
     color: @text@;

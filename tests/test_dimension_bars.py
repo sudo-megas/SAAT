@@ -138,15 +138,15 @@ class DimensionBarSectionTests(unittest.TestCase):
 
 class BothThemesRenderTests(unittest.TestCase):
     def tearDown(self) -> None:
-        theme.set_mode(theme.MODE_DARK)
+        theme.set_palette("default-dark")
 
     def test_renders_in_both_modes(self) -> None:
         records = [
             _record("a", case=Case(weight_g=120, water_resistance_m=100), acquisition=Acquisition(price=1000, currency="USD")),
             _record("b", case=Case(weight_g=90, water_resistance_m=200), acquisition=Acquisition(price=2000, currency="USD")),
         ]
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 section = _shown(build_dimension_bars_section(records), width=600)
                 section.grab()  # must not raise

@@ -156,15 +156,15 @@ class BuildAccuracySectionTests(unittest.TestCase):
 
 class BothThemesRenderTests(unittest.TestCase):
     def tearDown(self) -> None:
-        theme.set_mode(theme.MODE_DARK)
+        theme.set_palette("default-dark")
 
     def test_renders_in_both_modes(self) -> None:
         records = [
             _record("a", accuracy_min=-20, accuracy_max=40),
             _record("b", accuracy_min=-15, accuracy_max=15, accuracy_unit="sec/month"),
         ]
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 section = _shown(build_accuracy_section(records), width=400)
                 section.grab()  # must not raise

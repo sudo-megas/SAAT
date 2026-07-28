@@ -17,11 +17,18 @@ COLOR_SWATCH_HEIGHT = 4
 
 
 def slug_chip_saturation_value() -> tuple[int, int]:
-    """Saturation/value for slug_color()'s chips in the active mode — like
-    gilt/ruby, deepened in light mode so every hue clears 3:1 against its
-    plate. The worst case (yellow, hue≈60) measured at 1.5:1 with a single
-    fixed value shared across modes. See test_theme_contrast.py."""
-    return (150, 110) if theme.current_mode() == theme.MODE_LIGHT else (150, 235)
+    """Saturation/value for slug_color()'s chips against the active palette —
+    like gilt/ruby, deepened on a dark plate so every hue clears 3:1. Keyed
+    on the active palette's is_dark flag, not a specific palette id: the
+    constraint is one-sided per class (a dark palette's chip must beat its
+    own plate; a lighter chip always wins there), so one conservative pair
+    per class covers every preset in that class rather than needing a
+    per-palette override. The dark-bucket value (100, 255) is retuned from
+    the original two-palette system's (150, 235), which measured as low as
+    1.99:1 against real dark presets (Catppuccin Frappé's surface0) — the
+    retuned pair clears 3:1 against every dark preset with real margin
+    (worst case 3.84:1, Nord). See test_theme_contrast.py."""
+    return (150, 110) if not theme.active_palette().is_dark else (100, 255)
 
 
 def slug_color(slug: str) -> QColor:

@@ -1,0 +1,35 @@
+# Catppuccin Latte -- catppuccin/palette (palette.json, v1.8.0), cross-
+# checked against catppuccin/catppuccin's README.md; both agree exactly.
+# https://github.com/catppuccin/palette/blob/main/palette.json
+#
+# Role mapping (docs/style-guide.md "General Usage" table):
+#   plate       = Base            (Background Pane)
+#   plate_high  = Surface 0       (Surface Elements -- style-guide's own term)
+#   rule        = Overlay 0       (Terminal table labels this "Inactive Border")
+#   text        = Text
+#   text_muted  = Subtext 1, not Subtext 0 (see contrast note below)
+#   gilt        = Mauve           (catppuccin/nix's own default global accent;
+#                                   also the style guide's top-priority syntax
+#                                   role, Keyword)
+#   ruby        = Red
+#
+# Contrast: text_muted substituted from Subtext 0 (#6c6f85, measured 4.37:1
+# on plate / 3.20:1 on plate-high -- both below the 4.5:1 bar) to Subtext 1,
+# the next-nearest step in the same family (5.53:1 / 4.05:1). Subtext 1
+# still falls 0.45 short of 4.5:1 against plate-high specifically -- the
+# next step in the ramp is Text itself, which would erase the muted/primary
+# distinction entirely, a worse outcome than a small measured shortfall.
+# Reported honestly per SPEC.md §6, not silently fixed: text_muted on
+# plate-high is 4.05:1, not 4.5:1. See tests/test_theme_contrast.py's
+# explicit, named exception for this one pairing.
+id = "catppuccin-latte"
+name = "Catppuccin Latte"
+is_dark = false
+
+plate = "#eff1f5"
+plate_high = "#ccd0da"
+rule = "#9ca0b0"
+text = "#4c4f69"
+text_muted = "#5c5f77"
+gilt = "#8839ef"
+ruby = "#d20f39"

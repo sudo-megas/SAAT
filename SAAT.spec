@@ -11,9 +11,10 @@
 # Why this shape:
 #   * datas ships the read-only resources theme.py and main.py resolve
 #     through resource_dir(): the QSS theme at `ui/`, the vendored Ubuntu
-#     fonts at `resources/fonts/`, and the app icon at `resources/icon/`.
-#     When frozen, resource_dir() returns sys._MEIPASS, so these dest paths
-#     must match exactly what theme.py / main.py join onto resource_dir().
+#     fonts at `resources/fonts/`, the app icon at `resources/icon/`, and
+#     the ten palette TOML files at `resources/palettes/`. When frozen,
+#     resource_dir() returns sys._MEIPASS, so these dest paths must match
+#     exactly what theme.py / main.py join onto resource_dir().
 #   * icon= on EXE sets the executable's own icon — meaningful on
 #     Windows/macOS, a no-op on Linux (where the running window's icon comes
 #     from setWindowIcon() reading resources/icon/saat.png at runtime, not
@@ -38,6 +39,10 @@ a = Analysis(
         ('saat/resources/fonts', 'resources/fonts'),
         ('saat/resources/icon', 'resources/icon'),
         ('saat/resources/icons', 'resources/icons'),
+        # Ten fixed presets (SPEC.md §6/§9), read via tomllib at runtime from
+        # resource_dir() -- a missing file here fails loudly the first time
+        # theme.palettes() is touched, not silently.
+        ('saat/resources/palettes', 'resources/palettes'),
         # Only .qm files are ever present here (see .gitignore) -- the .ts
         # sources this directory also holds in the working tree are the
         # lupdate-maintained originals, never read at runtime. qtbase_*.qm

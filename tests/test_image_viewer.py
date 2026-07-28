@@ -200,13 +200,13 @@ class ViewerWidgetTests(unittest.TestCase):
 
     def test_renders_in_both_themes_without_error(self) -> None:
         photo = self._photo("a.jpg")
-        for mode in (theme.MODE_DARK, theme.MODE_LIGHT):
-            theme.set_mode(mode)
+        for mode in ("default-dark", "default-light"):
+            theme.set_palette(mode)
             with self.subTest(mode=mode):
                 viewer = _shown(ImageViewerOverlay([photo], 0), size=(400, 300))
                 self.assertFalse(viewer.grab().toImage().isNull())
                 viewer.close()
-        theme.set_mode(theme.MODE_DARK)
+        theme.set_palette("default-dark")
 
 
 if __name__ == "__main__":

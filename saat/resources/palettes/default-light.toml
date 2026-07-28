@@ -1,0 +1,15 @@
+# SAAT's own reference plate (SPEC.md §6) — the same plate, brushed nickel in
+# daylight, not an inverted dark mode. Byte-identical to the pre-milestone-21b
+# hardcoded _LIGHT values; not sourced from anywhere external.
+id = "default-light"
+name = "Default Light"
+is_dark = false
+
+plate = "#F1EEE6"
+plate_high = "#FFFFFF"
+rule = "#DAD4C5"
+text = "#2B2822"
+# nudged from SPEC's #7C7568: measured 3.94:1 on plate, below the 4.5:1 bar
+text_muted = "#70695E"
+gilt = "#8A6A16"
+ruby = "#A82F24"
