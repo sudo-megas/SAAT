@@ -408,11 +408,44 @@ class LintianOverrideTests(unittest.TestCase):
                     f"override is not scoped to the package: {stripped}",
                 )
 
+    def _overridden_tags(self) -> list[str]:
+        """The tag names actually silenced -- not the prose above them.
+        The justifying comments necessarily discuss postrm, purge and
+        removal at length, so scanning the whole file for those words
+        flags the explanations rather than the overrides."""
+        tags = []
+        for line in self.text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("saat: "):
+                tags.append(stripped[len("saat: "):].split()[0])
+        return tags
+
     def test_nothing_about_data_safety_is_overridden(self) -> None:
-        """No lintian tag about maintainer scripts or file removal may ever
-        be silenced here."""
-        for forbidden in ("maintainer-script-removes", "postrm", "purge"):
-            self.assertNotIn(forbidden, self.text)
+        """No lintian tag that would mask a maintainer script deleting
+        something may ever be silenced here. maintainer-script-empty is
+        deliberately not in this set: an empty prerm is the absence of an
+        action, which is the safe direction."""
+        dangerous = ("removes", "delete", "rm-", "-rm", "purge", "clobber")
+        for tag in self._overridden_tags():
+            for needle in dangerous:
+                self.assertNotIn(
+                    needle, tag, f"override silences a data-safety tag: {tag}"
+                )
+
+    def test_no_override_carries_a_context_pattern(self) -> None:
+        """Lintian matches an override's context literally against the
+        tag's own context string, so `tag *` matches nothing for most tags
+        and is reported as mismatched-override. Bare tag names override
+        every instance, which is what this package wants for tags that fire
+        across two hundred bundled libraries."""
+        for line in self.text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("saat: "):
+                self.assertEqual(
+                    len(stripped.split()),
+                    2,
+                    f"override carries a context pattern: {stripped}",
+                )
 
 
 class ManPageTests(unittest.TestCase):
