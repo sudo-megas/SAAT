@@ -1,142 +1,146 @@
 # SAAT — Watch Collection Manager
 
-A local, offline desktop app for cataloguing a mechanical-watch collection: grid,
-table and calendar views, a photo-forward detail page, wear tracking, side-by-side
-comparison, and light/dark themes. Every watch is a plain TOML file on disk — no
-database, no network, no accounts. See [`SPEC.md`](SPEC.md) for the full design.
+SAAT catalogues a wristwatch collection on your own computer: a photo-forward grid,
+a dense spec table, a wear calendar, a detail page per watch, and side-by-side
+comparison. Every watch is a plain TOML file in a folder you own — no database, no
+network, no account, nothing that expires.
 
-Built with PySide6 (Qt 6). Runs natively on Wayland.
+![SAAT's first screen: an empty collection](docs/images/empty-state-dark.png)
 
-## Requirements
+It ships empty on purpose. Entering the collection is the hobby; the app is the
+framework, not the contents.
 
-- Python 3 and a Wayland session
-- Three runtime dependencies, installed for you by `run.sh`: **PySide6**, **tomlkit**,
-  **Pillow** — pinned to exact versions in `requirements.txt`, which is also what CI
-  builds and tests against
+## Install
 
-## Run it (development)
+### Debian, Ubuntu, Mint and derivatives
 
-From a fresh clone, with no arguments:
-
-```sh
-./run.sh
-```
-
-`run.sh` creates a local `.venv/` if one is absent, installs `requirements.txt`
-into it, sets `QT_QPA_PLATFORM=wayland`, and launches the app. Your data —
-`watches/`, `config.toml`, `backups/` — lives in the project root, beside `run.sh`.
-
-## Build a portable version
-
-Official releases are built by CI, not by hand — see the
-[Releases page](https://github.com/sudo-megas/SAAT/releases) for a ready-to-run tarball
-covering Ubuntu 22.04+, Debian 12+, Fedora 36+, Mint 21+, and current Arch. The steps
-below are for building it yourself: local development, testing a packaging change, or
-running on something the published build doesn't cover.
-
-The portable build is a self-contained folder you can copy anywhere — it carries its
-own Qt and Python runtime and needs nothing installed on the target machine.
-
-It is produced with [PyInstaller](https://pyinstaller.org), which is a **build-time
-tool only** — not one of the app's three runtime dependencies, which is why it is
-declared in `requirements-build.txt` rather than `requirements.txt`. Install it
-alongside them in a venv (the one `run.sh` created works), then build from the
-committed spec:
+Download `saat_<version>_amd64.deb` from the
+[releases page](https://github.com/sudo-megas/SAAT/releases/latest) and install it:
 
 ```sh
-.venv/bin/pip install -r requirements-build.txt
-.venv/bin/pyinstaller SAAT.spec
+sudo apt install ./saat_2.0-1_amd64.deb
 ```
 
-The result is `dist/SAAT/`:
+SAAT then appears in your application menu. There is nothing else to set up.
 
-```
-SAAT/
-├── SAAT          the executable
-├── _internal/    bundled Qt and Python runtime (read-only)
-├── watches/      created on first use
-├── config.toml   created on first use
-└── backups/      created on first use
-```
+The package carries its own Qt and Python, so it does not care which version of
+either your distribution ships — the trade is size, about 230 MB installed, almost
+all of it Qt. It needs glibc 2.35 or newer, which means Debian 12+, Ubuntu 22.04+
+and anything more recent.
 
-Copy the whole `SAAT/` folder wherever you like and run `./SAAT`. Your data
-(`watches/`, `config.toml`, `backups/`) is created and read **beside the
-executable**, never inside `_internal/`, so the folder is fully portable — move it to
-a USB stick or another machine and the collection travels with it.
-
-The build is deliberately **one-folder** (`--onedir`), not one-file: one-file
-re-extracts the whole Qt runtime to a temp directory on every launch and would put
-your data outside the app folder. AppImage is not used either (mounted read-only, so
-the data directory can't live inside it, and it needs FUSE 2). See `SAAT.spec` for
-the specifics.
-
-## Install it (Linux, system-wide)
-
-Build the portable folder first (previous section), then:
+To remove it:
 
 ```sh
-sudo ./install.sh
+sudo apt remove saat        # or: sudo apt purge saat
 ```
 
-This copies `dist/SAAT` to `/opt/saat`, marks it as an installed build (which
-switches it to the standard per-user data locations — see below), symlinks `saat`
-onto your `PATH` at `/usr/local/bin/saat`, and adds a launcher entry so SAAT appears
-in your application menu.
+**Neither touches your collection.** `~/.local/share/saat` and `~/.config/saat` are
+left exactly as they are, purge included. That is asserted automatically on every
+release build, not merely intended.
+
+### Every other Linux distribution
+
+Download the `.tar.gz` from the same
+[releases page](https://github.com/sudo-megas/SAAT/releases/latest), extract it, and
+run it:
 
 ```sh
-sudo ./uninstall.sh
+tar -xzf SAAT-v2.0-linux-x86_64.tar.gz
+./SAAT/SAAT
 ```
 
-removes everything `install.sh` created. It never touches your collection —
-`~/.local/share/saat` and `~/.config/saat` are left exactly as they are.
+That folder is self-contained and fully portable — it carries its own Qt and Python
+runtime and needs nothing installed. Copy it to a USB stick or another machine and
+your collection travels inside it, because in this mode SAAT keeps `watches/`,
+`config.toml` and `backups/` **beside the executable** rather than in your home
+directory.
+
+Built on Ubuntu 22.04, so it runs on anything with glibc 2.35 or newer: Ubuntu
+22.04+, Debian 12+, Fedora 36+, Mint 21+, and current Arch.
+
+There is also an [`install.sh`](install.sh) for a system-wide install on
+distributions without `apt` — see [docs/BUILDING.md](docs/BUILDING.md).
 
 ## Where your data lives
 
-SAAT runs in one of two modes:
+This is the part worth reading. SAAT never puts your collection anywhere you cannot
+find it, and never puts it anywhere but your own machine.
 
-- **Portable** (default — a plain copy of `dist/SAAT`, or running from source).
-  `watches/`, `config.toml` and `backups/` live beside the executable (or beside
-  `main.py` when run from source): copy the whole folder anywhere and the collection
-  travels with it.
-- **Installed** (via `install.sh`, or a future `.deb`). The executable lives in a
-  read-only system location (`/opt/saat`), so data moves to the standard per-user
-  locations instead: `watches/` and `backups/` under `$XDG_DATA_HOME/saat` (default
-  `~/.local/share/saat`), and `config.toml` under `$XDG_CONFIG_HOME/saat` (default
-  `~/.config/saat`). This only activates when the build is both frozen *and* carries
-  the `.installed` marker `install.sh` writes — a bare copy of `dist/SAAT` always
-  stays portable.
+| | Portable (the tarball) | Installed (the `.deb`, or `install.sh`) |
+|---|---|---|
+| watches, backups | beside the executable | `~/.local/share/saat/` |
+| configuration | beside the executable | `~/.config/saat/` |
 
-`SAAT_DATA_DIR` overrides both locations at once, useful for testing.
+Each watch is its own folder under `watches/`, holding a `watch.toml` and an
+`images/` subfolder:
 
-Each watch is its own folder under `watches/`, containing a `watch.toml` and an
-`images/` subfolder. [`watches/_template.toml`](watches/_template.toml) documents
-every field; copy it into a new `watches/<some-slug>/watch.toml` to hand-author a
-watch, or just use **Add watch** in the app. Edits back up the previous `watch.toml`
-into `backups/` (pruned to the newest 20) before overwriting.
+```
+watches/<slug>/
+├── watch.toml
+└── images/
+    ├── main.jpg
+    └── strap-nato.jpg
+```
 
-## Notes
+`watch.toml` is a plain text file you can open in any editor.
+[`watches/_template.toml`](watches/_template.toml) documents every field, and
+comments you write into a watch file survive the app saving over it. Before any
+destructive change the previous version is copied into `backups/` (newest 20 kept),
+and deleting a watch moves its whole folder to `backups/deleted/` rather than
+erasing it.
 
-- **Wayland.** The app runs natively on Wayland and picks the Wayland Qt backend
-  automatically. If your session ever falls back to X11, force it with
-  `QT_QPA_PLATFORM=wayland` (which is exactly what `run.sh` does).
-- **Arch / PEP 668.** Arch's system Python is externally managed, so a bare
-  `pip install` into it is refused. The `run.sh` venv route sidesteps this and is
-  self-contained; alternatively `sudo pacman -S pyside6 python-pillow` installs the
-  Qt and imaging pieces system-wide if you prefer.
+Which mode you are in is decided by a `.installed` marker file beside the
+executable, which only a package or `install.sh` ever creates. A plain copy of the
+portable folder is always portable — it can never silently relocate your collection
+into your home directory.
+
+`SAAT_DATA_DIR` overrides both locations at once.
+
+Nothing is uploaded, synced or phoned home. SAAT opens no network socket at all; the
+only things that ever leave it are a URL handed to your browser when you click a
+link, and a PDF if you ask for one.
+
+## What it does
+
+- **Grid** — cards led by the watch's own photograph, reflowing to the window width.
+- **Table** — dense and sortable, with column presets matching the data model:
+  identity, movement, case, dial, straps, acquisition.
+- **Calendar** — record what you wore, by month, week or year. The year view colours
+  each day by watch, which is how you find out what you actually reach for; stats
+  mode ranks rotation, coverage and streaks over a period.
+- **Detail page** — the photograph at proper size, full specifications, service and
+  timing history, a wear strip, and which of your other straps physically fit it.
+- **Compare** — two to four watches side by side, with a to-scale drawing of their
+  cases, their accuracy ranges on one axis, and bars for the numbers that differ.
+- **Wishlist** — a second scope for watches you do not own yet, with target prices,
+  and one click to move one into the collection when you buy it.
+- **Ten palettes**, English and Türkçe, a system tray, and PDF export of whatever
+  you are looking at.
+
+## Build it yourself
+
+See [docs/BUILDING.md](docs/BUILDING.md) — running from a clone, building the
+portable folder with PyInstaller, and building the `.deb`. [`SPEC.md`](SPEC.md) is
+the full design specification and is authoritative.
 
 ## Licence
 
-SAAT is free software, licensed under the [GNU General Public License v3.0](LICENSE)
-or later.
+SAAT is free software, licensed under the
+[GNU General Public License v3.0](LICENSE) or later.
 
-It's built on [PySide6](https://pypi.org/project/PySide6/), which is licensed under
-the LGPL-3.0. The portable build keeps Qt as separate shared libraries under
-`_internal/` rather than statically linking them, which is what the LGPL's
-dynamic-linking terms call for.
+It is built on [PySide6](https://pypi.org/project/PySide6/), which is licensed under
+the LGPL-3.0. Builds keep Qt as separate shared libraries rather than statically
+linking them, which is what the LGPL's dynamic-linking terms call for.
 
 The bundled Ubuntu Sans, Ubuntu Sans Condensed and Ubuntu Mono fonts are licensed
 under the [Ubuntu Font Licence 1.0](saat/resources/fonts/LICENCE.txt).
 
-The grid view's card-reflow layout (`saat/ui/flow_layout.py`) is adapted from Qt's own
-"Flow Layout" example (BSD-3-Clause) — the full copyright and licence text is kept at
-the top of that file.
+The grid view's card-reflow layout (`saat/ui/flow_layout.py`) is adapted from Qt's
+own "Flow Layout" example (BSD-3-Clause); the full notice is at the top of that
+file.
+
+The `.deb` additionally redistributes the Qt, CPython and C libraries its bundle
+carries. Every one of them is accounted for in
+[`packaging/debian/copyright`](packaging/debian/copyright), and the package ships a
+manifest of exactly what it contains at
+`/usr/share/doc/saat/bundled-libraries.txt`.

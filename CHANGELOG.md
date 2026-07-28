@@ -4,6 +4,42 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0] - 2026-07-29
+
+### Added
+
+- A Debian package. `sudo apt install ./saat_2.0-1_amd64.deb` on Debian, Ubuntu, Mint
+  and their derivatives installs SAAT into the application menu with its icon and puts
+  `saat` on PATH. The one-folder build goes to `/usr/lib/saat`, reached through a
+  `/usr/bin/saat` symlink, and ships with the `.installed` marker as a package file — so
+  a packaged install uses `~/.local/share/saat` and `~/.config/saat` while a plain copy
+  of the tarball stays portable, exactly as before.
+- **Removing or purging the package never deletes a collection.** No maintainer script
+  reads or writes anything under `$HOME`, and the release build proves it every time: it
+  installs the package, plants a `watch.toml` under `~/.local/share/saat`, purges, and
+  fails the release if the file is missing or altered.
+- A manual page, `man saat`, covering both data locations, the `SAAT_DATA_DIR` override,
+  and the fact that removal leaves the collection alone.
+- `docs/BUILDING.md` — running from a clone, the PyInstaller build, `install.sh`, and
+  building the `.deb`.
+
+### Changed
+
+- The README is now written for people installing SAAT rather than people building it:
+  what it is and a screenshot, then installation, then where your data lives. Build
+  instructions moved to `docs/BUILDING.md`.
+- `install.sh` and the package now share one launcher entry, `packaging/saat.desktop`,
+  instead of `install.sh` composing its own inline. Its `Exec` is the bare command
+  `saat`, which resolves through PATH to whichever install is present. Both also refresh
+  the desktop database now, so the launcher entry appears without a session restart.
+- Versions may be two-numeral (`2.0`) as well as three (`1.8.2`); the version guard test
+  accepts either.
+
+### Fixed
+
+- `install.sh` never refreshed the desktop database, so its launcher entry could take a
+  session restart to appear.
+
 ## [1.8.2] - 2026-07-28
 
 ### Fixed

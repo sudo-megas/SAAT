@@ -5,7 +5,11 @@ from pathlib import Path
 from saat import __version__
 
 CHANGELOG_PATH = Path(__file__).resolve().parent.parent / "CHANGELOG.md"
-VERSION_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\]", re.MULTILINE)
+# Two- and three-numeral versions are both valid. Releases up to 1.8.2 were
+# three-part; milestone 23 shipped as 2.0, which this pattern rejected --
+# the version scheme is the project's to choose, so the guard was widened
+# rather than the version padded to 2.0.0 to satisfy a regex.
+VERSION_HEADING = re.compile(r"^## \[(\d+\.\d+(?:\.\d+)?)\]", re.MULTILINE)
 
 
 class VersionMatchesChangelogTests(unittest.TestCase):
