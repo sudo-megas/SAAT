@@ -10,7 +10,9 @@ Built with PySide6 (Qt 6). Runs natively on Wayland.
 ## Requirements
 
 - Python 3 and a Wayland session
-- Three runtime dependencies, installed for you by `run.sh`: **PySide6**, **tomlkit**, **Pillow**
+- Three runtime dependencies, installed for you by `run.sh`: **PySide6**, **tomlkit**,
+  **Pillow** — pinned to exact versions in `requirements.txt`, which is also what CI
+  builds and tests against
 
 ## Run it (development)
 
@@ -20,7 +22,7 @@ From a fresh clone, with no arguments:
 ./run.sh
 ```
 
-`run.sh` creates a local `.venv/` if one is absent, installs the three dependencies
+`run.sh` creates a local `.venv/` if one is absent, installs `requirements.txt`
 into it, sets `QT_QPA_PLATFORM=wayland`, and launches the app. Your data —
 `watches/`, `config.toml`, `backups/` — lives in the project root, beside `run.sh`.
 
@@ -36,11 +38,13 @@ The portable build is a self-contained folder you can copy anywhere — it carri
 own Qt and Python runtime and needs nothing installed on the target machine.
 
 It is produced with [PyInstaller](https://pyinstaller.org), which is a **build-time
-tool only** — not one of the app's three runtime dependencies. Install it alongside
-them in a venv (the one `run.sh` created works), then build from the committed spec:
+tool only** — not one of the app's three runtime dependencies, which is why it is
+declared in `requirements-build.txt` rather than `requirements.txt`. Install it
+alongside them in a venv (the one `run.sh` created works), then build from the
+committed spec:
 
 ```sh
-.venv/bin/pip install pyinstaller
+.venv/bin/pip install -r requirements-build.txt
 .venv/bin/pyinstaller SAAT.spec
 ```
 

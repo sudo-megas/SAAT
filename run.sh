@@ -7,7 +7,10 @@ if [ ! -d .venv ]; then
 fi
 
 .venv/bin/pip install --quiet --upgrade pip
-.venv/bin/pip install --quiet PySide6 tomlkit Pillow
+# requirements.txt is the only place the runtime dependencies are named --
+# both CI workflows install from it too, so a developer's venv and a
+# release build get identical versions.
+.venv/bin/pip install --quiet -r requirements.txt
 
 export QT_QPA_PLATFORM=wayland
 exec .venv/bin/python main.py

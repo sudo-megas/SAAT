@@ -1,0 +1,25 @@
+# SAAT's three runtime dependencies (SPEC.md §2 rule 5), and the single
+# place they are declared: run.sh, .github/workflows/test.yml and
+# .github/workflows/release.yml all install from this file rather than
+# naming packages themselves. A fourth line here needs the written
+# justification rule 5 asks for; changing a version does not.
+#
+# Pinned exactly, not floated. One tag is about to produce more than one
+# platform artifact (a .deb in milestone 23, a Windows installer in 24),
+# and unpinned means two of them could be built against different PySide6
+# versions while claiming the same version number. Pinning also makes a
+# release reproducible after the fact, and stops an upstream release
+# landing in the middle of a build.
+#
+# These are what pip resolves for CPython 3.11 on linux-x86_64 and what
+# v1.8.2 was built, tested and smoke-tested against. Note that PySide6
+# ships a cp310-abi3 manylinux_2_34 wheel, so a release's glibc floor
+# comes from the ubuntu-22.04 runner it is built on (2.35), not from this
+# pin -- see .github/workflows/release.yml's header comment.
+#
+# PySide6 pins PySide6-Essentials, PySide6-Addons and shiboken6 to its own
+# exact version, so those three resolve deterministically from this line
+# and are deliberately not repeated here.
+PySide6==6.11.1
+tomlkit==0.15.1
+Pillow==12.3.0

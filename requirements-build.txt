@@ -1,0 +1,12 @@
+# Build-time tooling. Separate from requirements.txt so SAAT's three
+# runtime dependencies stay visibly three (SPEC.md §2 rule 5) -- this file
+# does not relax that cap and does not add a dependency to the app.
+# PyInstaller has always been build-only: it is what produces the portable
+# folder, and nothing in saat/ imports it or ships it.
+#
+# Installed alongside requirements.txt, never instead of it.
+#
+# Pinned for the same reason the runtime pins exist: the tool that lays out
+# the bundle should not change underneath a release between one platform's
+# build job and the next.
+pyinstaller==6.21.0
