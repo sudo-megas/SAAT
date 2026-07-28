@@ -448,6 +448,148 @@ class LintianOverrideTests(unittest.TestCase):
                 )
 
 
+class WindowsInstallerDataSafetyTests(unittest.TestCase):
+    """The Windows half of the rule the .deb's maintainer scripts carry:
+    uninstalling must never delete the collection.
+
+    On Windows the guarantee is structural rather than procedural. The
+    program installs to %LOCALAPPDATA%\\Programs\\SAAT and the collection
+    lives in %LOCALAPPDATA%\\SAAT -- siblings, not parent and child -- so
+    Inno's uninstaller, which removes what it installed under {app},
+    cannot reach the data even in principle. These tests pin that
+    structure, because the way it would be lost is someone "simplifying"
+    DefaultDirName."""
+
+    def setUp(self) -> None:
+        self.iss = (PACKAGING / "windows" / "saat.iss").read_text(encoding="utf-8")
+        self.directives = [
+            line.strip()
+            for line in self.iss.splitlines()
+            if line.strip() and not line.strip().startswith(";")
+        ]
+
+    def test_installs_beside_the_collection_never_on_top_of_it(self) -> None:
+        self.assertIn(
+            r"DefaultDirName={localappdata}\Programs\{#AppName}", self.directives
+        )
+        # The data directory itself, as paths.py resolves it, must never be
+        # the install target.
+        for directive in self.directives:
+            if directive.startswith("DefaultDirName"):
+                self.assertNotEqual(directive, r"DefaultDirName={localappdata}\SAAT")
+
+    def test_there_is_no_uninstalldelete_section(self) -> None:
+        """The section that could delete the collection is absent, and its
+        absence is the guarantee."""
+        self.assertNotIn("[UninstallDelete]", self.directives)
+
+    def test_no_directive_names_the_users_data_directories(self) -> None:
+        """Comments explain at length why these must not be touched, so
+        only the directives are searched, not the prose."""
+        body = "\n".join(self.directives)
+        for forbidden in (
+            r"{userappdata}\SAAT",
+            r"{localappdata}\SAAT;",
+            "{userdocs}",
+        ):
+            self.assertNotIn(forbidden, body)
+
+    def test_it_installs_per_user_and_needs_no_administrator(self) -> None:
+        """An unsigned installer asking for administrator rights is
+        exactly the shape of the thing people are right to refuse."""
+        self.assertIn("PrivilegesRequired=lowest", self.directives)
+
+    def test_it_ships_the_installed_marker(self) -> None:
+        """Load-bearing: without it an installed SAAT falls back to
+        portable mode and tries to keep the collection inside its own
+        Program Files-style directory. See docs/PLATFORM-AUDIT.md."""
+        self.assertRegex(self.iss, r'Source: "installed-marker".*DestName: "\.installed"')
+        self.assertTrue((PACKAGING / "windows" / "installed-marker").is_file())
+
+    def test_it_registers_an_uninstaller_in_apps_and_features(self) -> None:
+        self.assertTrue(
+            any(d.startswith("UninstallDisplayName=") for d in self.directives)
+        )
+        self.assertTrue(
+            any(d.startswith("UninstallDisplayIcon=") for d in self.directives)
+        )
+
+    def test_it_creates_start_menu_and_optional_desktop_shortcuts(self) -> None:
+        self.assertIn("[Icons]", self.directives)
+        self.assertTrue(any("{autoprograms}" in d for d in self.directives))
+        self.assertTrue(any("{autodesktop}" in d for d in self.directives))
+        # Inno directives wrap with a trailing backslash, so the flags of a
+        # wrapped entry live on the following line -- joined before
+        # searching rather than read one physical line at a time.
+        joined = self.iss.replace("\\\n", " ")
+        desktop_icon = [
+            line for line in joined.splitlines() if "{autodesktop}" in line
+        ]
+        self.assertTrue(desktop_icon)
+        self.assertIn("Tasks: desktopicon", desktop_icon[0])
+
+        # Optional means unchecked by default.
+        task = [
+            line
+            for line in joined.splitlines()
+            if line.strip().startswith('Name: "desktopicon"')
+        ]
+        self.assertTrue(task)
+        self.assertIn("unchecked", task[0])
+
+    def test_the_app_id_is_fixed_so_upgrades_are_upgrades(self) -> None:
+        """A changing AppId would leave every previous version installed
+        alongside the new one, each with its own Apps & Features entry."""
+        self.assertRegex(self.iss, r"AppId=\{\{[0-9A-F-]{36}\}")
+
+    def test_it_writes_nothing_to_the_registry_of_its_own(self) -> None:
+        """Milestone 24's DO-NOT list: no registry writes beyond what Inno
+        Setup needs for its own uninstaller entry."""
+        self.assertNotIn("[Registry]", self.directives)
+
+    def test_the_payload_is_the_one_folder_build_never_onefile(self) -> None:
+        self.assertRegex(self.iss, r'Source: "\.\.\\\.\.\\dist\\SAAT\\\*"')
+        self.assertIn("recursesubdirs", self.iss)
+
+
+class WindowsSpecTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.spec = (REPO_ROOT / "SAAT.spec").read_text(encoding="utf-8")
+
+    def test_no_console_window_appears_behind_the_app(self) -> None:
+        self.assertIn("console=False", self.spec)
+
+    def test_the_ico_is_the_executable_icon(self) -> None:
+        self.assertIn("icon='saat/resources/icon/saat.ico'", self.spec)
+        self.assertTrue((REPO_ROOT / "saat" / "resources" / "icon" / "saat.ico").is_file())
+
+    def test_it_is_one_folder_on_every_platform(self) -> None:
+        """SPEC.md §8 forbids --onefile, and the reasons hold at least as
+        strongly on Windows: it re-extracts Qt to %TEMP% on every launch,
+        which antivirus scanning makes slower still."""
+        self.assertIn("exclude_binaries=True", self.spec)
+        self.assertIn("coll = COLLECT(", self.spec)
+        # "onefile" appears several times in the comments explaining why it
+        # is banned, so only executable lines are searched.
+        code = [
+            line
+            for line in self.spec.splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        for line in code:
+            self.assertNotIn("onefile", line.lower())
+
+    def test_a_windows_version_resource_is_generated_from_the_version(self) -> None:
+        self.assertIn("version=version_resource", self.spec)
+        self.assertIn("saat.__version__", self.spec)
+
+    def test_the_version_resource_is_windows_only(self) -> None:
+        """Generating it on Linux would write a build artefact nothing
+        reads and make the spec platform-dependent in the wrong
+        direction."""
+        self.assertIn("if sys.platform == 'win32':", self.spec)
+
+
 class ManPageTests(unittest.TestCase):
     def setUp(self) -> None:
         self.text = (PACKAGING / "saat.1").read_text(encoding="utf-8")

@@ -359,11 +359,168 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+  # Windows. Two artifacts from one build, the same shape as Linux: a
+  # portable .zip that keeps its data beside the executable, and an Inno
+  # Setup installer that writes the .installed marker and uses
+  # %LOCALAPPDATA%/%APPDATA% instead.
+  #
+  # Unlike the Linux pair this cannot reuse another job's output -- a
+  # Windows binary has to be built on a Windows runner -- so the zip and
+  # the installer are both produced here, from one `pyinstaller` run.
+  #
+  # What this job CANNOT tell you: whether the installer's shortcuts land,
+  # whether SmartScreen lets a user past, whether the fonts render, or
+  # whether the tray behaves. A green build here is a build, not an
+  # installation test. See docs/release-notes/2.1.md, which says so plainly
+  # rather than implying otherwise.
+  build-windows-x86_64:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+
+      - name: Resolve build identity
+        id: identity
+        run: |
+          $version = python -c "import saat; print(saat.__version__)"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          if ("${{ github.event_name }}" -eq "push") {
+            "label=$env:GITHUB_REF_NAME" >> $env:GITHUB_OUTPUT
+          } else {
+            "label=v$version-dev-$($env:GITHUB_SHA.Substring(0,7))" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Guard tag, __version__ and release notes agree
+        run: |
+          $version = "${{ steps.identity.outputs.version }}"
+          if ("${{ github.event_name }}" -eq "push") {
+            $tagVersion = $env:GITHUB_REF_NAME -replace '^v', ''
+            if ($tagVersion -ne $version) {
+              Write-Host "::error::tag $env:GITHUB_REF_NAME does not match saat.__version__ ($version)"
+              exit 1
+            }
+          }
+          if (-not (Test-Path "docs/release-notes/$version.md")) {
+            Write-Host "::error::missing docs/release-notes/$version.md"
+            exit 1
+          }
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet -r requirements.txt -r requirements-build.txt
+
+      # The test suite runs on this platform too, from this milestone
+      # onward -- see test.yml's matrix. Repeated here for the same reason
+      # the Linux job repeats it: a release must never be built from a
+      # commit whose tests were only ever green somewhere else.
+      - name: Run test suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s tests -t .
+
+      # Same ordering rule as Linux: SAAT.spec bundles whatever is already
+      # on disk under saat/resources/i18n/, and the .qm is gitignored.
+      - name: Compile Turkish translation
+        run: pyside6-lrelease saat/resources/i18n/saat_tr.ts -qm saat/resources/i18n/saat_tr.qm
+
+      - name: Build with PyInstaller
+        run: pyinstaller SAAT.spec
+
+      # Portable artifact. No .installed marker anywhere in it -- that is
+      # what keeps it portable, and the assertion below is not decoration:
+      # a marker leaking into the zip would silently move every portable
+      # user's collection into their AppData.
+      - name: Create the portable zip
+        run: |
+          if (Test-Path "dist\SAAT\.installed") {
+            Write-Host "::error::the portable build contains an .installed marker"
+            exit 1
+          }
+          Compress-Archive -Path dist\SAAT -DestinationPath "dist\SAAT-${{ steps.identity.outputs.label }}-windows-x64.zip" -CompressionLevel Optimal
+
+      # Inno Setup is normally present on the windows runner image; the
+      # fallback is here so a runner-image change cannot silently take the
+      # installer out of a release.
+      - name: Ensure Inno Setup is available
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            Write-Host "Inno Setup not on the image -- installing it"
+            choco install innosetup --no-progress -y
+          }
+          if (-not (Test-Path $iscc)) {
+            Write-Host "::error::Inno Setup is still not at $iscc"
+            exit 1
+          }
+          "ISCC=$iscc" >> $env:GITHUB_ENV
+
+      - name: Build the installer
+        run: |
+          & "$env:ISCC" "/DAppVersion=${{ steps.identity.outputs.version }}" packaging\windows\saat.iss
+          Get-ChildItem dist\*.exe
+
+      # Same reasoning as the Linux smoke test: this is a GUI event-loop
+      # app with no --version path, so it never exits on its own and
+      # "still running after 20 seconds" is the healthy outcome. Asserts
+      # three bundle paths first, which a bare launch check would miss --
+      # PyInstaller ships happily without the compiled translation or an
+      # icon-engine plugin.
+      - name: Smoke-test the portable build
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $ErrorActionPreference = "Stop"
+          Test-Path dist\SAAT\_internal\resources\i18n\saat_tr.qm -PathType Leaf
+          Test-Path dist\SAAT\_internal\ui\theme.qss -PathType Leaf
+          if (-not (Test-Path dist\SAAT\_internal\PySide6\plugins\iconengines\qsvgicon.dll)) {
+            if (-not (Test-Path dist\SAAT\_internal\PySide6\Qt\plugins\iconengines\qsvgicon.dll)) {
+              Write-Host "::error::the SVG icon engine plugin is missing from the bundle"
+              Get-ChildItem -Recurse -Filter "qsvgicon*" dist\SAAT | Select-Object -First 5
+              exit 1
+            }
+          }
+
+          $before = Test-Path "$env:LOCALAPPDATA\SAAT"
+          $proc = Start-Process -FilePath "dist\SAAT\SAAT.exe" -PassThru
+          Start-Sleep -Seconds 20
+          if ($proc.HasExited) {
+            Write-Host "::error::SAAT.exe exited with $($proc.ExitCode) within the smoke-test window"
+            exit 1
+          }
+          $proc.Kill()
+          Write-Host "healthy launch (still running after 20s)"
+
+          # A portable build must never touch the installed-mode location.
+          if ((-not $before) -and (Test-Path "$env:LOCALAPPDATA\SAAT")) {
+            Write-Host "::error::the portable build created $env:LOCALAPPDATA\SAAT -- it is not portable"
+            exit 1
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: saat-windows-x64
+          path: |
+            dist/SAAT-*-windows-x64.zip
+            dist/SAAT-*-windows-x64-setup.exe
+          if-no-files-found: error
+          compression-level: 0
+
   release:
     # Every build job must succeed before anything is published, so a
     # second platform failing can never leave a half-populated release
-    # behind. A later milestone's build job goes in this list.
-    needs: [build-linux-x86_64, deb]
+    # behind.
+    needs: [build-linux-x86_64, deb, build-windows-x86_64]
     # The dry run stops here: workflow_dispatch builds, tests and smoke-
     # tests, then leaves the artifact attached to the workflow run and
     # publishes nothing at all.

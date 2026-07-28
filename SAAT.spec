@@ -30,6 +30,63 @@
 #     load-time crashes, and leaving it on would make the build depend on
 #     whether UPX is installed. Off is deterministic and safe.
 
+#   * Platform-aware in exactly one place, at the bottom: a Windows
+#     VERSIONINFO resource. Everything else here was already portable and
+#     was left alone. datas uses the tuple form, so there is no ':' versus
+#     ';' separator problem; console=False was already correct (a windowed
+#     app must not have a console flash up behind it on Windows, and the
+#     flag is a no-op on Linux); and icon= already points at the .ico,
+#     which Windows uses for the executable and Linux ignores.
+#
+#   * --onedir on every platform. §8 forbids --onefile on Linux for
+#     reasons that hold at least as strongly on Windows: it re-extracts the
+#     whole Qt runtime to %TEMP% on every launch, which antivirus
+#     real-time scanning makes slower still, and it puts application files
+#     outside the folder portable mode keeps its data in.
+
+import sys
+
+# A Windows executable with no VERSIONINFO shows blank Details in its file
+# properties and gives SmartScreen nothing to identify it by. It does not
+# make the binary trusted -- only a code-signing certificate does that, and
+# milestone 24 deliberately does not attempt one -- but an unsigned binary
+# that also refuses to say what it is is worse than an unsigned binary that
+# does. Generated from saat.__version__ so it cannot drift.
+version_resource = None
+if sys.platform == 'win32':
+    import os
+    sys.path.insert(0, os.path.abspath('.'))
+    import saat
+
+    parts = saat.__version__.split('.')
+    while len(parts) < 4:
+        parts.append('0')
+    numeric = ', '.join(parts[:4])
+
+    os.makedirs('build', exist_ok=True)
+    version_resource = os.path.join('build', 'version_info.txt')
+    with open(version_resource, 'w', encoding='utf-8') as handle:
+        handle.write(f"""VSVersionInfo(
+  ffi=FixedFileInfo(filevers=({numeric}), prodvers=({numeric}),
+    mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1, subtype=0x0,
+    date=(0, 0)),
+  kids=[
+    StringFileInfo([
+      StringTable('040904B0', [
+        StringStruct('CompanyName', 'sudo-megas'),
+        StringStruct('FileDescription', 'SAAT - Watch Collection Manager'),
+        StringStruct('FileVersion', '{saat.__version__}'),
+        StringStruct('InternalName', 'SAAT'),
+        StringStruct('LegalCopyright',
+                     'Copyright (C) 2026 sudo-megas. GPL-3.0-or-later.'),
+        StringStruct('OriginalFilename', 'SAAT.exe'),
+        StringStruct('ProductName', 'SAAT'),
+        StringStruct('ProductVersion', '{saat.__version__}')])]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
+""")
+
 a = Analysis(
     ['main.py'],
     pathex=[],
@@ -78,6 +135,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='saat/resources/icon/saat.ico',
+    version=version_resource,
 )
 coll = COLLECT(
     exe,

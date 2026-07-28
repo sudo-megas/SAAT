@@ -1,0 +1,13 @@
+This file is a marker, not configuration. Its presence beside the SAAT
+executable is what tells SAAT it was installed rather than unpacked, which
+switches it from portable mode to installed mode:
+
+    portable   watches/, config.toml and backups/ live beside the executable
+    installed  the collection lives in %LOCALAPPDATA%\SAAT
+               and settings in %APPDATA%\SAAT
+
+Deleting this file makes SAAT portable again and it will stop finding a
+collection stored in the locations above -- the data is not lost, but SAAT
+will look for it beside the program instead.
+
+Nothing reads the contents of this file. See SPEC.md section 2, rule 2.
