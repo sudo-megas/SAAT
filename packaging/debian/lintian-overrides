@@ -7,9 +7,9 @@
 # Debian with Debian's flags -- so a set of tags fire that describe the
 # bundling accurately rather than pointing at defects. Each is justified
 # below. Nothing is overridden merely to quieten the report, and the report
-# itself is printed in full (lintian --show-showing every tag, overridden
-# included) on every release build so it stays readable rather than hidden
-# behind this file.
+# itself is printed in full on every release build -- lintian
+# --show-overrides, so the log carries every tag including the ones this
+# file silences, rather than hiding them behind it.
 #
 # Every override here is a bare tag name with no context. Context patterns
 # were tried and removed: lintian matches them literally against a tag's own

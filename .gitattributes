@@ -1,0 +1,34 @@
+# Line endings.
+#
+# Everything textual is LF in the repository and LF in the working tree, on
+# every platform including a Windows checkout. Without this, git's
+# core.autocrlf on Windows would check out CRLF, and the files that matter
+# most here are the ones a user is invited to open in a text editor:
+# watches/_template.toml, and every watch.toml a collection is made of.
+#
+# SAAT itself is indifferent — tomlkit parses CRLF fine, and every file is
+# read and written as UTF-8 text with universal newlines, so a watch.toml
+# rewritten by a Windows editor still loads on Linux. This is about the
+# repository staying one shape rather than two, so a diff never turns into
+# a whole-file rewrite because someone cloned on a different OS.
+* text=auto eol=lf
+
+# Windows batch and PowerShell interpreters want CRLF; Inno Setup accepts
+# either but is conventionally CRLF.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Never touched: git must not go looking for line endings in a font, an
+# image or a compiled translation.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.ttf  binary
+*.otf  binary
+*.qm   binary
+*.pdf  binary
+*.gz   binary
+*.deb  binary
+*.zip  binary

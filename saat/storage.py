@@ -25,6 +25,31 @@ BACKUP_KEEP = 20
 
 _SLUG_INVALID = re.compile(r"[^a-z0-9]+")
 
+# Windows refuses these as a whole filename component, on every drive, with
+# or without an extension: they are DOS device names and predate long
+# filenames. A slug is a directory name, so `con` or `lpt1` would be an
+# unwritable folder — and the brand or model producing one need not be
+# exotic, since the sanitiser above has already reduced whatever was typed
+# to [a-z0-9-].
+#
+# Guarded on every platform, not only Windows, for the same reason the
+# case-insensitivity rule below is: a collection has to stay loadable in
+# both directions. A folder Linux happily creates and Windows cannot open
+# is a collection that stops being portable the moment it is copied across.
+_WINDOWS_RESERVED_NAMES = frozenset(
+    {"con", "prn", "aux", "nul"}
+    | {f"com{n}" for n in range(1, 10)}
+    | {f"lpt{n}" for n in range(1, 10)}
+)
+
+# Windows' own path limit is 260 characters by default, and a slug is only
+# one component of a path that also holds the data directory, `watches/`,
+# `images/` and a filename. Brand and model are free text with no length
+# limit of their own, so a pasted product description would otherwise
+# become a directory nothing downstream could write into. Truncation can
+# create a collision; unique_slug already resolves those.
+_SLUG_MAX_LENGTH = 80
+
 
 @dataclass
 class WatchRecord:
@@ -45,17 +70,51 @@ def is_hidden_entry(name: str) -> bool:
 
 
 def slugify(brand: str, model: str) -> str:
+    """A directory name derived from brand + model, safe on every
+    filesystem this app runs on.
+
+    The character class does most of the work and always did: reducing to
+    [a-z0-9-] removes all nine characters Windows forbids in a filename
+    (< > : " / \\ | ? *) as a side effect of removing everything that isn't
+    alphanumeric, and the trailing strip removes the trailing dots and
+    spaces Windows also rejects. What it cannot see are the two rules that
+    are about the name as a whole rather than its characters — reserved
+    device names, and length."""
     base = f"{brand} {model}".strip().lower()
     base = _SLUG_INVALID.sub("-", base).strip("-")
-    return base or "watch"
+    if len(base) > _SLUG_MAX_LENGTH:
+        base = base[:_SLUG_MAX_LENGTH].rstrip("-")
+    if not base:
+        return "watch"
+    if base in _WINDOWS_RESERVED_NAMES:
+        # Suffixed rather than rejected: the owner typed a real brand and
+        # model, and the folder name is an implementation detail they
+        # should not have to work around.
+        return f"{base}-watch"
+    return base
 
 
 def unique_slug(brand: str, model: str, existing: set[str]) -> str:
+    """Disambiguate against what is already on disk, case-INSENSITIVELY.
+
+    slugify() lowercases, so two generated slugs can never differ only by
+    case — the exposure is hand-authored folders, which SPEC.md §3
+    explicitly supports (copy `_template.toml` into
+    `watches/<some-slug>/watch.toml`). A folder someone created as
+    `Seiko-SKX007` beside a generated `seiko-skx007` is two watches on
+    ext4 and one on NTFS: on Windows the second save would open the first
+    watch's folder and overwrite it.
+
+    Compared case-insensitively on every platform, so a collection stays
+    loadable in both directions. On Linux this costs one extra distinct
+    slug in a case that would otherwise have silently produced two folders
+    a Windows user could never separate."""
     base = slugify(brand, model)
-    if base not in existing:
+    taken = {name.casefold() for name in existing}
+    if base.casefold() not in taken:
         return base
     n = 2
-    while f"{base}-{n}" in existing:
+    while f"{base}-{n}".casefold() in taken:
         n += 1
     return f"{base}-{n}"
 

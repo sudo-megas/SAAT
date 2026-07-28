@@ -106,12 +106,16 @@ class ImagesTab(QWidget):
             self.changed.emit()
 
     def _unique_filename(self, name: str) -> str:
-        existing = {item.filename for item in self._pending}
-        if name not in existing:
+        """Case-insensitively, for the same reason storage.unique_slug is:
+        dropping main.JPG and Main.jpg into one watch's images/ is two
+        files on ext4 and one on NTFS, and the second would silently
+        replace the first."""
+        existing = {item.filename.casefold() for item in self._pending}
+        if name.casefold() not in existing:
             return name
         stem, suffix = Path(name).stem, Path(name).suffix
         n = 2
-        while f"{stem}-{n}{suffix}" in existing:
+        while f"{stem}-{n}{suffix}".casefold() in existing:
             n += 1
         return f"{stem}-{n}{suffix}"
 
