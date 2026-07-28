@@ -1,4 +1,6 @@
-from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Qt, Signal
+from typing import Callable
+
+from PySide6.QtCore import QCoreApplication, QEvent, QLocale, QT_TRANSLATE_NOOP, Qt, Signal
 from PySide6.QtGui import QBrush, QPaintEvent, QPainter
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -13,8 +15,9 @@ from PySide6.QtWidgets import (
 from saat.storage import WatchRecord
 from saat.ui.collection_summary import compute_collection_summary, compute_wishlist_summary
 from saat.ui.facets import Facet, VALUE_FACETS, is_not_worn_90d
-from saat.ui.form_fields import ENUM_CHOICES_CONTEXT
+from saat.ui.form_fields import ENUM_CHOICES_CONTEXT, enum_label
 from saat.ui.formatting import fmt_price
+from saat.ui.i18n import build_language_menu
 from saat.ui import icons, motion, perlage, theme
 from saat.ui.theme import GROUP_SPACING, SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH
 
@@ -45,14 +48,26 @@ class Sidebar(QWidget):
     rather than threaded through update_counts()."""
 
     changed = Signal()
+    language_selected = Signal(object)  # str | None -- None means English
 
-    def __init__(self, records: list[WatchRecord], is_wishlist: bool = False, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        records: list[WatchRecord],
+        is_wishlist: bool = False,
+        parent: QWidget | None = None,
+        language_code_getter: Callable[[], str | None] = lambda: None,
+        tray_available: bool = True,
+    ) -> None:
         super().__init__(parent)
         self.setProperty("class", "sidebar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._collapsed = False
         self._checkboxes: dict[tuple[str, str], QCheckBox] = {}
         self._not_worn_checkbox: QCheckBox | None = None
+        self._facet_headings: list[tuple[Facet, QLabel]] = []
+        self._records = records
+        self._is_wishlist = is_wishlist
+        self._language_code_getter = language_code_getter
 
         self._toggle_button = QPushButton(self.tr("Hide filters"))
         self._toggle_button.setProperty("variant", "link")
@@ -104,6 +119,18 @@ class Sidebar(QWidget):
             self._build_wishlist_summary_footer(records) if is_wishlist else self._build_summary_footer(records)
         )
 
+        # No tray control is reachable when there's no tray (SPEC.md's
+        # localisation section) -- this fallback covers that case, hidden
+        # by default since most sessions do have a tray. Lives beside the
+        # footer, not inside it: _toggle_collapsed() hides the footer along
+        # with the facet list, and language must stay reachable regardless
+        # of collapse state -- the always-visible toggle button is one
+        # click away either way.
+        self._language_button = QPushButton(self.tr("Language"))
+        self._language_button.setProperty("variant", "link")
+        self._language_button.clicked.connect(self._show_language_menu)
+        self._language_button.setVisible(not tray_available)
+
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
         header.addWidget(self._toggle_button)
@@ -116,6 +143,7 @@ class Sidebar(QWidget):
         layout.addLayout(header)
         layout.addWidget(self._scroll, stretch=1)
         layout.addWidget(self._summary_footer)
+        layout.addWidget(self._language_button)
 
         self.setFixedWidth(SIDEBAR_WIDTH)
 
@@ -130,6 +158,20 @@ class Sidebar(QWidget):
         painter.fillRect(self.rect(), QBrush(tile))
         painter.end()
 
+    def _watch_count_text(self, n: int) -> str:
+        # Not Qt's %n/numerus mechanism: that's entirely translator-driven
+        # with no source-language plural rule of its own, and this app
+        # never loads an English translator ("absent means English") --
+        # verified empirically (self.tr("%n watch(es)", "", n) returns the
+        # literal string "1 watch(es)" with no translator installed, for
+        # every n). Two ordinary literals instead, picked by a plain
+        # Python ternary exactly like every other translated string in the
+        # sweep. Both map to the same Turkish word either way -- Turkish
+        # doesn't pluralize a noun after a cardinal ("5 saat", not
+        # "5 saatler") -- so seeing two .ts entries with identical Turkish
+        # values is correct, not a copy-paste error.
+        return self.tr("1 watch") if n == 1 else self.tr("{count} watches").format(count=n)
+
     def _build_summary_footer(self, records: list[WatchRecord]) -> QWidget:
         summary = compute_collection_summary(records)
 
@@ -143,15 +185,16 @@ class Sidebar(QWidget):
         rule.setProperty("class", "sidebar-summary-rule")
         layout.addWidget(rule)
 
-        # Milestone 21 Commit C, not this sweep: English-only singular/plural
-        # -- Turkish and Japanese pluralize differently, so this needs Qt's
-        # self.tr("%n watch(es)", "", n) mechanism, not a plain tr() wrap.
-        count_text = "1 watch" if summary.total == 1 else f"{summary.total} watches"
-        count_label = QLabel(count_text)
+        count_label = QLabel(self._watch_count_text(summary.total))
         layout.addWidget(count_label)
 
         if summary.by_movement_kind:
-            kinds = QLabel(" · ".join(f"{kind} {count}" for kind, count in summary.by_movement_kind))
+            # movement_kind is enum* vocabulary (see columns.py's
+            # translate_values=True on the same field) -- found during
+            # Commit C, not Commit A's sweep: this summary line is a
+            # separate display site from the facet checkboxes beside it,
+            # which were already correctly translated.
+            kinds = QLabel(" · ".join(f"{enum_label(kind)} {count}" for kind, count in summary.by_movement_kind))
             kinds.setProperty("muted", True)
             kinds.setWordWrap(True)
             layout.addWidget(kinds)
@@ -180,11 +223,7 @@ class Sidebar(QWidget):
         rule.setProperty("class", "sidebar-summary-rule")
         layout.addWidget(rule)
 
-        # Milestone 21 Commit C, not this sweep: English-only singular/plural
-        # -- Turkish and Japanese pluralize differently, so this needs Qt's
-        # self.tr("%n watch(es)", "", n) mechanism, not a plain tr() wrap.
-        count_text = "1 watch" if summary.total == 1 else f"{summary.total} watches"
-        count_label = QLabel(count_text)
+        count_label = QLabel(self._watch_count_text(summary.total))
         layout.addWidget(count_label)
 
         if summary.target_value_by_currency:
@@ -209,19 +248,28 @@ class Sidebar(QWidget):
 
         return container
 
+    def _facet_heading_text(self, facet: Facet) -> str:
+        # QLocale().toUpper(), not plain Python .upper(): Turkish casing
+        # turns lowercase "i" into dotted "İ" (capital dotted i), which
+        # ASCII-style .upper() gets wrong (produces plain "I") -- verified
+        # this PySide6 build actually applies the ICU-backed rule rather
+        # than silently falling back to ASCII casing. Bare QLocale() (no
+        # code passed in): install_language()/uninstall_language() are the
+        # only two places that ever call QLocale.setDefault(), so this
+        # always reflects the actual active language with no getter
+        # threaded through, and never QLocale.system().
+        return QLocale().toUpper(QCoreApplication.translate("Facets", facet.label))
+
     def _build_value_group(self, facet: Facet, values: list[str]) -> QWidget:
         group = QWidget()
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        # .upper() stays plain Python here in Commit A -- Turkish locale
-        # casing (dotless-I) needs a coordinated fix across all twelve
-        # .upper() call sites in the codebase, done as one pass in Commit C
-        # alongside the other language-dependent-text correctness fixes.
-        heading = QLabel(QCoreApplication.translate("Facets", facet.label).upper())
+        heading = QLabel(self._facet_heading_text(facet))
         heading.setProperty("class", "spec-row-label")
         layout.addWidget(heading)
+        self._facet_headings.append((facet, heading))
 
         for value in values:
             checkbox = QCheckBox(_facet_value_label(facet, value))
@@ -273,3 +321,44 @@ class Sidebar(QWidget):
         self._scroll.setVisible(not self._collapsed)
         self._summary_footer.setVisible(not self._collapsed)
         motion.animate_width(self, SIDEBAR_COLLAPSED_WIDTH if self._collapsed else SIDEBAR_WIDTH)
+
+    def set_tray_available(self, available: bool) -> None:
+        self._language_button.setVisible(not available)
+
+    def _show_language_menu(self) -> None:
+        menu = build_language_menu(self._language_code_getter(), self.language_selected.emit)
+        menu.exec(self._language_button.mapToGlobal(self._language_button.rect().bottomLeft()))
+
+    def _rebuild_summary_footer(self) -> None:
+        old = self._summary_footer
+        self._summary_footer = (
+            self._build_wishlist_summary_footer(self._records)
+            if self._is_wishlist
+            else self._build_summary_footer(self._records)
+        )
+        self.layout().replaceWidget(old, self._summary_footer)
+        old.deleteLater()
+        # A freshly built widget defaults to visible -- reapply the
+        # collapsed state's own invariant, or a language switch while
+        # collapsed would make the footer pop back into view on its own.
+        self._summary_footer.setVisible(not self._collapsed)
+
+    def _retranslate(self) -> None:
+        self._toggle_button.setText(self.tr("Show filters") if self._collapsed else self.tr("Hide filters"))
+        self._clear_filters_button.setToolTip(self.tr("Clear filters"))
+        for facet, heading in self._facet_headings:
+            heading.setText(self._facet_heading_text(facet))
+        self._language_button.setText(self.tr("Language"))
+        self._rebuild_summary_footer()
+        # Per-value checkbox text (and the not-worn checkbox's label) isn't
+        # retranslated here -- update_counts() already re-evaluates every
+        # QCoreApplication.translate() call fresh, and CollectionView's own
+        # changeEvent re-invokes it via _recompute() for exactly this
+        # reason. Retranslating it a second time here would just repeat
+        # that work with stale counts (this widget doesn't own the counts
+        # dict update_counts() needs).
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)

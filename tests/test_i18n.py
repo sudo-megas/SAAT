@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QLibraryInfo, QTranslator
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QCoreApplication, QLibraryInfo, QLocale, QTranslator
+from PySide6.QtWidgets import QApplication, QMenu
 
-from saat.ui.i18n import install_language
+from saat.ui.i18n import build_language_menu, install_language, uninstall_language
 
 TS_PATH = Path(__file__).resolve().parent.parent / "saat" / "resources" / "i18n" / "saat_tr.ts"
 
@@ -75,13 +75,14 @@ class InstallLanguageTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.app = QApplication.instance() or QApplication([])
-        self.addCleanup(self._remove_installed_translators)
-
-    def _remove_installed_translators(self) -> None:
-        for translator in self.app.findChildren(QTranslator):
-            self.app.removeTranslator(translator)
-            translator.setParent(None)
-            translator.deleteLater()
+        self.addCleanup(uninstall_language, self.app)
+        # uninstall_language() (registered above) resets QLocale's default
+        # too, so this covers both -- but that only runs AFTER this test's
+        # own assertions, and QLocale.setDefault() is process-global state
+        # exactly like the translator pollution risk documented on this
+        # class already: without resetting it, a test here that switches to
+        # Turkish would leave every later-alphabetical test module seeing
+        # Turkish casing/date rules instead of the English they expect.
 
     def test_unsupported_code_returns_false_and_does_not_raise(self) -> None:
         self.assertFalse(install_language(self.app, "xx"))
@@ -108,3 +109,93 @@ class InstallLanguageTests(unittest.TestCase):
         here instead of silently at frozen-build time."""
         qtbase_dir = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
         self.assertTrue((Path(qtbase_dir) / "qtbase_tr.qm").exists())
+
+    @unittest.skipUnless(LRELEASE, "pyside6-lrelease not found -- install PySide6 to run this test")
+    def test_uninstall_removes_both_translators_install_added(self) -> None:
+        qm_path = TS_PATH.parent / "saat_tr.qm"
+        if not qm_path.exists():
+            subprocess.run([LRELEASE, str(TS_PATH), "-qm", str(qm_path)], check=True, capture_output=True)
+            self.addCleanup(qm_path.unlink, missing_ok=True)
+        self.assertTrue(install_language(self.app, "tr"))
+        self.assertGreater(len(self.app.findChildren(QTranslator)), 0)
+        uninstall_language(self.app)
+        self.assertEqual(self.app.findChildren(QTranslator), [])
+        # Reverting to English must actually take effect, not just empty
+        # the translator list -- a stale cached lookup would pass the
+        # count check above while still returning Turkish text.
+        self.assertEqual(QCoreApplication.translate("EnumChoices", "Diver"), "Diver")
+
+    def test_uninstall_is_a_harmless_noop_when_nothing_is_installed(self) -> None:
+        uninstall_language(self.app)  # must not raise
+
+    @unittest.skipUnless(LRELEASE, "pyside6-lrelease not found -- install PySide6 to run this test")
+    def test_successful_install_sets_qlocale_default_to_the_target_language(self) -> None:
+        qm_path = TS_PATH.parent / "saat_tr.qm"
+        if not qm_path.exists():
+            subprocess.run([LRELEASE, str(TS_PATH), "-qm", str(qm_path)], check=True, capture_output=True)
+            self.addCleanup(qm_path.unlink, missing_ok=True)
+        self.assertTrue(install_language(self.app, "tr"))
+        self.assertEqual(QLocale().language(), QLocale.Language.Turkish)
+        # QLocale.toUpper() only applies locale-specific casing when Qt is
+        # built with ICU -- without it, it silently falls back to
+        # ASCII-style casing and "i" -> "I", not "İ", the exact bug this
+        # whole mechanism exists to fix, passing silently. Asserts the
+        # actual primitive rather than trusting Qt's docs, the same
+        # discipline the bundled-font glyph-coverage check (fc-query vs
+        # QRawFont) already established for this milestone.
+        self.assertEqual(QLocale().toUpper("indices"), "İNDİCES")
+
+    def test_failed_install_leaves_qlocale_default_at_english(self) -> None:
+        """An unrecognised code fails to load SAAT's own catalog -- the UI
+        text stays English (see main.py's caller, which warns and
+        continues), so the casing/date locale must stay English too:
+        Turkish casing applied to English text would be a second, separate
+        bug layered on top of the first."""
+        self.assertFalse(install_language(self.app, "xx"))
+        self.assertEqual(QLocale().language(), QLocale.Language.English)
+
+    def test_uninstall_resets_qlocale_default_to_english(self) -> None:
+        QLocale.setDefault(QLocale(QLocale.Language.Turkish))
+        uninstall_language(self.app)
+        self.assertEqual(QLocale().language(), QLocale.Language.English)
+
+
+class BuildLanguageMenuTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.app = QApplication.instance() or QApplication([])
+
+    def test_lists_english_plus_every_supported_language(self) -> None:
+        menu = build_language_menu(current_code=None, on_select=lambda code: None)
+        labels = [action.text() for action in menu.actions()]
+        self.assertEqual(labels, ["English", "Türkçe"])
+
+    def test_current_code_is_the_only_one_checked(self) -> None:
+        menu = build_language_menu(current_code="tr", on_select=lambda code: None)
+        checked = {action.text(): action.isChecked() for action in menu.actions()}
+        self.assertEqual(checked, {"English": False, "Türkçe": True})
+
+    def test_none_current_code_checks_english(self) -> None:
+        menu = build_language_menu(current_code=None, on_select=lambda code: None)
+        checked = {action.text(): action.isChecked() for action in menu.actions()}
+        self.assertEqual(checked, {"English": True, "Türkçe": False})
+
+    def test_selecting_an_entry_calls_on_select_with_its_code(self) -> None:
+        selected = []
+        menu = build_language_menu(current_code=None, on_select=selected.append)
+        turkish_action = next(a for a in menu.actions() if a.text() == "Türkçe")
+        turkish_action.trigger()
+        self.assertEqual(selected, ["tr"])
+
+    def test_selecting_english_calls_on_select_with_none(self) -> None:
+        selected = []
+        menu = build_language_menu(current_code="tr", on_select=selected.append)
+        english_action = next(a for a in menu.actions() if a.text() == "English")
+        english_action.trigger()
+        self.assertEqual(selected, [None])
+
+    def test_reusing_a_menu_clears_stale_actions_instead_of_appending(self) -> None:
+        menu = QMenu()
+        build_language_menu(current_code=None, on_select=lambda code: None, menu=menu)
+        build_language_menu(current_code="tr", on_select=lambda code: None, menu=menu)
+        labels = [action.text() for action in menu.actions()]
+        self.assertEqual(labels, ["English", "Türkçe"])

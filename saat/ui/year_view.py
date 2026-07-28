@@ -1,7 +1,7 @@
 import zlib
 from datetime import date
 
-from PySide6.QtCore import QRect, Qt, Signal
+from PySide6.QtCore import QLocale, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPaintEvent, QPainter
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 
@@ -87,8 +87,14 @@ class _YearMonthBlock(QWidget):
 
         painter.setFont(self._label_font)
         painter.setPen(QColor(theme.colors().text_muted))
+        # Bare QLocale(), never QLocale.system() -- see i18n.py's
+        # install_language(). Read fresh on every paint (not cached), so a
+        # language change needs no explicit retranslation here: the next
+        # repaint (render() rebuilds every block from scratch) just picks
+        # it up, unlike strftime("%B"), which reads the process C locale
+        # and is always English regardless of the active UI language.
         painter.drawText(QRect(0, 0, self.width(), YEAR_MONTH_LABEL_HEIGHT),
-                          Qt.AlignmentFlag.AlignLeft, date(self._year, self._month, 1).strftime("%B"))
+                          Qt.AlignmentFlag.AlignLeft, QLocale().standaloneMonthName(self._month))
 
         painter.setPen(Qt.PenStyle.NoPen)
         for index, grid_day in enumerate(self._days):

@@ -75,15 +75,24 @@ class Config:
         self.data.setdefault("theme", tomlkit.table())["mode"] = mode
 
     def language(self) -> str | None:
-        """UI language code ("tr", "ja") — absent means English, same as
+        """UI language code ("tr") — absent means English, same as
         theme_mode()'s None-means-default shape. Never read from the OS
         locale: the app always starts in English on first run and the
         language is changed manually, by explicit design (SPEC.md)."""
         language = self.data.get("language")
         return language.get("code") if language else None
 
-    def set_language(self, code: str) -> None:
-        self.data.setdefault("language", tomlkit.table())["code"] = code
+    def set_language(self, code: str | None) -> None:
+        """code=None clears the key, restoring "absent means English" --
+        the language menu's English entry must call set_language(None),
+        never set_language("en"): saat_en.qm is deliberately never built
+        (see saat/ui/i18n.py), so writing the literal "en" would make
+        main.py try to load a translation file that doesn't exist by
+        design."""
+        if code is None:
+            self.data.pop("language", None)
+        else:
+            self.data.setdefault("language", tomlkit.table())["code"] = code
 
     def close_to_tray(self) -> bool:
         """SPEC.md milestone 18 §8: default OFF. A user who has not opted in

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 from saat import autostart
 from saat.paths import resource_dir
 from saat.storage import WatchRecord
+from saat.ui.i18n import build_language_menu
 from saat.ui.wear_stats import last_worn
 
 MAX_WORE_TODAY_ENTRIES = 10
@@ -63,16 +64,19 @@ class TrayController(QObject):
     close_to_tray_toggled = Signal(bool)
     start_minimised_toggled = Signal(bool)
     start_at_login_toggled = Signal(bool)
+    language_selected = Signal(object)  # str | None -- None means English
     quit_requested = Signal()
 
     def __init__(
         self,
         window_visible_getter: Callable[[], bool],
         autostart_available: bool = False,
+        language_code_getter: Callable[[], str | None] = lambda: None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._window_visible_getter = window_visible_getter
+        self._language_code_getter = language_code_getter
         self._records: list[WatchRecord] = []
 
         self._icon = QSystemTrayIcon(_app_icon(), self)
@@ -104,9 +108,11 @@ class TrayController(QObject):
             self._start_at_login_action.setCheckable(True)
             self._start_at_login_action.toggled.connect(self.start_at_login_toggled)
 
+        self._language_menu = self._menu.addMenu(self.tr("Language"))
+
         self._menu.addSeparator()
-        quit_action = self._menu.addAction(self.tr("Quit"))
-        quit_action.triggered.connect(self.quit_requested)
+        self._quit_action = self._menu.addAction(self.tr("Quit"))
+        self._quit_action.triggered.connect(self.quit_requested)
 
         self._menu.aboutToShow.connect(self._refresh_menu)
         self._icon.setContextMenu(self._menu)
@@ -143,9 +149,19 @@ class TrayController(QObject):
             self.show_hide_requested.emit()
 
     def _refresh_menu(self) -> None:
+        # This whole method doubles as this QObject-based menu's retranslate
+        # hook -- QObject (unlike QWidget) has no changeEvent/LanguageChange
+        # override point, so rather than invent a separate mechanism, every
+        # static label just gets re-set here, on the aboutToShow this file
+        # already fires before each open. Correct the moment it matters (the
+        # menu is never visible with stale text), zero new plumbing.
         self._show_hide_action.setText(self.tr("Hide") if self._window_visible_getter() else self.tr("Show"))
+        self._wore_today_menu.menuAction().setText(self.tr("Wore today"))
         self._rebuild_wore_today_menu()
+        self._close_to_tray_action.setText(self.tr("Close to tray"))
+        self._start_minimised_action.setText(self.tr("Start minimised"))
         if self._start_at_login_action is not None:
+            self._start_at_login_action.setText(self.tr("Start at login"))
             # Reflects reality read fresh every time the menu opens (SPEC.md
             # milestone 18 §14), never a cached flag -- but setChecked()
             # emits toggled() on any real state change regardless of who
@@ -153,6 +169,9 @@ class TrayController(QObject):
             # display would itself trigger an unwanted enable()/disable().
             with QSignalBlocker(self._start_at_login_action):
                 self._start_at_login_action.setChecked(autostart.is_enabled())
+        self._language_menu.menuAction().setText(self.tr("Language"))
+        build_language_menu(self._language_code_getter(), self.language_selected.emit, menu=self._language_menu)
+        self._quit_action.setText(self.tr("Quit"))
 
     def _rebuild_wore_today_menu(self) -> None:
         self._wore_today_menu.clear()

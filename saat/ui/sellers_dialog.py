@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
@@ -24,7 +24,6 @@ class SellersDialog(QDialog):
 
     def __init__(self, sellers: list[Seller], backups_dir: Path, path: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Manage sellers"))
         self.resize(560, 420)
         self._backups_dir = backups_dir
         self._path = path
@@ -40,28 +39,33 @@ class SellersDialog(QDialog):
         self._city = QLineEdit()
         self._notes = QLineEdit()
 
-        form = QFormLayout()
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        form.addRow(self.tr("Name *"), self._name)
-        form.addRow(self.tr("URL"), self._url)
-        form.addRow(self.tr("City"), self._city)
-        form.addRow(self.tr("Notes"), self._notes)
+        self._form = QFormLayout()
+        self._form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        # A genuinely empty label string ("") makes QFormLayout skip
+        # creating a QLabel at all -- labelForField() would then return
+        # None, not a relabelable widget -- confirmed empirically. A
+        # placeholder space forces creation; _retranslate() below
+        # immediately overwrites it with the real text.
+        self._form.addRow(" ", self._name)
+        self._form.addRow(" ", self._url)
+        self._form.addRow(" ", self._city)
+        self._form.addRow(" ", self._notes)
 
-        new_button = QPushButton(self.tr("New"))
-        new_button.clicked.connect(self._on_new)
-        save_button = QPushButton(self.tr("Save"))
-        save_button.clicked.connect(self._on_save)
-        self._delete_button = QPushButton(self.tr("Delete"))
+        self._new_button = QPushButton()
+        self._new_button.clicked.connect(self._on_new)
+        self._save_button = QPushButton()
+        self._save_button.clicked.connect(self._on_save)
+        self._delete_button = QPushButton()
         self._delete_button.setProperty("variant", "destructive")
         self._delete_button.clicked.connect(self._on_delete)
 
         buttons_row = QHBoxLayout()
-        buttons_row.addWidget(new_button)
-        buttons_row.addWidget(save_button)
+        buttons_row.addWidget(self._new_button)
+        buttons_row.addWidget(self._save_button)
         buttons_row.addWidget(self._delete_button)
 
         right = QVBoxLayout()
-        right.addLayout(form)
+        right.addLayout(self._form)
         right.addLayout(buttons_row)
         right.addStretch()
         right_widget = QWidget()
@@ -71,15 +75,32 @@ class SellersDialog(QDialog):
         body.addWidget(self._list, 1)
         body.addWidget(right_widget, 1)
 
-        close_button = QPushButton(self.tr("Close"))
-        close_button.clicked.connect(self.accept)
+        self._close_button = QPushButton()
+        self._close_button.clicked.connect(self.accept)
 
         layout = QVBoxLayout(self)
         layout.addLayout(body, 1)
-        layout.addWidget(close_button, alignment=Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self._close_button, alignment=Qt.AlignmentFlag.AlignRight)
 
+        self._retranslate()
         self._render_list()
         self._on_new()
+
+    def _retranslate(self) -> None:
+        self.setWindowTitle(self.tr("Manage sellers"))
+        self._form.labelForField(self._name).setText(self.tr("Name *"))
+        self._form.labelForField(self._url).setText(self.tr("URL"))
+        self._form.labelForField(self._city).setText(self.tr("City"))
+        self._form.labelForField(self._notes).setText(self.tr("Notes"))
+        self._new_button.setText(self.tr("New"))
+        self._save_button.setText(self.tr("Save"))
+        self._delete_button.setText(self.tr("Delete"))
+        self._close_button.setText(self.tr("Close"))
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def sellers(self) -> list[Seller]:
         return list(self._sellers)

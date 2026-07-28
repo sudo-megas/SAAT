@@ -16,6 +16,7 @@
 
 import sys
 
+from PySide6.QtCore import QLocale
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -48,6 +49,14 @@ def main() -> int:
 
     config = Config()
     language = config.language()
+    # Baseline default -- install_language() below only overrides this on
+    # a *successful* switch to a non-English language. Without this line,
+    # the common (English, no install_language() call at all) case would
+    # leave Qt's own default locale at whatever QLocale() falls back to
+    # when nothing has ever called setDefault(): the OS locale -- exactly
+    # the system-locale leak this milestone exists to prevent, just
+    # showing up in date/casing formatting instead of UI text.
+    QLocale.setDefault(QLocale(QLocale.Language.English))
     # "en" is never installable (saat_en.qm is deliberately never built --
     # see saat/ui/i18n.py) -- guarded here defensively even though Commit
     # C's language menu is designed to clear config's language key for

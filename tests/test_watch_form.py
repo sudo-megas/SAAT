@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
-from PySide6.QtCore import QCoreApplication, QTranslator
+from PySide6.QtCore import QCoreApplication, QEvent, QTranslator
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from saat.models import Acquisition, Case, Movement, Strap, Watch
@@ -18,14 +18,18 @@ from saat.storage import create_watch, load_collection
 from saat.ui.form_fields import (
     WaterResistanceField,
     bool_value,
+    combo_value,
     double_value,
+    fixed_combo,
     int_value,
     optional_checkbox,
     optional_double_spin,
     optional_int_spin,
+    retranslate_combo,
     set_bool_value,
     set_double_value,
     set_int_value,
+    suggested_combo,
 )
 from saat.ui.list_editors import StrapsEditor
 from saat.ui.watch_form import WatchForm
@@ -319,6 +323,82 @@ class NonEnglishStorageSafetyTests(UITestCase):
         [reloaded] = load_collection(self.watches_dir)
         self.assertEqual(reloaded.watch.style, translated_watch.watch.style)
         self.assertEqual(reloaded.watch.style, "Diver")
+
+
+class WatchFormLiveRetranslationTests(UITestCase):
+    """A language switch delivered while WatchForm is already open (the
+    tray submenu, not this dialog's own UI) -- the plan's own "build it
+    everywhere" directive for every .exec()-modal dialog. Confirms the
+    changeEvent -> _retranslate() wiring actually fires end-to-end: window
+    title, a QFormLayout row label (via labelForField()), and a combo's
+    items (via retranslate_combo(), which must preserve the selected
+    canonical value even though its old display text no longer matches
+    any item after relabeling)."""
+
+    def test_switching_language_while_open_retranslates_labels_and_combos(self) -> None:
+        form = WatchForm(records=[], record=None)
+        brand_label = form._form_rows[0][0].labelForField(form._brand)
+        self.assertEqual(brand_label.text(), "Brand *")
+        form._style.setCurrentIndex(form._style.findText("Diver"))
+
+        translator = _FakeEnumTranslator()
+        QApplication.instance().installTranslator(translator)
+        self.addCleanup(QApplication.instance().removeTranslator, translator)
+        form.changeEvent(QEvent(QEvent.Type.LanguageChange))
+
+        # Same QLabel/QComboBox instances, relabeled in place -- not
+        # rebuilt (labelForField() would return something new otherwise).
+        self.assertIs(form._form_rows[0][0].labelForField(form._brand), brand_label)
+        self.assertEqual(combo_value(form._style), "Diver")
+        self.assertEqual(form._style.currentText(), "XX_Diver_XX")
+
+
+class RetranslateComboTests(unittest.TestCase):
+    """retranslate_combo() is what every modal form's changeEvent calls to
+    relabel its enum* combos on a language switch delivered while the
+    modal is still open (rare -- see the plan's note on tray delivery
+    into a nested exec() loop -- but cheap to get right). Must preserve
+    the selected canonical value even though the display text it was
+    selected under no longer exists after relabeling."""
+
+    def setUp(self) -> None:
+        self.translator = _FakeEnumTranslator()
+
+    def test_relabels_items_and_preserves_the_selected_value(self) -> None:
+        combo = suggested_combo(["Diver", "Dress"], [])
+        combo.setCurrentIndex(combo.findText("Diver"))
+
+        QApplication.instance().installTranslator(self.translator)
+        self.addCleanup(QApplication.instance().removeTranslator, self.translator)
+        retranslate_combo(combo)
+
+        self.assertEqual(combo_value(combo), "Diver")
+        self.assertEqual(combo.currentText(), "XX_Diver_XX")
+        labels = [combo.itemText(i) for i in range(combo.count())]
+        self.assertIn("XX_Diver_XX", labels)
+        self.assertNotIn("Diver", labels)
+
+    def test_free_typed_text_is_left_untouched(self) -> None:
+        combo = suggested_combo(["Diver", "Dress"], [])
+        combo.setCurrentText("Something I typed")
+
+        QApplication.instance().installTranslator(self.translator)
+        self.addCleanup(QApplication.instance().removeTranslator, self.translator)
+        retranslate_combo(combo)
+
+        self.assertEqual(combo.currentText(), "Something I typed")
+        self.assertEqual(combo_value(combo), "Something I typed")
+
+    def test_works_on_a_fixed_combo_too(self) -> None:
+        combo = fixed_combo(["Owned", "Wishlist"])
+        combo.setCurrentIndex(combo.findText("Owned"))
+
+        QApplication.instance().installTranslator(self.translator)
+        self.addCleanup(QApplication.instance().removeTranslator, self.translator)
+        retranslate_combo(combo)
+
+        self.assertEqual(combo_value(combo), "Owned")
+        self.assertEqual(combo.currentText(), "XX_Owned_XX")
 
 
 class EditSavePreservesCommentsTests(UITestCase):

@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from PySide6.QtCore import QCoreApplication, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QMenu, QTableWidget, QTableWidgetItem
 
@@ -64,6 +64,20 @@ class TableView(QTableWidget):
     def set_records(self, records: list[WatchRecord]) -> None:
         self._records = records
         self._render()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            # _render() already re-evaluates every QCoreApplication.translate()
+            # call fresh (header labels, cell text via Column.text(), the
+            # error-row message) -- it's already a full rebuild-from-current-
+            # state function, called after every other change too, so a
+            # language switch just needs to trigger the same call. Harmless
+            # if CollectionView's own changeEvent also triggers this
+            # indirectly via _recompute() -> set_records() -- redundant, not
+            # wrong, and this way TableView is correct on its own regardless
+            # of what its container does.
+            self._render()
+        super().changeEvent(event)
 
     def _render(self) -> None:
         self.setSortingEnabled(False)

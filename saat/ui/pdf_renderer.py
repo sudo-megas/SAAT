@@ -350,10 +350,9 @@ def _draw_summary_table_header(painter: QPainter, left: float, width: float, y: 
         # translation below -- label stays "Value" at runtime regardless of
         # UI language, so this keeps matching under any translator.
         align = Qt.AlignmentFlag.AlignRight if label == "Value" else Qt.AlignmentFlag.AlignLeft
-        # Milestone 21 Commit C, not this sweep: .upper() is ASCII-only and
-        # wrong for Turkish -- QLocale(<active language>).toUpper() lands in
-        # Commit C alongside minute_track.py's identical fix.
-        translated = QCoreApplication.translate("PdfRenderer", label).upper()
+        # QLocale().toUpper(), not str.upper() -- see minute_track.py's
+        # identical fix.
+        translated = QLocale().toUpper(QCoreApplication.translate("PdfRenderer", label))
         painter.drawText(_rect(x, y, col_width, SUMMARY_HEADER_HEIGHT_PT), align | Qt.AlignmentFlag.AlignVCenter, translated)
     rule_y = y + SUMMARY_HEADER_HEIGHT_PT - 2
     painter.setPen(QColor(theme.PAPER.rule))
@@ -555,9 +554,10 @@ def _draw_group_slice(
     )
     painter.setFont(_label_font())
     painter.setPen(QColor(theme.PAPER.text_muted))
-    # Milestone 21 Commit C, not this sweep: same .upper() deferral as
-    # _draw_summary_table_header() above.
-    painter.drawText(_rect(left, y, width, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, title.upper())
+    # QLocale().toUpper(), not str.upper() -- see minute_track.py's
+    # identical fix.
+    painter.drawText(_rect(left, y, width, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                      QLocale().toUpper(title))
 
     # draw_minute_track always starts its rule/ticks at x=0 in whatever
     # coordinate space it's given -- translate so "0" lands at this

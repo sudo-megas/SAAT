@@ -1,4 +1,4 @@
-from PySide6.QtCore import QCoreApplication, QRect, Qt
+from PySide6.QtCore import QCoreApplication, QLocale, QRect, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -25,11 +25,9 @@ def _section_heading(text: str) -> QLabel:
     deliberately not a MinuteTrackHeader. Kept local rather than shared
     since it's a single QLabel construction, not worth a cross-module
     import for."""
-    # Milestone 21 Commit C, not this sweep: .upper() is ASCII-only and
-    # wrong for Turkish -- QLocale(<active language>).toUpper() lands in
-    # Commit C alongside minute_track.py's identical fix. text is already
-    # translated by the caller.
-    heading = QLabel(text.upper())
+    # QLocale().toUpper(), not str.upper() -- see minute_track.py's
+    # identical fix. text is already translated by the caller.
+    heading = QLabel(QLocale().toUpper(text))
     heading.setProperty("class", "spec-row-label")
     return heading
 

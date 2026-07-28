@@ -1,6 +1,6 @@
 from datetime import date
 
-from PySide6.QtCore import QCoreApplication, QRect, QT_TRANSLATE_NOOP, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QLocale, QRect, QT_TRANSLATE_NOOP, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
 
 from saat.storage import WatchRecord
 from saat.ui.minute_track import TRACK_HEIGHT, draw_minute_track
-from saat.ui.month_grid import WEEKDAY_LABELS
 from saat.ui import theme
 from saat.ui.theme import GROUP_SPACING, SIZE_SM, resolve_fonts
 from saat.ui.year_view import slug_color
@@ -48,10 +47,9 @@ def _section_heading(text: str) -> QLabel:
     itself stays plain rather than adopting MinuteTrackHeader wholesale
     (title-plus-track) — see _StatsSectionDivider below for where the
     minute track's tick vocabulary separates one section from the next.
-    .upper() stays plain Python in this sweep (Commit A) -- the Turkish
-    locale-casing fix for all twelve .upper() call sites lands together in
-    Commit C. `text` is already translated by the caller."""
-    heading = QLabel(text.upper())
+    `text` is already translated by the caller; QLocale().toUpper() (not
+    Python's str.upper()) so Turkish casing (i -> İ) applies correctly."""
+    heading = QLabel(QLocale().toUpper(text))
     heading.setProperty("class", "spec-row-label")
     heading.setObjectName("statsSectionHeading")  # distinguishes a section heading from other spec-row-label text (e.g. weekday letters), for tests
     return heading
@@ -202,16 +200,17 @@ class _ChipSwatch(QWidget):
 
 
 class _WeekdayCell(QWidget):
-    """`label` comes from month_grid.py's WEEKDAY_LABELS -- both it and this
-    .upper() call are replaced by explicit QLocale(<active
-    language>).dayName() in Commit C, not this sweep."""
+    """`label` comes from QLocale().dayName() (see _build_weekday_section
+    below) -- already locale-correct mixed case, uppercased here via
+    QLocale().toUpper() rather than Python's str.upper() so Turkish casing
+    (i -> İ) applies correctly."""
 
     def __init__(self, label: str, record: WatchRecord | None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
-        text = QLabel(label.upper())
+        text = QLabel(QLocale().toUpper(label))
         text.setProperty("class", "spec-row-label")
         text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(text)
@@ -292,6 +291,20 @@ class StatsView(QWidget):
         for period, button in self._period_buttons.items():
             button.setChecked(period == self._period)
 
+    def _retranslate(self) -> None:
+        for period, button in self._period_buttons.items():
+            button.setText(QCoreApplication.translate("CalendarStats", PERIOD_LABELS[period]))
+        # Every other label lives inside _rebuild()'s from-scratch section
+        # construction (headings, figure rows, weekday names) -- re-running
+        # it is the retranslation, the same "already a full rebuild
+        # function" pattern as table_view.py's _render().
+        self._rebuild()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
+
     def _rebuild(self) -> None:
         stats = compute_period_stats(self._records, self._period, self._today)
 
@@ -370,13 +383,20 @@ class StatsView(QWidget):
 
         if stats.deltas is not None:
             days_delta, watches_delta = stats.deltas
-            # "days"/"watches" stay hardcoded English here in this sweep --
-            # same Commit C pluralization deferral as run_length/longest_gap
-            # below (English-only plural forms baked into an f-string,
-            # needs Qt's %n mechanism, not a plain tr() wrap).
-            layout.addWidget(
-                _figure_row(self.tr("Vs. last period"), f"{days_delta:+d} days · {watches_delta:+d} watches")
-            )
+            # Two separate translated literals per quantity, picked by a
+            # Python ternary on magnitude -- not Qt's %n mechanism, which
+            # (verified empirically) silently returns the untranslated
+            # source string with no installed English translator. Same
+            # pattern as sidebar.py's _watch_count_text().
+            if abs(days_delta) == 1:
+                days_text = self.tr("{days:+d} day").format(days=days_delta)
+            else:
+                days_text = self.tr("{days:+d} days").format(days=days_delta)
+            if abs(watches_delta) == 1:
+                watches_text = self.tr("{watches:+d} watch").format(watches=watches_delta)
+            else:
+                watches_text = self.tr("{watches:+d} watches").format(watches=watches_delta)
+            layout.addWidget(_figure_row(self.tr("Vs. last period"), f"{days_text} · {watches_text}"))
         return container
 
     def _build_weekday_section(self, stats: PeriodStats) -> QWidget | None:
@@ -390,7 +410,10 @@ class StatsView(QWidget):
 
         strip = QHBoxLayout()
         strip.setContentsMargins(0, 0, 0, 0)
-        for weekday, label in enumerate(WEEKDAY_LABELS):
+        for weekday in range(7):
+            # QLocale.dayName() is 1=Monday..7=Sunday -- weekday here is
+            # 0=Monday..6=Sunday (matches stats.weekday_most_worn's keys).
+            label = QLocale().dayName(weekday + 1, QLocale.FormatType.ShortFormat)
             strip.addWidget(_WeekdayCell(label, stats.weekday_most_worn.get(weekday)))
         strip.addStretch()
         layout.addLayout(strip)
@@ -412,15 +435,18 @@ class StatsView(QWidget):
         layout.setSpacing(6)
         layout.addWidget(_section_heading(self.tr("Streaks")))
 
-        # day/days stays hardcoded English in this sweep (Commit A) -- Qt's
-        # %n plural mechanism lands in Commit C alongside sidebar.py's and
-        # detail_view.py's equivalent hand-rolled pluralization.
+        # Two separate translated literals, not Qt's %n mechanism -- see the
+        # matching comment in _build_coverage_section() above.
         if run_length > 0:
-            days_word = "day" if run_length == 1 else "days"
+            run_days_text = (
+                self.tr("1 day") if run_length == 1 else self.tr("{count} days").format(count=run_length)
+            )
             layout.addWidget(
-                _figure_row(self.tr("Longest run"), f"{run_length} {days_word} · {_display_name(run_record)}")
+                _figure_row(self.tr("Longest run"), f"{run_days_text} · {_display_name(run_record)}")
             )
         if stats.longest_gap > 0:
-            days_word = "day" if stats.longest_gap == 1 else "days"
-            layout.addWidget(_figure_row(self.tr("Longest gap"), f"{stats.longest_gap} {days_word}"))
+            gap_days_text = (
+                self.tr("1 day") if stats.longest_gap == 1 else self.tr("{count} days").format(count=stats.longest_gap)
+            )
+            layout.addWidget(_figure_row(self.tr("Longest gap"), gap_days_text))
         return container

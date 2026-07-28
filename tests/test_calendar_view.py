@@ -395,8 +395,10 @@ class CalendarFooterTests(unittest.TestCase):
         view = CalendarView([worn_watch, idle_watch])
 
         text = view._footer_text()
-        self.assertIn("1 days recorded", text)
-        self.assertIn("1 watches worn", text)
+        # Singular, not "1 days"/"1 watches" -- Milestone 21 Commit C fixed
+        # this footer's grammar alongside its translatability.
+        self.assertIn("1 day recorded", text)
+        self.assertIn("1 watch worn", text)
         self.assertIn("1 not worn this month", text)
 
 
