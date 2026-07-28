@@ -329,7 +329,7 @@ QLabel[class="card-overline"] {
 
 QLabel[class="card-title"] {
     color: @text@;
-    font-size: @size-lg@px;
+    font-size: @size-md@px;
     font-weight: 600;
 }
 

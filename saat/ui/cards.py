@@ -50,14 +50,22 @@ def _wishlist_info_text(watch: Watch) -> str:
     stars = STAR_FILLED * watch.rating + STAR_EMPTY * (5 - watch.rating) if watch.rating is not None else EM_DASH
     return f"{price}  ·  {stars}"
 
-# SPEC.md §5.1: four to five cards per row on a 1440p (2560px) display.
-CARD_WIDTH = 480
-IMAGE_HEIGHT = int(CARD_WIDTH * 5 / 4)  # 4:5 portrait crop
-TEXT_BLOCK_HEIGHT = 100
+# SPEC.md §5.2, milestone 21b: a target width GridView's reflow formula
+# aims for -- wider screens get more columns of roughly this size, not
+# fewer, bigger cards. WatchCard itself just renders at whatever width
+# it's given (the constructor default, and set_render_width() afterward);
+# nothing here assumes DEFAULT_CARD_WIDTH is the width actually on
+# screen.
+DEFAULT_CARD_WIDTH = 210
+TEXT_BLOCK_HEIGHT = 120  # bumped from a single-line-title-era 100: the title can now wrap to two lines at a narrow render width
 CARD_CONTENT_PADDING = 16  # SPEC.md §6: card padding 16
 MAINTENANCE_DOT_SIZE = 10
 WORE_TODAY_BAR_HEIGHT = 32
 CARD_RADIUS = 4.0  # must match theme.qss's watch-card border-radius: 4px
+
+
+def _image_height(width: int) -> int:
+    return int(width * 5 / 4)  # 4:5 portrait crop, at whatever width the card is currently rendering
 
 
 class _CardPhoto(QLabel):
@@ -171,14 +179,30 @@ class WatchCard(QFrame):
     compare_toggled = Signal(object, bool)  # WatchRecord, checked
     wore_today_requested = Signal(object)  # WatchRecord
 
-    def __init__(self, record: WatchRecord, compare_selected: bool = False, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        record: WatchRecord,
+        compare_selected: bool = False,
+        parent: QWidget | None = None,
+        render_width: int = DEFAULT_CARD_WIDTH,
+    ) -> None:
         super().__init__(parent)
         self.setProperty("class", "watch-card")
         self.setProperty("compare-selected", compare_selected)
-        self.setFixedWidth(CARD_WIDTH)
+        self._render_width = render_width
+        self.setFixedWidth(render_width)
         self._hovering = False
         self._checkbox: QCheckBox | None = None
         self._wore_today_bar: QWidget | None = None
+        self._wishlist_info_bar: QWidget | None = None
+        self._maintenance_dot: _MaintenanceDueDot | None = None
+        # Set by _build_image() for a real record, left None for an error
+        # card (no image to show) -- set_render_width() branches on this
+        # rather than on record.watch, since it's the more direct "was
+        # _build_image() ever called for this card" signal.
+        self._image_container: QWidget | None = None
+        self._photo_label: QLabel | None = None
+        self._image_path = None
 
         # Eased hover lift (SPEC.md §6 motion): QSS has no transition
         # primitive, so border colour and background wash are both repainted
@@ -303,19 +327,20 @@ class WatchCard(QFrame):
         painter.end()
 
     def _build_image(self, record: WatchRecord, compare_selected: bool) -> QWidget:
-        image_path = first_image(record)
-        pixmap = cropped_pixmap(image_path, CARD_WIDTH, IMAGE_HEIGHT) if image_path else None
+        width = self._render_width
+        image_height = _image_height(width)
+        self._image_path = first_image(record)
+        pixmap = cropped_pixmap(self._image_path, width, image_height) if self._image_path else None
 
         if pixmap is not None:
             label: QLabel = _CardPhoto(pixmap)
         else:
-            watch = record.watch
-            diameter = f"{watch.case.diameter_mm:g} mm" if watch.case.diameter_mm else "—"
-            lug = self.tr("{value:g} mm lugs").format(value=watch.case.lug_width_mm) if watch.case.lug_width_mm else "—"
-            label = _CardPlaceholder(f"{diameter}\n{lug}", QSize(CARD_WIDTH, IMAGE_HEIGHT))
+            label = _CardPlaceholder(self._placeholder_text(record.watch), QSize(width, image_height))
+        self._photo_label = label
 
         container = QWidget()
-        container.setFixedSize(CARD_WIDTH, IMAGE_HEIGHT)
+        container.setFixedSize(width, image_height)
+        self._image_container = container
         label.setParent(container)
         label.move(0, 0)
 
@@ -326,9 +351,9 @@ class WatchCard(QFrame):
         is_owned = record.watch.status == "Owned"
 
         if is_owned and is_maintenance_due(record.watch):
-            dot = _MaintenanceDueDot(container)
-            dot.move(CARD_WIDTH - MAINTENANCE_DOT_SIZE - CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
-            dot.show()
+            self._maintenance_dot = _MaintenanceDueDot(container)
+            self._maintenance_dot.move(width - MAINTENANCE_DOT_SIZE - CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
+            self._maintenance_dot.show()
 
         self._checkbox = QCheckBox(self.tr("Compare"), container)
         self._checkbox.setProperty("class", "card-compare-checkbox")
@@ -346,8 +371,8 @@ class WatchCard(QFrame):
             # scrim (theme.qss) — this overlay sits on an arbitrary photo,
             # not the app's plate, so it doesn't follow the theme toggle.
             self._wore_today_bar.setIcon(icons.icon("wore-today", "#E8E4DC"))
-            self._wore_today_bar.setFixedSize(CARD_WIDTH, WORE_TODAY_BAR_HEIGHT)
-            self._wore_today_bar.move(0, IMAGE_HEIGHT - WORE_TODAY_BAR_HEIGHT)
+            self._wore_today_bar.setFixedSize(width, WORE_TODAY_BAR_HEIGHT)
+            self._wore_today_bar.move(0, image_height - WORE_TODAY_BAR_HEIGHT)
             self._wore_today_bar.clicked.connect(lambda: self.wore_today_requested.emit(record))
             self._wore_today_bar.setVisible(False)
         elif record.watch.status == "Wishlist":
@@ -355,14 +380,68 @@ class WatchCard(QFrame):
             # always visible rather than hover-only — it's information, not
             # an action — and showing target price + rating instead of a
             # wear affordance that doesn't apply pre-purchase.
-            info_bar = QLabel(_wishlist_info_text(record.watch), container)
-            info_bar.setProperty("class", "card-wishlist-info-bar")
-            info_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            info_bar.setFixedSize(CARD_WIDTH, WORE_TODAY_BAR_HEIGHT)
-            info_bar.move(0, IMAGE_HEIGHT - WORE_TODAY_BAR_HEIGHT)
-            info_bar.show()
+            self._wishlist_info_bar = QLabel(_wishlist_info_text(record.watch), container)
+            self._wishlist_info_bar.setProperty("class", "card-wishlist-info-bar")
+            self._wishlist_info_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._wishlist_info_bar.setFixedSize(width, WORE_TODAY_BAR_HEIGHT)
+            self._wishlist_info_bar.move(0, image_height - WORE_TODAY_BAR_HEIGHT)
+            self._wishlist_info_bar.show()
 
         return container
+
+    def _placeholder_text(self, watch: Watch) -> str:
+        diameter = f"{watch.case.diameter_mm:g} mm" if watch.case.diameter_mm else "—"
+        lug = self.tr("{value:g} mm lugs").format(value=watch.case.lug_width_mm) if watch.case.lug_width_mm else "—"
+        return f"{diameter}\n{lug}"
+
+    def set_render_width(self, width: int) -> None:
+        """Called by GridView._relayout() on every already-existing card
+        when the reflow formula's computed width changes for the current
+        layout pass -- cards are reused/repositioned across a resize, not
+        recreated (set_records() is the only thing that recreates them),
+        so hover/animation state and widget-tree churn stay put across a
+        pure window resize."""
+        if width == self._render_width:
+            return
+        self._render_width = width
+        self.setFixedWidth(width)
+
+        if self._image_container is None:
+            # An error card: _build_image() was never called, there's no
+            # image/overlay geometry to redo -- only the frame width above
+            # (shared by every card) applies to it.
+            return
+
+        image_height = _image_height(width)
+        self._image_container.setFixedSize(width, image_height)
+
+        old_label = self._photo_label
+        pixmap = cropped_pixmap(self._image_path, width, image_height) if self._image_path else None
+        if pixmap is not None:
+            new_label: QLabel = _CardPhoto(pixmap)
+        else:
+            new_label = _CardPlaceholder(self._placeholder_text(self._record.watch), QSize(width, image_height))
+        new_label.setParent(self._image_container)
+        new_label.move(0, 0)
+        new_label.lower()  # overlays (checkbox/dot/bars) were parented after the original label -- keep them on top
+        new_label.show()
+        self._photo_label = new_label
+        if old_label is not None:
+            old_label.setParent(None)
+            old_label.deleteLater()
+
+        if self._maintenance_dot is not None:
+            self._maintenance_dot.move(width - MAINTENANCE_DOT_SIZE - CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
+
+        if self._wore_today_bar is not None:
+            self._wore_today_bar.setFixedSize(width, WORE_TODAY_BAR_HEIGHT)
+            self._wore_today_bar.move(0, image_height - WORE_TODAY_BAR_HEIGHT)
+
+        if self._wishlist_info_bar is not None:
+            self._wishlist_info_bar.setFixedSize(width, WORE_TODAY_BAR_HEIGHT)
+            self._wishlist_info_bar.move(0, image_height - WORE_TODAY_BAR_HEIGHT)
+
+        self.updateGeometry()  # forces Qt to recompute the cached sizeHint() the parent FlowLayout reads
 
     def _build_info(self, record: WatchRecord) -> QWidget:
         watch = record.watch
@@ -391,7 +470,15 @@ class WatchCard(QFrame):
 
     def _build_error(self, record: WatchRecord) -> QWidget:
         container = QWidget()
-        container.setFixedHeight(IMAGE_HEIGHT + TEXT_BLOCK_HEIGHT)
+        # Sized to match a real card's initial height at this same
+        # construction-time render_width, so it sits at a consistent row
+        # height alongside photo cards in the grid. Unlike a photo card,
+        # this height is never revisited by set_render_width() (an error
+        # card has no _image_container to resize) -- a real, accepted, and
+        # narrow gap: only the frame width stays in sync after a resize,
+        # not this height, for a card type rare enough (a corrupt
+        # watch.toml) that it isn't worth the extra bookkeeping.
+        container.setFixedHeight(_image_height(self._render_width) + TEXT_BLOCK_HEIGHT)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(CARD_CONTENT_PADDING, CARD_CONTENT_PADDING, CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
         layout.setSpacing(6)

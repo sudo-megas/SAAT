@@ -126,3 +126,7 @@ dynamic-linking terms call for.
 
 The bundled Ubuntu Sans, Ubuntu Sans Condensed and Ubuntu Mono fonts are licensed
 under the [Ubuntu Font Licence 1.0](saat/resources/fonts/LICENCE.txt).
+
+The grid view's card-reflow layout (`saat/ui/flow_layout.py`) is adapted from Qt's own
+"Flow Layout" example (BSD-3-Clause) — the full copyright and licence text is kept at
+the top of that file.

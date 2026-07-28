@@ -21,7 +21,9 @@ from saat.ui.detail_view import DetailView
 from saat.ui.empty_state import EmptyStateView
 from saat.ui.main_window import MainWindow
 from saat.ui.table_view import TableView
-from saat.ui.top_bar import SCOPE_WISHLIST
+from saat.ui.cards import DEFAULT_CARD_WIDTH
+from saat.ui.theme import CARD_PADDING, PAGE_MARGIN
+from saat.ui.top_bar import SCOPE_WISHLIST, VIEW_TABLE
 
 _app = QApplication.instance() or QApplication([])
 
@@ -134,6 +136,34 @@ class CollectionViewBehaviorTests(UITestCase):
         self.assertTrue(view._top_bar.current_sort_descending())
         descending = [r.watch.brand for r in view._ordered_records]
         self.assertEqual(descending, list(reversed(ascending)))
+
+    def test_grid_reflows_correctly_after_set_records_while_table_view_is_current(self) -> None:
+        """Milestone 21b: _recompute() (collection_view.py) always pushes
+        fresh records into _grid_view, even while GridView itself is a
+        hidden, non-current QStackedWidget page -- e.g. the user is
+        looking at Table view when a wear edit updates the records. Every
+        dedicated reflow test in test_grid_view.py only ever exercises a
+        GridView that's already the visible page; the set_records() fix
+        that explicitly show()s each freshly-reparented card (see
+        grid_view.py) needs to make _columns come out geometry-correct
+        under a hidden parent stack page too, not just a visible
+        standalone one."""
+        view = CollectionView(self.records, self._config())
+        view.resize(1400, 900)
+        view.show()
+        QApplication.processEvents()
+        view._top_bar.set_view(VIEW_TABLE)
+        QApplication.processEvents()
+        self.assertIs(view._stack.currentWidget(), view._table_view)
+
+        create_watch(self.watches_dir, self.backups_dir, Watch(brand="Rolex", model="Submariner"))
+        view.set_records(load_collection(self.watches_dir))
+        QApplication.processEvents()
+
+        usable = max(view._grid_view.viewport().width() - 2 * PAGE_MARGIN, DEFAULT_CARD_WIDTH)
+        expected_columns = max(2, (usable + CARD_PADDING) // (DEFAULT_CARD_WIDTH + CARD_PADDING))
+        self.assertEqual(view._grid_view._columns, expected_columns)
+        view.close()
 
     def test_visible_records_matches_the_current_sort_and_filter_state(self) -> None:
         """SPEC.md milestone 19 §11: the PDF export needs exactly this
