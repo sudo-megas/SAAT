@@ -239,7 +239,7 @@ jobs:
       # info-level tags that are not failures. The second is the gate.
       - name: Report every lintian tag
         run: |
-          lintian --info --display-info --display-experimental \
+          lintian --display-info --display-experimental --show-overrides \
                   --no-tag-display-limit dist/*.deb || true
 
       - name: Gate on lintian errors and warnings

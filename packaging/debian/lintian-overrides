@@ -3,108 +3,131 @@
 # This package ships a PyInstaller one-folder build: SAAT plus its own Qt 6,
 # its own CPython and the C libraries those link against, all under
 # /usr/lib/saat/_internal. Debian's packaging conventions assume the
-# opposite arrangement -- one library per package, shared -- so a set of
-# tags fire that describe the bundling accurately and are not defects to
-# fix here. Each is justified below. Nothing is overridden merely to
-# quieten the report.
+# opposite arrangement -- one library per package, shared, compiled by
+# Debian with Debian's flags -- so a set of tags fire that describe the
+# bundling accurately rather than pointing at defects. Each is justified
+# below. Nothing is overridden merely to quieten the report, and the report
+# itself is printed in full (lintian --show-showing every tag, overridden
+# included) on every release build so it stays readable rather than hidden
+# behind this file.
+#
+# Every override here is a bare tag name with no context. Context patterns
+# were tried and removed: lintian matches them literally against a tag's own
+# context string, so `tag *` matches nothing at all for most of these and
+# reports mismatched-override instead. A bare name covers every instance,
+# which for tags that fire across 200-odd bundled libraries is what is
+# wanted anyway.
 #
 # The decision to bundle rather than depend on python3-pyside6 is recorded
 # in packaging/README.md.
 
+# ---------------------------------------------------------------- bundling
 # The whole point of the package. Qt, CPython, and the image, text-shaping
 # and compression libraries they need are shipped inside it rather than
-# depended on. Recorded honestly in the package description and enumerated
-# in /usr/share/doc/saat/bundled-libraries.txt, which is generated from the
-# package's actual contents at build time.
+# depended on. Recorded in the package description and enumerated in
+# /usr/share/doc/saat/bundled-libraries.txt, generated from the package's
+# actual contents at build time.
 saat: embedded-library
-saat: embedded-library *
 
 # PyInstaller assembles the bundle from prebuilt upstream wheels. Stripping
-# those shared objects after the fact rewrites binaries this project did not
-# compile and cannot re-verify, for a saving on a package whose size is
-# dominated by Qt regardless.
+# those shared objects rewrites binaries this project did not compile and
+# cannot re-verify, to save a fraction of a package whose size is dominated
+# by Qt regardless.
 saat: unstripped-binary-or-object
-saat: unstripped-binary-or-object *
 
-# Hardening flags are decided by whoever built the upstream wheel -- the Qt
-# Company for Qt, the Python packaging authorities for CPython. Rebuilding
-# the world with Debian's hardening defaults is exactly the second,
-# differently-behaving build this package exists to avoid.
-saat: hardening-no-fortify-functions
-saat: hardening-no-fortify-functions *
-saat: hardening-no-relro
-saat: hardening-no-relro *
-
-# Private directory, not a public library path. Nothing outside
-# /usr/lib/saat links against these, they are never on the linker search
-# path, and no other package can or should use them.
+# ---------------------------------------------------------- private libdir
+# /usr/lib/saat is a private application directory, not a public library
+# path. Nothing outside it links against these, they are never on the linker
+# search path, and no other package can or should use them. The tags below
+# all describe expectations of a *shared library package*, which this is
+# not.
 saat: shlib-without-versioned-soname
-saat: shlib-without-versioned-soname *
 saat: sharedobject-in-library-directory-missing-soname
-saat: sharedobject-in-library-directory-missing-soname *
-saat: package-name-doesnt-match-sonames *
 saat: no-symbols-control-file
-saat: no-symbols-control-file *
 saat: shared-library-lacks-prerequisites
-saat: shared-library-lacks-prerequisites *
 saat: library-not-linked-against-libc
-saat: library-not-linked-against-libc *
 saat: shlib-with-executable-bit
-saat: shlib-with-executable-bit *
+saat: missing-dependency-on-libstdc++
 
-# The bundled Ubuntu fonts. They are the application's own typeface, loaded
-# from resource_dir() at startup, not a system font this package is trying
-# to provide -- installing them into /usr/share/fonts would put a font on
-# every user's system as a side effect of installing a watch cataloguer.
-# Their licence is shipped beside them and is covered in the copyright file.
-saat: font-in-non-font-package *
-saat: package-contains-font-outside-usr-share-fonts *
-saat: font-outside-font-package *
-saat: extra-license-file usr/lib/saat/_internal/resources/fonts/LICENCE.txt
-saat: package-contains-documentation-outside-usr-share-doc *
+# $ORIGIN-relative RUNPATH is how a one-folder PyInstaller build finds its
+# own libraries without touching the system linker configuration, and it is
+# exactly what stops this bundle resolving Qt out of /usr/lib. Load-bearing,
+# not an oversight.
+saat: custom-library-search-path
+
+# The executable is reached through /usr/bin/saat. Policy's preference for
+# /usr/libexec concerns helper binaries; this is an application's private
+# directory holding one program and the runtime it carries.
+saat: executable-in-usr-lib
+
+# ---------------------------------------------------------------- hardening
+# Hardening flags are decided by whoever built the upstream wheel -- the Qt
+# Company for Qt, the Python packaging authorities for CPython -- and by
+# PyInstaller for its own bootloader. Rebuilding the world with Debian's
+# hardening defaults is exactly the second, differently-behaving build this
+# package exists to avoid, and it would mean this package no longer shipped
+# the same binary the tarball does.
+saat: hardening-no-fortify-functions
+saat: hardening-no-relro
+saat: hardening-no-bindnow
+saat: hardening-no-pie
+
+# Reported against upstream libraries this package did not compile. Nothing
+# in saat/ calls exit() from a library.
+saat: exit-in-shared-library
+
+# ------------------------------------------------------------------- fonts
+# The bundled Ubuntu fonts are the application's own typeface, loaded from
+# resource_dir() at startup -- not a system font this package is offering to
+# provide. Installing them into /usr/share/fonts would put fonts on every
+# user's system as a side effect of installing a watch cataloguer. Their
+# licence ships beside them and is covered in the copyright file.
+saat: font-in-non-font-package
+saat: extra-license-file
+saat: package-contains-documentation-outside-usr-share-doc
 
 # The application icon is installed into the hicolor theme so the launcher
 # entry can find it, and also stays inside the bundle because the running
 # app reads it from resource_dir() to set its own window icon. Two copies of
 # a 30 KB PNG is the cheapest correct answer.
-saat: duplicate-files *saat.png*
+saat: duplicate-files
 
-# CPython's own standard library, as PyInstaller lays it out. It is the
+# ------------------------------------------------------------------ python
+# CPython's own standard library, as PyInstaller lays it out: the
 # interpreter this application runs on, in this application's private
 # directory -- not a Python module offered to the system.
-saat: python-module-in-wrong-location *
-saat: package-installs-python-bytecode *
+saat: python-module-in-wrong-location
+saat: package-installs-python-bytecode
 
 # Qt ships QML for the modules PySide6's wheel includes. SAAT itself uses
 # native widgets only (SPEC.md §2 rule 6) and instantiates no QML; these
 # come along inside the wheel.
-saat: embedded-javascript-library *
+saat: embedded-javascript-library
 
-# $ORIGIN-relative RUNPATH is how a one-folder PyInstaller build finds its
-# own libraries without touching the system linker configuration, and it is
-# exactly what keeps this bundle from resolving Qt out of /usr/lib. It is
-# load-bearing, not an oversight: removing it is how you get a package that
-# silently links against whatever Qt the machine happens to have.
-saat: binary-or-shlib-defines-rpath
-saat: binary-or-shlib-defines-rpath *
-saat: custom-library-search-path
-saat: custom-library-search-path *
+# ------------------------------------------------------------- not Debian
+# This package is published on a GitHub releases page, not uploaded to
+# Debian. There is no ITP bug for a first upload to close, and no watch file
+# is meaningful when upstream and the packaging are the same repository.
+# Lintian's own description of the first tag says it can be ignored when the
+# package is not intended for Debian.
+saat: initial-upload-closes-no-bugs
+saat: debian-watch-file-is-missing
 
-# /usr/lib/saat is a private application directory holding one program and
-# the runtime it carries. The executable there is reached through
-# /usr/bin/saat; policy's preference for /usr/libexec is about helper
-# binaries on PATH-adjacent paths, which this is not.
-saat: executable-in-usr-lib
-saat: executable-in-usr-lib *
+# prerm genuinely has nothing to do, and that is the correct behaviour
+# rather than an omission. Its counterpart work -- refreshing the desktop
+# database and icon cache -- has to happen in postrm, *after* the launcher
+# entry and icon are gone; running it in prerm would just re-read the files
+# that are about to be removed. What prerm does contain is the argument
+# guard Debian policy asks for: it fails on an argument it does not
+# recognise instead of silently succeeding.
+saat: maintainer-script-empty
 
 # Exec=saat resolves through PATH, which is what lets one .desktop file
 # serve both an install.sh install (/usr/local/bin/saat) and this package
-# (/usr/bin/saat) instead of two copies that drift apart. The command is in
+# (/usr/bin/saat) rather than two copies that drift apart. The command is in
 # this package, at /usr/bin/saat.
-saat: desktop-command-not-in-package *
+saat: desktop-command-not-in-package
 
-# dpkg-deb builds this from an already-composed tree; there is no source
-# package, no debian/rules and no build system to declare. The upstream
-# source is the repository named in Homepage.
-saat: no-debian-source-directory
-saat: debian-watch-file-is-missing
+# A watch cataloguer's launcher entry is found by name. A Keywords list
+# would be invented search terms, not information.
+saat: desktop-entry-lacks-keywords-entry
