@@ -79,12 +79,11 @@ KNOWN_CONTRAST_SHORTFALLS = {
     # `subtle`, Rosé Pine's own next-brighter foreground step after `muted`.
     ("rose-pine-dawn", "text_muted", "plate"): 4.0235765161349795,
     ("rose-pine-dawn", "text_muted", "plate_high"): 4.231263400289407,
-    # nord3 is Nord's own designated "comments/disabled" role; the 16-color
-    # system has no intermediate step between it and nord4 (primary text).
-    ("nord", "text_muted", "plate"): 1.692958248266498,
-    ("nord", "text_muted", "plate_high"): 1.3638806389111493,
-    # nord11 is Nord's only red -- no substitute exists in the Aurora group.
-    ("nord", "ruby", "plate_high"): 2.4595398617071926,
+    # Nord's text_muted/ruby shortfalls (formerly listed here) were resolved
+    # 2026-07-28 after a real user reported nord3's text as unreadable --
+    # both nudged outside the authentic 16-color set specifically because,
+    # unlike these other three palettes, nothing WITHIN Nord's own system
+    # sat between the too-dark original and the next role up. See nord.toml.
     # lotusGray2, the next step toward text after lotusGray3 (Kanagawa's own
     # comment/deprecated role); coincides with `rule`'s own value.
     ("kanagawa-lotus", "text_muted", "plate"): 4.262911999110539,
@@ -103,7 +102,6 @@ KNOWN_CONTRAST_SHORTFALLS = {
     ("default-dark", "ruby", "plate"): 3.509859287322408,
     ("rose-pine-dawn", "gilt", "plate"): 3.4691307752426224,
     ("rose-pine-dawn", "ruby", "plate"): 3.8406570202210726,
-    ("nord", "ruby", "plate"): 3.0529785210102194,
     ("kanagawa-lotus", "ruby", "plate"): 4.0563844112651095,
 }
 

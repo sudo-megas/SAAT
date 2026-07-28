@@ -49,6 +49,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   instead of the general body-text colour.
 - The unsaved-changes "Discard" confirmation button never actually received its
   intended red styling, regardless of palette.
+- The Nord preset's muted text and red accent were too dark against its own
+  backgrounds to read comfortably (most secondary text app-wide, in Nord's case).
+  Both lightened within their own hue, since nothing else in Nord's authentic
+  16-color palette sits between the original values and the next role up.
 
 ## [1.7.8] - 2026-07-28
 

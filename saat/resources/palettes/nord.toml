@@ -19,17 +19,16 @@
 #   ruby        = nord11 ("used for errors, git/diff deletion and linter
 #                          marker")
 #
-# Contrast, two honest shortfalls, both reported per SPEC.md §6 items 10/37
-# rather than invented around:
-#   - text_muted (nord3) measures 1.69:1 on plate / 1.36:1 on plate-high,
-#     far under the 4.5:1 bar. Nord's 16-color system has no intermediate
-#     step between Polar Night's darkest (nord3) and Snow Storm's lightest
-#     (nord4, already assigned to primary text) -- there is nothing left in
-#     the same family to substitute.
-#   - ruby (nord11) measures 3.05:1 on plate (passes) but 2.46:1 on
-#     plate-high (fails the 3:1 bar). nord11 is Nord's only red; the Aurora
-#     group's other four colors (orange/yellow/green/purple) aren't
-#     substitutes for a destructive-action red.
+# Two deliberate deviations from nord.scss, both reported per SPEC.md §6
+# items 10/37 rather than invented around -- see the inline comments below
+# for the exact substitution and measured ratio. Nord's 16-color system has
+# no intermediate step between Polar Night's darkest (nord3) and Snow
+# Storm's lightest (nord4, already assigned to primary text) for the first
+# one, and nord11 is Nord's only red for the second -- both needed a value
+# outside the authentic 16-color set entirely, unlike default-dark/-light's
+# own nudges above (which stayed within values SAAT itself invented). A
+# real user (2026-07-28) reported nord3's text_muted specifically as
+# unreadable in the running app, not just a measured shortfall.
 id = "nord"
 name = "Nord"
 is_dark = true
@@ -38,6 +37,14 @@ plate = "#2e3440"
 plate_high = "#3b4252"
 rule = "#434c5e"
 text = "#d8dee9"
-text_muted = "#4c566a"
+# nord3 (#4c566a) measured 1.69:1 on plate / 1.36:1 on plate-high, far under
+# the 4.5:1 bar and confirmed illegible by a real user. Lightened within
+# nord3's own hue (H=220 deg) rather than substituted from elsewhere in the
+# 16-color set, since nothing else in Nord's own system sits between it and
+# nord4: 5.66:1 on plate / 4.56:1 on plate-high.
+text_muted = "#a6afc0"
 gilt = "#88c0d0"
-ruby = "#bf616a"
+# nord11 (#bf616a) measured 3.05:1 on plate (passes 3:1) but 2.46:1 on
+# plate-high (fails). Lightened within nord11's own hue (H=354 deg): 4.54:1
+# on plate / 3.66:1 on plate-high.
+ruby = "#cf8990"
