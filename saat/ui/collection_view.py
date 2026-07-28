@@ -127,7 +127,7 @@ class CollectionView(QWidget):
 
     @property
     def current_summary(self) -> CollectionSummary | WishlistSummary:
-        """SPEC.md §6: the bottom bar's live summary -- the current scope
+        """SPEC.md §5.10: the bottom bar's live summary -- the current scope
         AND the current filter/search state (_ordered_records), unlike the
         sidebar's own whole-scope footer (§5.10), which only updates on a
         scope change, not on every filter tweak. Deliberately two different

@@ -28,7 +28,7 @@ _CELL_HORIZONTAL_PADDING = 8
 _MIN_SECTION_SIZE = 40
 _MAX_SECTION_SIZE = 220  # ceiling for user drag-resize only -- confirmed empirically not to clamp the Stretch name column
 
-# SPEC.md §6, milestone 21b: explicit Interactive widths for the default
+# SPEC.md §5.3, milestone 21b: explicit Interactive widths for the default
 # data columns -- deliberately not ResizeToContents anywhere (see
 # TableView._apply_column_sizing's docstring). A key absent here (a column
 # a user has added via the header menu, or a non-Identity preset) falls

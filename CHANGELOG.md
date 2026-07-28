@@ -4,6 +4,38 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.8.0] - 2026-07-28
+
+### Added
+
+- Ten built-in palettes, chosen from a swatch button in a new bottom bar: the two
+  original Default Light/Dark, plus Noctalia, Catppuccin (Latte, Frappé, Macchiato,
+  Mocha), Rosé Pine Dawn, Nord, and Kanagawa Lotus, each checked against its own
+  published source values rather than reinterpreted. Click the swatch, pick one from the
+  popover, it applies immediately — no restart, no confirmation.
+- A persistent bottom bar, on screen no matter which page is showing. Alongside the
+  palette swatch, it carries a live count and breakdown of whatever the grid or table is
+  currently showing — updating as you filter, search, or switch scope — separate from
+  the sidebar's own summary of the whole collection.
+
+### Changed
+
+- Grid view cards are smaller by default and reflow to fill the window: a wider screen
+  gets more columns of essentially the same card size, not fewer, bigger cards.
+- Table view leads with a photo thumbnail and a combined Watch column (model, with brand
+  and reference beneath) in place of separate Brand and Model columns. Rows and headers
+  lost their grid lines in favour of plain height and whitespace, and selection no
+  longer uses the OS's own blue highlight.
+- Table columns now use fixed and interactive widths instead of resizing to fit their
+  own content — fixes a horizontal scrollbar that could appear at the app's documented
+  1100×700 minimum window size.
+
+### Removed
+
+- The top bar's sun/moon theme toggle, replaced by the bottom bar's palette picker
+  above — a light/dark binary can't represent ten presets, so the control itself moved
+  rather than growing a second icon beside an already full top bar.
+
 ## [1.7.8] - 2026-07-28
 
 ### Added

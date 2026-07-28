@@ -111,7 +111,7 @@ class Column:
 COLUMNS: list[Column] = [
     # Identity
     # thumbnail/name are table_view.py's own structural leading columns
-    # (SPEC.md §6, milestone 21b) -- registered here (rather than hardcoded
+    # (SPEC.md §5.3, milestone 21b) -- registered here (rather than hardcoded
     # in table_view.py) so they flow through the same set_columns()/header-
     # menu/config-persistence machinery as every other column, with no
     # special-casing there. thumbnail's getter always returns None: the

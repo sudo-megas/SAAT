@@ -297,7 +297,7 @@ A single free-text field, plain text, multiline.
 ## 5. Interface
 
 ### 5.1 Layout
-Main window, three regions:
+Main window, four regions:
 
 - **Left sidebar, ~260 px, collapsible.** Filter facets: Status, Style, Group, Movement
   kind, Case material, Lug width, Tags, `Not worn in 90 days`. Each facet is multi-select
@@ -306,16 +306,24 @@ Main window, three regions:
 - **Top bar, two rows.** Row one is what subset of the collection is showing and how: the
   Collection / Wishlist scope selector (§5.12), search field, and view toggle (Grid /
   Table / Calendar). Row two is ordering and actions: sort dropdown, "Add watch" as the
-  one primary-weight control in the app, Compare, the watch picker (milestone 20),
-  export, and the theme toggle. Scope is orthogonal to view. One row grew a control at
-  nearly every milestone and eventually overflowed the window's own minimum width by
-  hundreds of pixels before splitting into two, milestone 20's fix.
+  one primary-weight control in the app, Compare, the watch picker (milestone 20), and
+  export. Scope is orthogonal to view. One row grew a control at nearly every milestone
+  and eventually overflowed the window's own minimum width by hundreds of pixels before
+  splitting into two, milestone 20's fix — the same overflow risk that later moved the
+  palette control (§6) out to the bottom bar below rather than adding a third row here.
 - **Main area.** Whichever view is selected.
+- **Bottom bar, persistent (milestone 21).** A status bar on screen regardless of which
+  view or page is showing — the one region that survives navigating to the detail or
+  compare page. Two things live here: a live figure for the current view (§5.10) on the
+  left, the palette control (§6) on the right. The figure is a CollectionView concern and
+  blanks itself while Detail or Compare covers the main area, picking back up where it
+  left off on return; the palette control stays reachable everywhere, since choosing how
+  the whole app looks isn't tied to any one page.
 
-Window opens at 1600×1000, remembers geometry in `config.toml`, minimum 1100×700 —
-the top bar's own two rows must actually fit that floor, not just the main area.
-On a 1440p display the grid shows four to five cards per row — do not cap content
-width at a fashionable 1200 px, use the screen.
+Window opens at 1600×1000, remembers geometry in `config.toml`, minimum 1100×700 — the
+top bar's own two rows and the bottom bar must actually fit that floor, not just the main
+area. The grid targets a consistent card width rather than a fixed column count (§5.2) —
+do not cap content width at a fashionable 1200 px, use the screen.
 
 ### 5.2 Grid view
 Image-forward cards. Primary photo fills the card top at a consistent 4:5 portrait crop —
@@ -325,10 +333,23 @@ photo yet gets a neutral placeholder tile with its diameter and lug width set in
 middle — informative, not an empty grey box. Card hover reveals a "Wore this today"
 action and a compare checkbox.
 
+**Target-width reflow (milestone 21).** Cards target 210 px, not a fixed column count:
+pick the number of columns that fit the available width first, then divide the leftover
+space evenly across them, capped a further 12 px above target — a wide screen gets more
+columns of essentially the same card, never fewer, bigger ones, the inverse of a fixed-
+column-count grid where a wide screen just scales every card up. Quantized to a multiple
+of 8 px, which bounds the thumbnail cache's own key space rather than re-cropping a fresh
+size on every pixel of resize.
+
 ### 5.3 Table view
 Dense, sortable by clicking any header, tabular figures so measurements align. Columns
 configurable through a right-click header menu, persisted to `config.toml`. Defaults:
-Brand, Model, Style, Movement, Diameter, Lug width, Water resistance, Acquired.
+Photo (fixed, icon-width), Watch — a structural identity column pairing the model (weight
+600) with brand and reference muted beneath, replacing separate Brand/Model columns and
+stretching to absorb whatever width the fixed columns don't use — Style, Movement,
+Diameter, Lug width, Water resistance, Acquired. Every column but Photo and Watch gets an
+explicit Interactive width, never content-fitted, which is what let the table silently
+outgrow the window's own 1100 px floor before anyone noticed on a real laptop.
 
 Ship **column presets** matching the data model groups — Identity, Movement, Case, Dial,
 Straps, Acquisition — in a dropdown beside the view toggle. Each shows every watch
@@ -579,8 +600,17 @@ matches this watch's `case.lug_width_mm`. The owner swaps straps between watches
 should know which ones physically fit. Hide the section when there are no matches.
 
 ### 5.10 Collection summary
-Sidebar footer: watch count, split by movement kind, total acquisition value by currency.
-Plain figures. No charts, no gauges, no progress rings.
+Sidebar footer: watch count, split by movement kind, total acquisition value by currency,
+over the whole active scope — recomputed when the sidebar itself rebuilds (a scope
+change), not on every filter or search tweak. Plain figures. No charts, no gauges, no
+progress rings.
+
+**Bottom bar (milestone 21, §5.1, §6).** The same three figures again, but over the
+currently filtered/searched view rather than the whole scope, recomputed on every
+change — deliberately two different numbers on screen, "your collection" beside "what
+you're looking at right now," not a duplicate bug. They only actually diverge once a
+filter or search term is active; an unfiltered view shows the same figures in both
+places. Blanked while Detail or Compare covers the main area, restored on return.
 
 ### 5.11 Keyboard
 `Ctrl+N` add, `Ctrl+F` search, `Ctrl+E` edit current, `Ctrl+W` wore-today on the current
@@ -654,11 +684,26 @@ compare page — stays in place rather than resetting to the collection view.
 
 The reference is a **movement plate**, not a generic dark-mode app. Watch movements are
 grey nickel and warm brass, punctuated by red ruby jewels and the deep indigo of blued
-steel. That is the palette in both modes. Do not reach for near-black with a bright acid
-accent, and do not reach for stark white with a saturated accent — both are the default
-look of every app in their category and say nothing about watches.
+steel. That is the palette across every one of this app's ten presets. Do not reach for
+near-black with a bright acid accent, and do not reach for stark white with a saturated
+accent — both are the default look of every app in their category and say nothing about
+watches.
 
-**Dark (default).** The plate as seen with the case back off, under a loupe.
+**Ten fixed presets (milestone 21), not two.** `saat/resources/palettes/*.toml` — one
+file per palette: `id`, display name, a light-or-dark flag, and the same seven role
+values named below — read via stdlib `tomllib`, bundled read-only alongside the fonts
+and icons. Default Light and Default Dark (below) are this app's own two most carefully
+considered references and stay first in the fixed order; the other eight are named,
+existing community palettes reproduced faithfully rather than reinterpreted — each
+TOML's own header comments cite the exact upstream source and the role-mapping decision
+behind every hex value, checked against that source rather than eyeballed. In order:
+Default Light, Default Dark, Noctalia, Catppuccin Latte, Catppuccin Frappé, Catppuccin
+Macchiato, Catppuccin Mocha, Rosé Pine Dawn, Nord, Kanagawa Lotus — six light, four dark.
+Exact values live in the TOML files and are checked, not remembered here;
+`tests/test_theme_contrast.py` verifies every one of the ten against the same thresholds
+below, not just the two named next.
+
+**Default Dark.** The plate as seen with the case back off, under a loupe.
 
 ```
 --plate       #1C1B19   base background: warm-shifted charcoal, not blue-black
@@ -670,8 +715,8 @@ look of every app in their category and say nothing about watches.
 --ruby        #CF3931   destructive only: delete, unsaved-changes warning
 ```
 
-**Light.** The same plate, brushed nickel in daylight — not an inverted dark mode.
-Same hue relationships, lightness re-tuned for a light background.
+**Default Light.** The same plate, brushed nickel in daylight — not an inverted dark
+mode. Same hue relationships, lightness re-tuned for a light background.
 
 ```
 --plate       #F1EEE6   warm platinum, not stark white
@@ -683,18 +728,29 @@ Same hue relationships, lightness re-tuned for a light background.
 --ruby        #A82F24   destructive — same hue as dark mode, deepened for AA contrast on light
 ```
 
-Verify actual contrast once rendered (4.5:1 for body text, 3:1 for large text and UI
-components against its own background) and nudge lightness if Qt's rendering falls short
-of these values — they are a starting point, not measured output.
+Every palette is verified against actual rendered contrast (4.5:1 for body text, 3:1 for
+large text and UI components against its own background), nudging lightness where Qt's
+rendering falls short — a starting point for Default Light/Dark, a real constraint for
+the other eight, whose exact values are set upstream and not this app's own to freely
+retune.
 
-In both modes, gilt appears only on things that are interactive or currently active.
-Ruby appears in exactly two places in the whole app.
+Across every palette, gilt appears only on things that are interactive or currently
+active. Ruby appears in exactly two places in the whole app, in every palette alike.
 
-**Toggle.** A single icon-button in the top bar — sun/moon glyph, drawn to match the
-line weight used elsewhere, not a font icon. This is a toggle, not a settings page: no
-font-size options, no per-section colors, no theme file to import. Toggling re-applies
-`theme.qss` and repaints immediately; it must not require a restart. The active mode
-persists in `config.toml` alongside window geometry. Default on first launch: dark.
+**Palette control (milestone 21).** A swatch button in the bottom bar (§5.1) — three
+dots (plate, text, gilt) painted live from whichever palette is active — opens a popover
+listing all ten by display name in the fixed order above, a checkmark on whichever is
+active, applying immediately on click with no confirmation step. Still not a theme
+editor: no custom colors, no per-section overrides, no theme file to import — ten
+presets, fixed, and nothing else. Applying re-runs `theme.qss`'s own generation and
+repaints immediately, exactly as the earlier toggle did; it must not require a restart.
+The active palette persists in `config.toml` alongside window geometry. Default on first
+launch: Default Dark. Replaces the top bar's earlier sun/moon toggle (a binary
+light/dark flip) outright — a hand-drawn icon can represent two states; it cannot
+represent ten, so the control itself had to change shape, not just grow more items, and
+moving it off the top bar's own already-full two rows into a persistent bottom bar (§5.1)
+is what made room for a real popover instead of a second icon-button squeezed in beside
+it.
 
 **Type.** Ubuntu — bundled in `saat/resources/fonts/` (Ubuntu Font Licence 1.0) rather
 than relying on a system package, with a detected fallback so the app does not break
@@ -708,9 +764,8 @@ Weights 400 and 600 only. Uppercase small-caps-style labels (column overlines, s
 headings) carry a slight letter-spacing — legible at 11-13px is not a given otherwise.
 
 **Icons.** A cohesive hand-drawn set in `saat/resources/icons/` — SVG, one stroke weight
-and optical size, matched to the existing theme-toggle glyph (the app's original
-hand-drawn icon, unchanged reference). Rendered through `QtSvg` (already inside the
-PySide6 wheel, not a new dependency) at paint time, recoloured against the live
+and optical size, consistent across the whole set. Rendered through `QtSvg` (already
+inside the PySide6 wheel, not a new dependency) at paint time, recoloured against the live
 `theme.colors()` token via `QPainter.CompositionMode_SourceIn` — the same "read the
 palette, never cache a colour" discipline as everything else in this section. Never two
 colour variants shipped per file. An icon is always additive to an existing text label
@@ -797,11 +852,11 @@ hook to plug in later, not a live preference.
 rows get 12 px vertical padding — a spec table crammed to 6 px is unreadable, and this
 one is meant to be studied.
 
-Implement both palettes in `saat/ui/theme.qss` (templated, not duplicated) with values
-as named constants in a `theme.py` that also exposes them to `QPainter` code, plus a
-function that swaps the active palette and reapplies. No inline stylesheets scattered
-through widget constructors — this is what makes the toggle a small feature instead of a
-find-and-replace across every view.
+Implement every palette in `saat/ui/theme.qss` (templated, not duplicated per palette)
+with values as named constants in a `theme.py` that also exposes them to `QPainter` code,
+plus a function that swaps the active palette and reapplies. No inline stylesheets
+scattered through widget constructors — this is what makes switching between ten palettes
+a small feature instead of a find-and-replace across every view.
 
 Every stock Qt widget the app instantiates gets a rule in `theme.qss`, not just the ones
 a feature happens to touch — scrollbars (a thin hairline track/handle in `--rule`,
@@ -962,10 +1017,10 @@ and document it.
 ## 9. Do not
 
 - Add a database, a settings GUI for the settings file, a plugin system, or a theme
-  editor. The two fixed palettes in §6 and their single toggle are not a theme editor:
-  no arbitrary colors, no user-saved palettes, no theme file import or export. Nor is
-  §5.13's language menu the start of a settings panel: one menu, two choices, nothing
-  else configurable through it.
+  editor. The ten fixed palettes in §6 and their single popover-based picker are not a
+  theme editor: no arbitrary colors, no user-saved palettes, no theme file import or
+  export. Nor is §5.13's language menu the start of a settings panel: one menu, two
+  choices, nothing else configurable through it.
 - Add cloud sync, sharing, or a showcase mode. **One narrow exception, added in milestone
   19:** local document generation — rendering the current collection or wishlist to a PDF,
   written to a path the user chooses via a save dialog. Nothing is transmitted anywhere;

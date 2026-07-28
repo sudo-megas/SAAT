@@ -81,7 +81,7 @@ class MainWindow(QMainWindow):
         # rather than adding a parallel rebuild mechanism to either class.
         self._last_detail_record: WatchRecord | None = None
         self._last_compare_records: list[WatchRecord] | None = None
-        # BottomBar's summary text is CollectionView-specific (SPEC.md §6)
+        # BottomBar's summary text is CollectionView-specific (SPEC.md §5.10)
         # -- blanked while Detail/Compare is on screen (_show_detail/
         # _show_compare) and restored from here on the way back
         # (_show_collection), rather than left showing a stale figure from

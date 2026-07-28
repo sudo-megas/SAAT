@@ -79,9 +79,9 @@ class _PaletteRow(QWidget):
 
 
 class PalettePickerButton(QWidget):
-    """The bottom bar's own swatch button (SPEC.md §6 item 26). Click opens
-    a QMenu popover listing all ten presets; picking one applies immediately
-    and closes it."""
+    """The bottom bar's own swatch button (SPEC.md §6's "Palette control"
+    paragraph). Click opens a QMenu popover listing all ten presets; picking
+    one applies immediately and closes it."""
 
     palette_selected = Signal(str)
 

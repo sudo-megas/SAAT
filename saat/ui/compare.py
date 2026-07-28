@@ -29,7 +29,7 @@ class CompareGroup:
     rows: list[CompareRow]
 
 
-# table_view.py's own structural identity columns (SPEC.md §6, milestone
+# table_view.py's own structural identity columns (SPEC.md §5.3, milestone
 # 21b). thumbnail's getter always returns None, so the all-empty check
 # below already drops it; name's getter deliberately mirrors model's own
 # (so the table's native column-sort keys off the model text) and would
