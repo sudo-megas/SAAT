@@ -56,11 +56,34 @@ REQUIRED = {
     "libGLX.so.0": "libgl1",
     "libGLdispatch.so.0": "libgl1",
     "libOpenGL.so.0": "libgl1",
-    "libxcb.so.1": "libxcb1",
     "libwayland-client.so.0": "libwayland-client0",
     "libwayland-cursor.so.0": "libwayland-cursor0",
     "libwayland-egl.so.1": "libwayland-egl1",
     "libwayland-server.so.0": "libwayland-server0",
+    # The xcb platform plugin's own dependencies. PyInstaller bundles most
+    # of the xcb stack but not these -- which build machine it runs on
+    # decides that, so it is scanned rather than assumed. All are needed by
+    # libQt6XcbQpa.so.6, which IS how the app puts a window on an X11
+    # session: without them the plugin fails to load and SAAT does not
+    # start at all.
+    "libxcb.so.1": "libxcb1",
+    "libxcb-cursor.so.0": "libxcb-cursor0",
+    "libxcb-icccm.so.4": "libxcb-icccm4",
+    "libxcb-image.so.0": "libxcb-image0",
+    "libxcb-keysyms.so.1": "libxcb-keysyms1",
+    "libxcb-randr.so.0": "libx11-xcb1",
+    "libxcb-render-util.so.0": "libxcb-render-util0",
+    "libxcb-render.so.0": "libxcb-render0",
+    "libxcb-shape.so.0": "libxcb-shape0",
+    "libxcb-shm.so.0": "libxcb-shm0",
+    "libxcb-sync.so.1": "libxcb-sync1",
+    "libxcb-util.so.1": "libxcb-util1",
+    "libxcb-xfixes.so.0": "libxcb-xfixes0",
+    "libxcb-xkb.so.1": "libxcb-xkb1",
+    "libxkbcommon.so.0": "libxkbcommon0",
+    "libxkbcommon-x11.so.0": "libxkbcommon-x11-0",
+    "libX11.so.6": "libx11-6",
+    "libX11-xcb.so.1": "libx11-xcb1",
 }
 
 # Sonames the bundle references but which are deliberately NOT depended on.
@@ -96,10 +119,6 @@ OPTIONAL = {
         "Qt print support, dlopened on demand. SAAT's only document output is "
         "a PDF written through QPdfWriter, which does not go through CUPS"
     ),
-    "libxcb-cursor.so.0": (
-        "cursor themes for the xcb plugin; Qt falls back to a built-in cursor "
-        "set when absent"
-    ),
 }
 
 GLIBC_FLOOR = (2, 35)  # the ubuntu-22.04 build runner; see release.yml's header
@@ -131,13 +150,72 @@ _SONAME_RE = re.compile(r"\(SONAME\)\s+Library soname: \[([^\]]+)\]")
 _GLIBC_RE = re.compile(r"GLIBC_(\d+)\.(\d+)(?:\.(\d+))?")
 
 
+def _check_resolution(root: Path) -> int:
+    """Post-install check: every soname the bundle needs actually resolves
+    on this machine.
+
+    The build-time audit proves the Depends list *names a package* for
+    every external soname. This proves those package names were the right
+    ones -- run against a genuinely apt-installed copy, with only the
+    declared dependencies pulled in, an unresolved soname here means the
+    package installs and then fails to start. That is the failure mode
+    worth catching, and reasoning about Debian package names cannot catch
+    it."""
+    objects = _elf_objects(root)
+    print(f"resolving shared libraries for {len(objects)} objects under {root}")
+
+    unresolved: dict[str, set[str]] = {}
+    for path in objects:
+        out = subprocess.run(
+            ["ldd", str(path)], capture_output=True, text=True
+        ).stdout
+        for line in out.splitlines():
+            if "not found" not in line:
+                continue
+            soname = line.strip().split()[0]
+            unresolved.setdefault(soname, set()).add(str(path.relative_to(root)))
+
+    hard = {s: v for s, v in unresolved.items() if s not in OPTIONAL}
+    for soname in sorted(unresolved):
+        users = sorted(unresolved[soname])
+        if soname in OPTIONAL:
+            print(f"  [optional, absent] {soname:<28} -- {OPTIONAL[soname][:60]}...")
+        else:
+            print(f"  [UNRESOLVED] {soname:<28} <- {users[0]}")
+
+    if not unresolved:
+        print("  every soname resolves")
+    if hard:
+        print("\nRESOLUTION CHECK FAILED:", file=sys.stderr)
+        for soname in sorted(hard):
+            print(
+                f"  - {soname} does not resolve; Depends is missing the "
+                f"package that provides it (needed by {sorted(hard[soname])[0]})",
+                file=sys.stderr,
+            )
+        return 1
+    print("\nresolution check passed")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--stage", required=True, type=Path)
+    parser.add_argument("--stage", type=Path)
+    parser.add_argument(
+        "--check-resolution",
+        type=Path,
+        metavar="INSTALLED_ROOT",
+        help="verify every soname resolves in an installed copy, e.g. /usr/lib/saat",
+    )
     parser.add_argument("--control", type=Path, default=None)
     parser.add_argument("--copyright", type=Path, default=None)
     parser.add_argument("--manifest", type=Path, default=None)
     args = parser.parse_args()
+
+    if args.check_resolution:
+        return _check_resolution(args.check_resolution)
+    if not args.stage:
+        parser.error("one of --stage or --check-resolution is required")
 
     here = Path(__file__).resolve().parent
     control = args.control or here / "debian" / "control.in"

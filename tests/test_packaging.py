@@ -292,7 +292,12 @@ class ControlFileTests(unittest.TestCase):
         this pins that it has not quietly grown."""
         depends = [d.strip() for d in self.fields["Depends"].split(",")]
         self.assertIn("libc6 (>= 2.35)", depends)
-        self.assertLessEqual(len(depends), 10, f"Depends has grown: {depends}")
+        # Every entry is a soname the bundle genuinely needs -- most of them
+        # Qt's xcb platform plugin, without which the app does not start on
+        # an X11 session. audit-bundle.py proves the list is COMPLETE at
+        # build time; this pins that it has not grown a system Qt or a
+        # system Python behind anyone's back.
+        self.assertLessEqual(len(depends), 20, f"Depends has grown: {depends}")
         for entry in depends:
             self.assertNotIn("qt", entry.lower(), "must not depend on system Qt")
             self.assertNotIn("pyside", entry.lower(), "must not depend on system PySide6")

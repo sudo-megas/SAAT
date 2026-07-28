@@ -265,6 +265,15 @@ jobs:
           test -f /usr/share/doc/saat/changelog.Debian.gz
           test -f /usr/share/man/man1/saat.1.gz
 
+      # The build-time audit proved Depends names a package for every
+      # external soname. This proves those were the right package names:
+      # against a copy apt installed with only the declared dependencies,
+      # an unresolved soname means a package that installs and then will
+      # not start. Reasoning about Debian package names cannot catch that;
+      # running ldd against the real thing can.
+      - name: Every library the bundle needs actually resolves
+        run: python3 packaging/audit-bundle.py --check-resolution /usr/lib/saat
+
       # Launching the installed /usr/bin/saat is the end-to-end proof that
       # installed-mode detection survives the symlink: if it did not, the
       # app would resolve its data directory to /usr/bin and these two

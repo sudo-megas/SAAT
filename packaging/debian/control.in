@@ -5,7 +5,7 @@ Priority: optional
 Architecture: amd64
 Maintainer: sudo-megas <gonzalorodriguez761@gmail.com>
 Installed-Size: @INSTALLED_SIZE@
-Depends: libc6 (>= 2.35), libegl1, libgl1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libxcb1
+Depends: libc6 (>= 2.35), libegl1, libgl1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libxcb1, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-shape0, libxcb-util1, libxcb-xkb1, libxkbcommon-x11-0
 Homepage: https://github.com/sudo-megas/SAAT
 Description: catalogue a mechanical-watch collection
  SAAT is a local, offline desktop application for cataloguing a personal
