@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 
 from saat.config import Config
@@ -38,8 +38,15 @@ class CollectionView(QWidget):
     clear_worn_requested = Signal(list)  # list[date]
     export_requested = Signal()
     pick_requested = Signal()
+    language_selected = Signal(object)  # str | None -- relayed from Sidebar's fallback control
 
-    def __init__(self, records: list[WatchRecord], config: Config, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        records: list[WatchRecord],
+        config: Config,
+        parent: QWidget | None = None,
+        tray_available: bool = True,
+    ) -> None:
         super().__init__(parent)
         self._records = records
         self._config = config
@@ -48,8 +55,9 @@ class CollectionView(QWidget):
         self._scope = SCOPE_COLLECTION
         self._compare_selection: set[str] = set()
         self._ordered_records: list[WatchRecord] = []
+        self._tray_available = tray_available
 
-        self._sidebar = Sidebar(self._scoped_records())
+        self._sidebar = self._build_sidebar()
         self._top_bar = TopBar()
         self._grid_view = GridView()
         self._table_view = TableView(on_columns_changed=self._save_columns)
@@ -72,7 +80,6 @@ class CollectionView(QWidget):
         self._layout.addWidget(self._sidebar)
         self._layout.addLayout(main_column, 1)
 
-        self._sidebar.changed.connect(self._recompute)
         self._top_bar.view_changed.connect(self._on_view_changed)
         self._top_bar.scope_changed.connect(self._on_scope_changed)
         self._top_bar.sort_changed.connect(self._on_sort_changed)
@@ -146,6 +153,18 @@ class CollectionView(QWidget):
         self._records = records
         self._recompute()
         self._calendar_view.set_records(records)
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            # CollectionView has no static self.tr() labels of its own to
+            # retranslate -- but _recompute()'s last line is
+            # sidebar.update_counts(), which re-evaluates every facet
+            # checkbox's QCoreApplication.translate() call fresh. Re-running
+            # it is a genuine retranslate of Sidebar's per-value checkbox
+            # text, not a hack -- it's the exact same call _on_sort_changed
+            # etc. already trigger for unrelated reasons.
+            self._recompute()
+        super().changeEvent(event)
 
     def _filter_state(self) -> FilterState:
         return FilterState(
@@ -230,6 +249,17 @@ class CollectionView(QWidget):
         self._config.set_active_scope(scope)
         self._config.save()
 
+    def _build_sidebar(self) -> Sidebar:
+        sidebar = Sidebar(
+            self._scoped_records(),
+            is_wishlist=self._scope == SCOPE_WISHLIST,
+            language_code_getter=self._config.language,
+            tray_available=self._tray_available,
+        )
+        sidebar.changed.connect(self._recompute)
+        sidebar.language_selected.connect(self.language_selected.emit)
+        return sidebar
+
     def _rebuild_sidebar(self) -> None:
         """SPEC.md §5.12: facet values and the summary footer both depend on
         which watches are in scope, and Sidebar builds its facet checkboxes
@@ -237,10 +267,13 @@ class CollectionView(QWidget):
         scratch, the same destroy-and-recreate shape MainWindow already uses
         for the collection reload and the detail view."""
         old_sidebar = self._sidebar
-        self._sidebar = Sidebar(self._scoped_records(), is_wishlist=self._scope == SCOPE_WISHLIST)
-        self._sidebar.changed.connect(self._recompute)
+        self._sidebar = self._build_sidebar()
         self._layout.replaceWidget(old_sidebar, self._sidebar)
         old_sidebar.deleteLater()
+
+    def set_tray_available(self, available: bool) -> None:
+        self._tray_available = available
+        self._sidebar.set_tray_available(available)
 
     def _on_preset_changed(self, preset: str) -> None:
         keys = self._default_column_keys() if preset == PRESET_DEFAULT else COLUMN_PRESETS.get(preset, self._default_column_keys())

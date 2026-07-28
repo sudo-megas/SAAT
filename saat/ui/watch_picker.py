@@ -1,4 +1,4 @@
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QDialog,
@@ -32,14 +32,12 @@ class WatchPicker(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Assign a watch"))
         self._records = [r for r in records if r.watch is not None]
         self._current_slug = current.slug if current is not None else None
         self._chosen: WatchRecord | None = None
         self._cleared = False
 
         self._search_field = QLineEdit()
-        self._search_field.setPlaceholderText(self.tr("Search brand, model, reference, caliber, tags…"))
         self._search_field.textChanged.connect(self._render_list)
 
         self._list = QListWidget()
@@ -50,9 +48,9 @@ class WatchPicker(QDialog):
         self._list.itemActivated.connect(self._on_item_chosen)
 
         buttons = QDialogButtonBox()
-        clear_button = QPushButton(self.tr("Clear"))
-        clear_button.clicked.connect(self._on_clear)
-        buttons.addButton(clear_button, QDialogButtonBox.ButtonRole.DestructiveRole)
+        self._clear_button = QPushButton()
+        self._clear_button.clicked.connect(self._on_clear)
+        buttons.addButton(self._clear_button, QDialogButtonBox.ButtonRole.DestructiveRole)
         cancel_button = buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
         cancel_button.clicked.connect(self.reject)
 
@@ -62,8 +60,22 @@ class WatchPicker(QDialog):
         layout.addWidget(buttons)
         self.resize(420, 480)
 
-        self._render_list()
+        self._retranslate()
         self._search_field.setFocus()
+
+    def _retranslate(self) -> None:
+        self.setWindowTitle(self.tr("Assign a watch"))
+        self._search_field.setPlaceholderText(self.tr("Search brand, model, reference, caliber, tags…"))
+        self._clear_button.setText(self.tr("Clear"))
+        # _render_list() already rebuilds every "(current)" suffix fresh
+        # from self.tr() at call time -- retranslating it is just calling
+        # it again, same idiom as images_tab.py's _render().
+        self._render_list()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def chosen_record(self) -> WatchRecord | None:
         return self._chosen

@@ -1,4 +1,4 @@
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QLocale, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
@@ -48,7 +48,12 @@ class MinuteTrackHeader(QWidget):
 
     def __init__(self, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._title = title.upper()
+        # QLocale().toUpper(), not str.upper() (ASCII-only, wrong for
+        # Turkish i -> İ) -- bare QLocale(), never QLocale.system(), see
+        # i18n.py's install_language(). Set once at construction: every
+        # caller (detail_view.py's spec groups, compare_view.py, etc.) is
+        # itself rebuilt fresh by its owner on a language change.
+        self._title = QLocale().toUpper(title)
         self._font = QFont(resolve_fonts()["sans_condensed"])
         self._font.setPixelSize(SIZE_XS)
         self._font.setWeight(QFont.Weight.DemiBold)

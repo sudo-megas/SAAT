@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, Qt, Signal
+from PySide6.QtCore import QEvent, QUrl, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QPaintEvent, QPainter
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
@@ -22,33 +22,46 @@ class EmptyStateView(QWidget):
 
         dial = WatchDialWidget()
 
-        heading = QLabel(self.tr("Your collection is empty."))
-        heading.setProperty("role", "empty-heading")
-        heading.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self._heading = QLabel()
+        self._heading.setProperty("role", "empty-heading")
+        self._heading.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        body = QLabel(
+        self._body = QLabel()
+        self._body.setProperty("muted", True)
+        self._body.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        self._add_button = QPushButton()
+        self._add_button.setProperty("variant", "primary")
+        self._add_button.clicked.connect(self.add_watch_requested.emit)
+
+        self._open_folder_button = QPushButton()
+        self._open_folder_button.setProperty("variant", "link")
+        self._open_folder_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._open_folder_button.clicked.connect(self._open_watches_folder)
+
+        self._retranslate()
+
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(16)
+        for widget in (dial, self._heading, self._body, self._add_button, self._open_folder_button):
+            layout.addWidget(widget, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+    def _retranslate(self) -> None:
+        self._heading.setText(self.tr("Your collection is empty."))
+        self._body.setText(
             self.tr(
                 "Watches live in the watches/ folder as editable TOML files.\n"
                 "Add your first one to get started."
             )
         )
-        body.setProperty("muted", True)
-        body.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self._add_button.setText(self.tr("Add watch"))
+        self._open_folder_button.setText(self.tr("Open watches/ folder"))
 
-        add_button = QPushButton(self.tr("Add watch"))
-        add_button.setProperty("variant", "primary")
-        add_button.clicked.connect(self.add_watch_requested.emit)
-
-        open_folder = QPushButton(self.tr("Open watches/ folder"))
-        open_folder.setProperty("variant", "link")
-        open_folder.setCursor(Qt.CursorShape.PointingHandCursor)
-        open_folder.clicked.connect(self._open_watches_folder)
-
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(16)
-        for widget in (dial, heading, body, add_button, open_folder):
-            layout.addWidget(widget, alignment=Qt.AlignmentFlag.AlignHCenter)
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def _open_watches_folder(self) -> None:
         self._watches_dir.mkdir(exist_ok=True)

@@ -1,7 +1,7 @@
 import random
 from collections.abc import Callable
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QTimer, Qt, Signal
+from PySide6.QtCore import QEasingCurve, QEvent, QPropertyAnimation, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import (
     QDialog,
@@ -142,7 +142,6 @@ class TodayPickerDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Pick for me"))
         self._records = records
         self._mode = mode
         self._on_mode_changed = on_mode_changed
@@ -150,41 +149,46 @@ class TodayPickerDialog(QDialog):
         self._rand = rand if rand is not None else random.Random()
         self._chosen: WatchRecord | None = None
         self._owned = owned_watches(records)
+        # Which of the three branches below built the dialog's contents --
+        # _retranslate() (including from a later changeEvent) needs to
+        # redo only that branch's own widgets, not assume all of them
+        # exist. Set at the bottom of whichever branch actually ran.
+        self._empty_message: QLabel | None = None
+        self._only_label: QLabel | None = None
+        self._only_button: QPushButton | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
         if not self._owned:
-            message = QLabel(self.tr("No owned watches to pick from yet."))
-            message.setProperty("muted", True)
-            message.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            message.setWordWrap(True)
-            layout.addWidget(message)
+            self._empty_message = QLabel()
+            self._empty_message.setProperty("muted", True)
+            self._empty_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._empty_message.setWordWrap(True)
+            layout.addWidget(self._empty_message)
             self.resize(360, 140)
+            self._retranslate()
             return
 
         if len(self._owned) == 1:
             only = self._owned[0]
-            label = QLabel(
-                self.tr("Only one watch to wear: {brand} {model}.").format(
-                    brand=only.watch.brand, model=only.watch.model
-                )
-            )
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setWordWrap(True)
-            button = QPushButton(self.tr("Wore this today"))
-            button.setProperty("variant", "primary")
-            button.clicked.connect(lambda: self._confirm(only))
-            layout.addWidget(label)
-            layout.addWidget(button)
+            self._only_label = QLabel()
+            self._only_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._only_label.setWordWrap(True)
+            self._only_button = QPushButton()
+            self._only_button.setProperty("variant", "primary")
+            self._only_button.clicked.connect(lambda: self._confirm(only))
+            layout.addWidget(self._only_label)
+            layout.addWidget(self._only_button)
             self.resize(360, 180)
+            self._retranslate()
             return
 
         toggle_row = QHBoxLayout()
-        self._random_button = QPushButton(self.tr("Random"))
+        self._random_button = QPushButton()
         self._random_button.setCheckable(True)
-        self._weighted_button = QPushButton(self.tr("Weighted"))
+        self._weighted_button = QPushButton()
         self._weighted_button.setCheckable(True)
         for button, target_mode in ((self._random_button, MODE_RANDOM), (self._weighted_button, MODE_WEIGHTED)):
             button.clicked.connect(lambda _checked, m=target_mode: self._set_mode(m))
@@ -212,9 +216,9 @@ class TodayPickerDialog(QDialog):
         layout.addStretch(1)
 
         button_row = QHBoxLayout()
-        self._reroll_button = QPushButton(self.tr("Re-roll"))
+        self._reroll_button = QPushButton()
         self._reroll_button.clicked.connect(self._roll)
-        self._wore_today_button = QPushButton(self.tr("Wore this today"))
+        self._wore_today_button = QPushButton()
         self._wore_today_button.setProperty("variant", "primary")
         self._wore_today_button.setEnabled(False)
         self._wore_today_button.clicked.connect(self._on_wore_today_clicked)
@@ -225,7 +229,30 @@ class TodayPickerDialog(QDialog):
 
         self._update_mode_buttons()
         self.resize(360, 420)
+        self._retranslate()
         self._roll()
+
+    def _retranslate(self) -> None:
+        self.setWindowTitle(self.tr("Pick for me"))
+        if self._empty_message is not None:
+            self._empty_message.setText(self.tr("No owned watches to pick from yet."))
+            return
+        if self._only_label is not None:
+            only = self._owned[0]
+            self._only_label.setText(
+                self.tr("Only one watch to wear: {brand} {model}.").format(brand=only.watch.brand, model=only.watch.model)
+            )
+            self._only_button.setText(self.tr("Wore this today"))
+            return
+        self._random_button.setText(self.tr("Random"))
+        self._weighted_button.setText(self.tr("Weighted"))
+        self._reroll_button.setText(self.tr("Re-roll"))
+        self._wore_today_button.setText(self.tr("Wore this today"))
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def _roll(self) -> None:
         self._wore_today_button.setEnabled(False)

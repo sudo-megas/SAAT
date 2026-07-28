@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
+from PySide6.QtCore import QCoreApplication, QEvent, QT_TRANSLATE_NOOP
 
 from saat.models import LogEntry, Strap, TimingEntry
 from saat.ui import icons
@@ -18,11 +18,13 @@ from saat.ui.form_fields import (
     combo_value,
     date_value,
     double_value,
+    enum_label,
     fixed_combo,
     int_value,
     optional_date_edit,
     optional_double_spin,
     optional_int_spin,
+    retranslate_combo,
     set_combo_value,
     set_date_value,
     set_double_value,
@@ -96,6 +98,15 @@ class StringListEditor(QWidget):
     def __init__(self, suggestions: list[str] | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._items: list[str] = []
+        # Found during Commit C, not Commit A's sweep: dial.complications is
+        # enum* vocabulary (see COMPLICATIONS_SUGGESTIONS' QT_TRANSLATE_NOOP
+        # marking in watch_form.py) -- this widget also backs tags, which is
+        # genuinely free-form and must never be translated. enum_label() on
+        # a value that isn't registered under the EnumChoices context (any
+        # free-typed tag, or a free-typed complication not in the
+        # suggestion list) safely falls through to the value unchanged --
+        # same reasoning sidebar.py's _facet_value_label() already relies on.
+        self._translate_items = bool(suggestions)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -107,15 +118,28 @@ class StringListEditor(QWidget):
             self._input = suggested_combo(suggestions, [])
         else:
             self._input = QLineEdit()
-        add_button = QPushButton(self.tr("Add"))
-        add_button.clicked.connect(self._add_current)
+        self._add_button = QPushButton()
+        self._add_button.clicked.connect(self._add_current)
         input_row.addWidget(self._input, 1)
-        input_row.addWidget(add_button)
+        input_row.addWidget(self._add_button)
         layout.addLayout(input_row)
 
         self._rows_layout = QVBoxLayout()
         self._rows_layout.setSpacing(4)
         layout.addLayout(self._rows_layout)
+
+        self._retranslate()
+
+    def _retranslate(self) -> None:
+        self._add_button.setText(self.tr("Add"))
+        if isinstance(self._input, QComboBox):
+            retranslate_combo(self._input)
+        self._render()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def _current_text(self) -> str:
         if isinstance(self._input, QComboBox):
@@ -152,7 +176,8 @@ class StringListEditor(QWidget):
             row = QWidget()
             row_layout = QHBoxLayout(row)
             row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.addWidget(QLabel(item), 1)
+            label = enum_label(item) if self._translate_items else item
+            row_layout.addWidget(QLabel(label), 1)
             remove_button = _remove_button()
             remove_button.clicked.connect(lambda checked=False, i=item: self._remove(i))
             row_layout.addWidget(remove_button)
@@ -181,32 +206,29 @@ class StrapRow(QFrame):
         self.material = suggested_combo(STRAP_MATERIAL_SUGGESTIONS, existing_materials)
         self.material.setEditable(True)
         self.colour = QLineEdit()
-        self.colour.setPlaceholderText(self.tr("Colour"))
+        self._material_label = QLabel()
         self.width_mm = optional_int_spin(0, 30, suffix=" mm")
         if default_width_mm is not None:
             set_int_value(self.width_mm, default_width_mm)
         self.clasp = suggested_combo(STRAP_CLASP_SUGGESTIONS, [])
-        self.fitted = QPushButton(self.tr("Fitted"))
+        self._clasp_label = QLabel()
+        self.fitted = QPushButton()
         self.fitted.setCheckable(True)
         self.image_combo = QComboBox()
-        self.image_combo.addItem(self.tr("No image"), None)
+        self.image_combo.addItem("", None)  # relabeled to "No image" by _retranslate() below
         self._desired_image: str | None = None
 
-        for widget, label in (
-            (self.material, self.tr("Material")),
-            (self.colour, None),
-            (self.width_mm, None),
-            (self.clasp, self.tr("Clasp")),
-        ):
-            if label:
-                layout.addWidget(QLabel(label))
-            layout.addWidget(widget)
-
+        layout.addWidget(self._material_label)
+        layout.addWidget(self.material)
+        layout.addWidget(self.colour)
+        layout.addWidget(self.width_mm)
+        layout.addWidget(self._clasp_label)
+        layout.addWidget(self.clasp)
         layout.addWidget(self.fitted)
         layout.addWidget(self.image_combo)
-        remove_button = _remove_button()
-        remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
-        layout.addWidget(remove_button)
+        self._remove_button = _remove_button()
+        self._remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
+        layout.addWidget(self._remove_button)
 
         self.material.currentTextChanged.connect(lambda _: self.changed.emit())
         self.colour.textChanged.connect(lambda _: self.changed.emit())
@@ -214,6 +236,30 @@ class StrapRow(QFrame):
         self.clasp.currentTextChanged.connect(lambda _: self.changed.emit())
         self.fitted.toggled.connect(self._on_fitted_toggled)
         self.image_combo.currentIndexChanged.connect(self._on_image_combo_changed)
+
+        self._retranslate()
+
+    def _retranslate(self) -> None:
+        self._material_label.setText(self.tr("Material"))
+        self._clasp_label.setText(self.tr("Clasp"))
+        self.colour.setPlaceholderText(self.tr("Colour"))
+        self.fitted.setText(self.tr("Fitted"))
+        retranslate_combo(self.material)
+        retranslate_combo(self.clasp)
+        self._remove_button.setToolTip(self.tr("Remove"))
+        # image_combo's translated "No image" entry (data=None) needs the
+        # same value-preserving relabel retranslate_combo() gives enum*
+        # combos, even though this isn't one -- filenames (every other
+        # item) are never translated, matching set_available_images()'s
+        # own addItem(name, name) shape below.
+        index = self.image_combo.findData(None)
+        if index >= 0:
+            self.image_combo.setItemText(index, self.tr("No image"))
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def _on_fitted_toggled(self, checked: bool) -> None:
         if checked:
@@ -280,9 +326,17 @@ class StrapsEditor(QWidget):
         self._rows_layout = QVBoxLayout()
         layout.addLayout(self._rows_layout)
 
-        add_button = QPushButton(self.tr("Add strap"))
-        add_button.clicked.connect(lambda: self.add_row())
-        layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self._add_button = QPushButton(self.tr("Add strap"))
+        self._add_button.clicked.connect(lambda: self.add_row())
+        layout.addWidget(self._add_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+    def changeEvent(self, event: QEvent) -> None:
+        # Each StrapRow catches LanguageChange independently (it propagates
+        # to every descendant, not just this widget) -- nothing to forward
+        # to them here, only this widget's own "Add strap" button.
+        if event.type() == QEvent.Type.LanguageChange:
+            self._add_button.setText(self.tr("Add strap"))
+        super().changeEvent(event)
 
     def set_default_width_mm(self, width_mm: int | None) -> None:
         self._default_width_mm = width_mm
@@ -340,18 +394,29 @@ class LogRow(QFrame):
         self.date = optional_date_edit()
         self.kind = fixed_combo(LOG_KIND_OPTIONS)
         self.note = QLineEdit()
-        self.note.setPlaceholderText(self.tr("Note"))
 
         layout.addWidget(self.date)
         layout.addWidget(self.kind)
         layout.addWidget(self.note, 1)
-        remove_button = _remove_button()
-        remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
-        layout.addWidget(remove_button)
+        self._remove_button = _remove_button()
+        self._remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
+        layout.addWidget(self._remove_button)
 
         self.date.dateChanged.connect(lambda _: self.changed.emit())
         self.kind.currentTextChanged.connect(lambda _: self.changed.emit())
         self.note.textChanged.connect(lambda _: self.changed.emit())
+
+        self._retranslate()
+
+    def _retranslate(self) -> None:
+        self.note.setPlaceholderText(self.tr("Note"))
+        retranslate_combo(self.kind)
+        self._remove_button.setToolTip(self.tr("Remove"))
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def get_value(self) -> LogEntry:
         return LogEntry(date=date_value(self.date), kind=combo_value(self.kind), note=self.note.text().strip() or None)
@@ -372,9 +437,14 @@ class LogEditor(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self._rows_layout = QVBoxLayout()
         layout.addLayout(self._rows_layout)
-        add_button = QPushButton(self.tr("Add log entry"))
-        add_button.clicked.connect(lambda: self.add_row())
-        layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self._add_button = QPushButton(self.tr("Add log entry"))
+        self._add_button.clicked.connect(lambda: self.add_row())
+        layout.addWidget(self._add_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._add_button.setText(self.tr("Add log entry"))
+        super().changeEvent(event)
 
     def add_row(self, initial: LogEntry | None = None) -> LogRow:
         row = LogRow()
@@ -420,13 +490,24 @@ class TimingRow(QFrame):
         layout.addWidget(self.date)
         layout.addWidget(self.deviation_sec)
         layout.addWidget(self.position, 1)
-        remove_button = _remove_button()
-        remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
-        layout.addWidget(remove_button)
+        self._remove_button = _remove_button()
+        self._remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
+        layout.addWidget(self._remove_button)
 
         self.date.dateChanged.connect(lambda _: self.changed.emit())
         self.deviation_sec.valueChanged.connect(lambda _: self.changed.emit())
         self.position.currentTextChanged.connect(lambda _: self.changed.emit())
+
+        self._retranslate()
+
+    def _retranslate(self) -> None:
+        retranslate_combo(self.position)
+        self._remove_button.setToolTip(self.tr("Remove"))
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def get_value(self) -> TimingEntry:
         return TimingEntry(date=date_value(self.date), deviation_sec=double_value(self.deviation_sec), position=combo_value(self.position))
@@ -447,9 +528,14 @@ class TimingEditor(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self._rows_layout = QVBoxLayout()
         layout.addLayout(self._rows_layout)
-        add_button = QPushButton(self.tr("Add timing reading"))
-        add_button.clicked.connect(lambda: self.add_row())
-        layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self._add_button = QPushButton(self.tr("Add timing reading"))
+        self._add_button.clicked.connect(lambda: self.add_row())
+        layout.addWidget(self._add_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._add_button.setText(self.tr("Add timing reading"))
+        super().changeEvent(event)
 
     def add_row(self, initial: TimingEntry | None = None) -> TimingRow:
         row = TimingRow()

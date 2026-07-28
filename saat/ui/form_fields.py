@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from datetime import date
 
-from PySide6.QtCore import QCoreApplication, QDate, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QDate, QLocale, Qt, Signal
 from PySide6.QtGui import QColor, QTextCharFormat
 from PySide6.QtWidgets import QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QHBoxLayout, QSpinBox, QWidget
 
@@ -114,6 +114,25 @@ def fixed_combo(options: list[str], allow_blank: bool = True, translate: bool = 
     return combo
 
 
+def retranslate_combo(combo: QComboBox) -> None:
+    """Relabels a suggested_combo()/fixed_combo()-built combo's items with
+    freshly translated display text on a language change. setItemText()
+    only changes what's displayed -- it never touches itemData or which
+    index is selected -- so there's none of the "preserve the selection
+    across a rebuild" problem top_bar.py's sort/preset combos have: nothing
+    here is cleared and rebuilt, only relabeled in place. Reads each item's
+    own itemData rather than needing the original suggestions/existing
+    lists threaded back in from whatever built the combo, so any widget
+    holding a combo reference can call this directly with no extra state
+    of its own. A suggested_combo's free-typed text (no matching item,
+    currentIndex() == -1) is untouched either way, correctly -- free text
+    is never enum vocabulary."""
+    for i in range(combo.count()):
+        data = combo.itemData(i)
+        if data:
+            combo.setItemText(i, enum_label(data))
+
+
 def combo_value(combo: QComboBox) -> str | None:
     data = combo.currentData()
     if data is not None and data != "":
@@ -179,6 +198,14 @@ def optional_date_edit() -> QDateEdit:
     edit.setSpecialValueText(EM_DASH)
     edit.setDate(SENTINEL_DATE)
     _mute_calendar_weekday_colors(edit.calendarWidget())
+    # QWidget.locale() is a fixed value captured once, not re-derived from
+    # QLocale.setDefault() on every access (unlike a bare QLocale() call
+    # elsewhere) -- verified empirically. Set explicitly so the popup's
+    # month/weekday names match the language active when this field is
+    # built, same construction-time-only scope as the weekday colour
+    # muting just above (neither is live-refreshed on a later theme or
+    # language change -- these fields don't outlive the dialog they're on).
+    edit.calendarWidget().setLocale(QLocale())
     return edit
 
 

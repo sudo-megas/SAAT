@@ -1,4 +1,4 @@
-from PySide6.QtCore import QCoreApplication, QRect, Qt
+from PySide6.QtCore import QCoreApplication, QLocale, QRect, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPaintEvent
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
@@ -23,11 +23,9 @@ def _mono_font() -> QFont:
 def _section_heading(text: str) -> QLabel:
     """See case_silhouette.py's identical helper — not a spec group, so
     deliberately not a MinuteTrackHeader."""
-    # Milestone 21 Commit C, not this sweep: .upper() is ASCII-only and
-    # wrong for Turkish -- QLocale(<active language>).toUpper() lands in
-    # Commit C alongside minute_track.py's identical fix. text is already
-    # translated by the caller.
-    heading = QLabel(text.upper())
+    # QLocale().toUpper(), not str.upper() -- see minute_track.py's
+    # identical fix. text is already translated by the caller.
+    heading = QLabel(QLocale().toUpper(text))
     heading.setProperty("class", "spec-row-label")
     return heading
 

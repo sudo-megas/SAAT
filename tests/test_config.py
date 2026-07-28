@@ -49,11 +49,22 @@ class LanguageConfigTests(ConfigTestCase):
     def test_language_is_independent_of_theme_mode(self) -> None:
         config = self._config()
         config.set_theme_mode("light")
-        config.set_language("ja")
+        config.set_language("tr")
         config.save()
         reloaded = Config(config.path)
         self.assertEqual(reloaded.theme_mode(), "light")
-        self.assertEqual(reloaded.language(), "ja")
+        self.assertEqual(reloaded.language(), "tr")
+
+    def test_set_language_none_clears_the_key(self) -> None:
+        """The language menu's English entry must call set_language(None),
+        never set_language("en") -- saat_en.qm is deliberately never built
+        (see saat/ui/i18n.py), so writing "en" would make main.py try to
+        load a translation file that doesn't exist by design."""
+        config = self._config()
+        config.set_language("tr")
+        config.set_language(None)
+        config.save()
+        self.assertIsNone(Config(config.path).language())
 
 
 class TrayConfigTests(ConfigTestCase):

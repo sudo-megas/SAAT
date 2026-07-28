@@ -1,4 +1,4 @@
-from PySide6.QtCore import QCoreApplication, QRectF, Qt
+from PySide6.QtCore import QCoreApplication, QLocale, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
@@ -67,11 +67,9 @@ def _section_heading(text: str) -> QLabel:
     page's actual spec groups, and calendar_stats.py's derived sections
     already set the precedent of a plainer heading for this kind of
     computed, non-spec-group section."""
-    # Milestone 21 Commit C, not this sweep: .upper() is ASCII-only and
-    # wrong for Turkish -- QLocale(<active language>).toUpper() lands in
-    # Commit C alongside minute_track.py's identical fix. text is already
-    # translated by the caller.
-    heading = QLabel(text.upper())
+    # QLocale().toUpper(), not str.upper() -- see minute_track.py's
+    # identical fix. text is already translated by the caller.
+    heading = QLabel(QLocale().toUpper(text))
     heading.setProperty("class", "spec-row-label")
     return heading
 

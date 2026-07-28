@@ -1,7 +1,6 @@
-import calendar as cal
 from datetime import date, timedelta
 
-from PySide6.QtCore import QRect, Qt, Signal
+from PySide6.QtCore import QDate, QEvent, QLocale, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import (
     QComboBox,
@@ -23,7 +22,7 @@ from saat.storage import WatchRecord
 from saat.ui.calendar_stats import StatsView
 from saat.ui import icons
 from saat.ui.images import cropped_pixmap, first_image
-from saat.ui.month_grid import GridDay, WEEKDAY_LABELS, month_grid_days, week_grid_days
+from saat.ui.month_grid import GridDay, month_grid_days, week_grid_days
 from saat.ui import motion, theme
 from saat.ui.theme import SIZE_SM, SIZE_XS, resolve_fonts
 from saat.ui.watch_picker import WatchPicker
@@ -214,8 +213,11 @@ class _MonthGrid(QWidget):
         self._cells = {}
 
         today = date.today()
-        for i, label in enumerate(WEEKDAY_LABELS):
-            heading = QLabel(label)
+        locale = QLocale()
+        for i in range(7):
+            # QLocale.dayName() is 1=Monday..7=Sunday, matching this grid's
+            # Monday-first column order (SPEC.md §5.5).
+            heading = QLabel(locale.dayName(i + 1, QLocale.FormatType.ShortFormat))
             heading.setProperty("class", "spec-row-label")
             heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._layout.addWidget(heading, 0, i)
@@ -375,12 +377,13 @@ class CalendarView(QWidget):
         self._today_button.clicked.connect(self._go_today)
 
         self._month_combo = QComboBox()
-        # Milestone 21 Commit C, not this sweep: calendar.month_name reads
-        # the process C locale (always English, since nothing calls
-        # locale.setlocale()) -- one of three independent month-name
-        # mechanisms replaced by explicit QLocale(<active
-        # language>).standaloneMonthName(), never QLocale.system().
-        self._month_combo.addItems(cal.month_name[1:])
+        # Filled by _retranslate() below (bare QLocale(), never
+        # QLocale.system() -- see i18n.py's install_language()) rather than
+        # calendar.month_name, which reads the process C locale and is
+        # always English since nothing calls locale.setlocale(). setItemText()
+        # in _retranslate() preserves currentIndex across a language change,
+        # same as retranslate_combo() (form_fields.py).
+        self._month_combo.addItems([""] * 12)
         self._month_combo.currentIndexChanged.connect(self._on_month_combo_changed)
         self._year_spinbox = QSpinBox()
         self._year_spinbox.setRange(1900, 2100)
@@ -471,7 +474,41 @@ class CalendarView(QWidget):
         layout.addWidget(self._content_stack, stretch=1)
 
         self._update_mode_buttons()
+        self._retranslate()
         self._render()
+
+    def _retranslate(self) -> None:
+        self._prev_button.setToolTip(self.tr("Previous month"))
+        self._next_button.setToolTip(self.tr("Next month"))
+        self._today_button.setText(self.tr("Today"))
+        for i in range(12):
+            self._month_combo.setItemText(i, QLocale().standaloneMonthName(i + 1))
+        self._month_button.setText(self.tr("Month"))
+        self._week_button.setText(self.tr("Week"))
+        self._year_button.setText(self.tr("Year"))
+        self._stats_button.setText(self.tr("Stats"))
+        self._roll_week_button.setText(self.tr("Roll the week"))
+        self._week_dismiss_button.setText(self.tr("Dismiss"))
+        self._week_accept_all_button.setText(self.tr("Accept all"))
+        # _grid/_week_grid's weekday headers, _footer_label, and
+        # _week_range_label all live inside _render()/_render_week()'s
+        # from-scratch construction -- re-running it (below) is the
+        # retranslation for those, the same "already a full rebuild
+        # function" pattern used elsewhere this session. _stats_view
+        # catches LanguageChange independently (it propagates to the whole
+        # widget tree) -- _year_view has no static text of its own; its
+        # only locale-dependent content (month names) is painted fresh
+        # every time _render() below calls self._year_view.render(), which
+        # happens whenever Year mode is actually on screen (immediately if
+        # active now, else lazily on the next switch to it -- same as
+        # _grid/_week_grid, invisible either way since QStackedWidget
+        # never paints a widget that isn't current).
+        self._render()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def set_records(self, records: list[WatchRecord]) -> None:
         """Refreshes wear data without touching which month is on screen —
@@ -618,12 +655,10 @@ class CalendarView(QWidget):
         self._week_grid.apply_proposed(proposed_days)
 
         start, end = days[0].day, days[-1].day
-        # Milestone 21 Commit C, not this sweep: strftime("%b") reads the
-        # process C locale -- same deferral as _TwelveMonthStrip
-        # (detail_view.py) and year_view.py, replaced by explicit
-        # QLocale(<active language>).standaloneMonthName(), never
-        # QLocale.system().
-        self._week_range_label.setText(f"{start.strftime('%b %-d')} – {end.strftime('%b %-d, %Y')}")
+        locale = QLocale()
+        start_text = locale.toString(QDate(start.year, start.month, start.day), "MMM d")
+        end_text = locale.toString(QDate(end.year, end.month, end.day), "MMM d, yyyy")
+        self._week_range_label.setText(f"{start_text} – {end_text}")
 
         has_proposal = bool(self._week_proposal)
         self._week_accept_all_button.setVisible(has_proposal)
@@ -635,11 +670,21 @@ class CalendarView(QWidget):
         distinct_worn = {r.slug for r in in_month.values()}
         valid_count = len([r for r in self._records if r.watch is not None])
         not_worn = max(valid_count - len(distinct_worn), 0)
-        # Milestone 21 Commit C, not this sweep: three hand-rolled
-        # English-only plurals (also wrong at exactly 1, English grammar
-        # aside) -- needs Qt's %n mechanism, same as sidebar.py's watch
-        # count and calendar_stats.py's day count.
-        return f"{days_recorded} days recorded  ·  {len(distinct_worn)} watches worn  ·  {not_worn} not worn this month"
+        # Two separate translated literals per counted noun, not Qt's %n
+        # mechanism -- see the matching comment in calendar_stats.py's
+        # _build_coverage_section(). "not worn this month" has no counted
+        # noun of its own (matches the pre-Commit-C English wording), so it
+        # needs no singular/plural branch, just the count substituted in.
+        days_text = (
+            self.tr("1 day recorded") if days_recorded == 1
+            else self.tr("{count} days recorded").format(count=days_recorded)
+        )
+        watches_text = (
+            self.tr("1 watch worn") if len(distinct_worn) == 1
+            else self.tr("{count} watches worn").format(count=len(distinct_worn))
+        )
+        not_worn_text = self.tr("{count} not worn this month").format(count=not_worn)
+        return f"{days_text}  ·  {watches_text}  ·  {not_worn_text}"
 
     def _on_range_chosen(self, dates: list[date]) -> None:
         current = self._worn_index.get(dates[0]) if len(dates) == 1 else None

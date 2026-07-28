@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -46,14 +46,14 @@ class ImagesTab(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        hint = QLabel(self.tr("Drag and drop image files here, or:"))
-        hint.setProperty("muted", True)
-        layout.addWidget(hint)
+        self._hint = QLabel()
+        self._hint.setProperty("muted", True)
+        layout.addWidget(self._hint)
 
-        add_button = QPushButton(self.tr("Add images…"))
-        icons.set_icon(add_button, "image-add")
-        add_button.clicked.connect(self._pick_files)
-        layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self._add_button = QPushButton()
+        icons.set_icon(self._add_button, "image-add")
+        self._add_button.clicked.connect(self._pick_files)
+        layout.addWidget(self._add_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
         self._rows_layout = QVBoxLayout()
         self._rows_layout.setSpacing(6)
@@ -63,7 +63,21 @@ class ImagesTab(QWidget):
         if record is not None and record.watch is not None:
             for path in list_images(record):
                 self._pending.append(_PendingImage(filename=path.name, display_path=path, source_path=None))
+        self._retranslate()
+
+    def _retranslate(self) -> None:
+        self._hint.setText(self.tr("Drag and drop image files here, or:"))
+        self._add_button.setText(self.tr("Add images…"))
+        # _render() rebuilds every row's Up/Down/Set Primary/Remove
+        # image/PRIMARY text fresh from self.tr() calls at build time --
+        # already a full rebuild-from-state function (called after every
+        # add/remove/move), so retranslating it is just calling it again.
         self._render()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)
 
     def filenames(self) -> list[str]:
         return [item.filename for item in self._pending]

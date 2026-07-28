@@ -2,7 +2,7 @@ import calendar as cal
 from datetime import date, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QPointF, QRect, QUrl, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QLocale, QPointF, QRect, QUrl, Qt, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QMouseEvent, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import (
     QFrame,
@@ -549,20 +549,31 @@ class SpecGroupsContainer(QWidget):
 # --- Wear -----------------------------------------------------------
 
 def _wear_stats_text(watch: Watch) -> str:
-    # Milestone 21 Commit C, not this sweep: three hand-rolled English-only
-    # plurals in one string -- needs Qt's %n mechanism (and, since this
-    # builds a single QLabel from several counts at once, likely restructured
-    # into several self.tr("%n ...", "", n) pieces joined together, not one
-    # template string with three independent %n slots).
+    # Four separate translated literals (picked by a Python ternary on
+    # count, not Qt's %n mechanism, which -- verified empirically -- returns
+    # the untranslated source string with no installed English translator)
+    # joined together, rather than one template string with embedded
+    # plurals -- same pattern as sidebar.py's _watch_count_text().
     last = last_worn(watch)
     days = days_since_worn(watch)
     times = times_worn_this_year(watch)
     streak = longest_streak(watch)
-    return (
-        f"Last worn {fmt_date(last)}  ·  {days} day{'s' if days != 1 else ''} ago  ·  "
-        f"Worn {times} time{'s' if times != 1 else ''} this year  ·  "
-        f"Longest streak {streak} day{'s' if streak != 1 else ''}"
-    )
+
+    last_worn_text = QCoreApplication.translate("DetailView", "Last worn {date}").format(date=fmt_date(last))
+    if days == 1:
+        days_text = QCoreApplication.translate("DetailView", "1 day ago")
+    else:
+        days_text = QCoreApplication.translate("DetailView", "{count} days ago").format(count=days)
+    if times == 1:
+        times_text = QCoreApplication.translate("DetailView", "Worn 1 time this year")
+    else:
+        times_text = QCoreApplication.translate("DetailView", "Worn {count} times this year").format(count=times)
+    if streak == 1:
+        streak_text = QCoreApplication.translate("DetailView", "Longest streak 1 day")
+    else:
+        streak_text = QCoreApplication.translate("DetailView", "Longest streak {count} days").format(count=streak)
+
+    return f"{last_worn_text}  ·  {days_text}  ·  {times_text}  ·  {streak_text}"
 
 
 class _TwelveMonthStrip(QWidget):
@@ -609,13 +620,13 @@ class _TwelveMonthStrip(QWidget):
                     painter.drawLine(tick_x, 2, tick_x, MONTH_BLOCK_HEIGHT - 2)
 
             painter.setPen(QColor(theme.colors().text_muted))
-            # Milestone 21 Commit C, not this sweep: strftime("%b") reads the
-            # process C locale (always English here, since nothing calls
-            # locale.setlocale()) -- replaced by explicit
-            # QLocale(<active language>).standaloneMonthName(month,
-            # QLocale.FormatType.ShortFormat), never QLocale.system().
+            # Bare QLocale(), never QLocale.system() -- see i18n.py's
+            # install_language(). Read fresh on every paint (not cached),
+            # like year_view.py's month label -- MainWindow already rebuilds
+            # DetailView from scratch on a language change regardless.
             painter.drawText(QRect(x, MONTH_BLOCK_HEIGHT, MONTH_BLOCK_WIDTH, 16),
-                              Qt.AlignmentFlag.AlignHCenter, date(year, month, 1).strftime("%b"))
+                              Qt.AlignmentFlag.AlignHCenter,
+                              QLocale().standaloneMonthName(month, QLocale.FormatType.ShortFormat))
             x += MONTH_BLOCK_WIDTH + 4
 
         painter.end()

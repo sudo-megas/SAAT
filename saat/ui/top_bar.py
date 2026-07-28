@@ -1,6 +1,6 @@
 import math
 
-from PySide6.QtCore import QCoreApplication, QPointF, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QPointF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPainterPath, QPen
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
@@ -148,17 +148,16 @@ class TopBar(QWidget):
         # moment this combo's items became translated (every non-English
         # preset selection would have quietly fallen back to the default
         # columns instead of applying the chosen preset).
-        self._preset_combo.addItem(self.tr("Default"), PRESET_DEFAULT)
-        for group in GROUP_ORDER:
-            self._preset_combo.addItem(QCoreApplication.translate("Columns", group), group)
+        self._rebuild_preset_combo()
         self._preset_combo.currentIndexChanged.connect(
             lambda i: self.preset_changed.emit(self._preset_combo.itemData(i))
         )
 
-        add_button = QPushButton(self.tr("Add watch"))
-        add_button.setProperty("variant", "primary")
-        icons.set_icon(add_button, "add", color_role="plate")
-        add_button.clicked.connect(self.add_watch_requested.emit)
+        self._add_button = QPushButton(self.tr("Add watch"))
+        self._add_button.setProperty("variant", "primary")
+        icons.set_icon(self._add_button, "add", color_role="plate")
+        self._add_button.clicked.connect(self.add_watch_requested.emit)
+        self._compare_count = 0
 
         self._compare_button = QPushButton()
         icons.set_icon(self._compare_button, "compare")
@@ -209,7 +208,7 @@ class TopBar(QWidget):
         row2.addWidget(self._preset_combo)
         row2.addStretch()
         row2.addWidget(self._compare_button)
-        row2.addWidget(add_button)
+        row2.addWidget(self._add_button)
         row2.addWidget(self._pick_button)
         row2.addWidget(self._export_button)
         row2.addWidget(self._theme_toggle)
@@ -224,6 +223,7 @@ class TopBar(QWidget):
         """SPEC.md §5.4: 'Select two to four watches.' Hidden below the
         minimum rather than shown disabled — a conditional action, not a
         permanent control."""
+        self._compare_count = count
         self._compare_button.setText(self.tr("Compare ({count})").format(count=count))
         self._compare_button.setVisible(count >= MIN_COMPARE)
 
@@ -295,19 +295,62 @@ class TopBar(QWidget):
         self._pick_button.setVisible(not is_wishlist)
 
         # Rebuilt rather than filtered in place — Wishlist and Collection
-        # offer genuinely different option lists (SPEC.md §5.12). Signals
-        # are blocked so a mid-rebuild currentIndexChanged can't race
-        # scope_changed below and trigger a recompute against the old
-        # scope; the listener reads current_sort_key() explicitly from its
-        # scope_changed handler instead. Both lists lead with "brand", so
-        # this also resets sort to the default on scope change.
+        # offer genuinely different option lists (SPEC.md §5.12). Both
+        # lists lead with "brand", so this also resets sort to the default
+        # on scope change -- unlike a language change (_retranslate()),
+        # which rebuilds the same list of keys and must preserve whichever
+        # one is currently selected.
+        self._rebuild_sort_combo(preserve_selection=False)
+        self._sort_descending = False
+        self._refresh_sort_direction_icon()
+
+        self.scope_changed.emit(scope)
+
+    def _rebuild_sort_combo(self, preserve_selection: bool) -> None:
+        # Signals are blocked so a mid-rebuild currentIndexChanged can't
+        # fire against a half-populated combo and trigger a recompute
+        # against stale state -- callers read current_sort_key() explicitly
+        # once this returns, rather than relying on a signal fired here.
+        current_key = self.current_sort_key() if preserve_selection else None
+        is_wishlist = self._scope == SCOPE_WISHLIST
         self._sort_combo.blockSignals(True)
         self._sort_combo.clear()
         for key in WISHLIST_SORT_OPTIONS if is_wishlist else SORT_OPTIONS:
             label = QCoreApplication.translate("Columns", COLUMNS_BY_KEY[key].label)
             self._sort_combo.addItem(self.tr("Sort: {label}").format(label=label), key)
+        if current_key is not None:
+            index = self._sort_combo.findData(current_key)
+            if index >= 0:
+                self._sort_combo.setCurrentIndex(index)
         self._sort_combo.blockSignals(False)
-        self._sort_descending = False
-        self._refresh_sort_direction_icon()
 
-        self.scope_changed.emit(scope)
+    def _rebuild_preset_combo(self) -> None:
+        current = self._preset_combo.itemData(self._preset_combo.currentIndex()) if self._preset_combo.count() else PRESET_DEFAULT
+        self._preset_combo.blockSignals(True)
+        self._preset_combo.clear()
+        self._preset_combo.addItem(self.tr("Default"), PRESET_DEFAULT)
+        for group in GROUP_ORDER:
+            self._preset_combo.addItem(QCoreApplication.translate("Columns", group), group)
+        index = self._preset_combo.findData(current)
+        self._preset_combo.setCurrentIndex(index if index >= 0 else 0)
+        self._preset_combo.blockSignals(False)
+
+    def _retranslate(self) -> None:
+        self._collection_button.setText(self.tr("Collection"))
+        self._wishlist_button.setText(self.tr("Wishlist"))
+        self._search_field.setPlaceholderText(self.tr("Search brand, model, reference, caliber, tags…"))
+        self._grid_button.setText(self.tr("Grid"))
+        self._table_button.setText(self.tr("Table"))
+        self._calendar_button.setText(self.tr("Calendar"))
+        self._refresh_sort_direction_icon()
+        self._rebuild_preset_combo()
+        self._rebuild_sort_combo(preserve_selection=True)
+        self._add_button.setText(self.tr("Add watch"))
+        self.set_compare_count(self._compare_count)
+        self._export_button.setToolTip(self.tr("Export to PDF (Ctrl+P)"))
+        self._pick_button.setToolTip(self.tr("Pick a watch for today"))
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange:
+            self._retranslate()
+        super().changeEvent(event)

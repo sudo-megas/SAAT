@@ -2,7 +2,7 @@ import dataclasses
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtCore import QSize, QStandardPaths, Qt, QTimer
+from PySide6.QtCore import QEvent, QSize, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -26,6 +26,7 @@ from saat.ui.compare_view import CompareView
 from saat.ui.detail_view import DetailView
 from saat.ui.dialogs import DeleteConfirmDialog
 from saat.ui.empty_state import EmptyStateView
+from saat.ui.i18n import SUPPORTED_LANGUAGES, install_language, uninstall_language
 from saat.ui.image_viewer import ImageViewerOverlay
 from saat.ui import motion
 from saat.ui.pdf_renderer import ExportError, export_pdf
@@ -68,6 +69,14 @@ class MainWindow(QMainWindow):
         self._detail_view: DetailView | None = None
         self._compare_view: CompareView | None = None
         self._image_viewer: ImageViewerOverlay | None = None
+        # DetailView/CompareView have no in-place "rebuild" of their own --
+        # MainWindow already destroys and recreates them on every navigation
+        # (see _show_detail/_show_compare), so a language change just
+        # re-invokes the same entry point with whatever was last shown,
+        # rather than adding a parallel rebuild mechanism to either class.
+        self._last_detail_record: WatchRecord | None = None
+        self._last_compare_records: list[WatchRecord] | None = None
+        self._retranslate_pending = False
 
         # Capability detection before any UI (SPEC.md milestone 18 §5):
         # checked once, here, and treated as authoritative for the rest of
@@ -88,6 +97,7 @@ class MainWindow(QMainWindow):
         self._tray = TrayController(
             window_visible_getter=self.isVisible,
             autostart_available=autostart.is_available(),
+            language_code_getter=self._config.language,
             parent=self,
         )
         self._tray.show_hide_requested.connect(self._on_tray_show_hide)
@@ -95,6 +105,7 @@ class MainWindow(QMainWindow):
         self._tray.close_to_tray_toggled.connect(self._on_close_to_tray_toggled)
         self._tray.start_minimised_toggled.connect(self._on_start_minimised_toggled)
         self._tray.start_at_login_toggled.connect(self._on_start_at_login_toggled)
+        self._tray.language_selected.connect(self._on_language_selected)
         self._tray.quit_requested.connect(self._quit)
         self._tray.set_close_to_tray_checked(self._config.close_to_tray())
         self._tray.set_start_minimised_checked(self._config.start_minimised())
@@ -206,7 +217,7 @@ class MainWindow(QMainWindow):
 
         records = load_collection(self._watches_dir)
         if records:
-            self._collection_view = CollectionView(records, self._config, self)
+            self._collection_view = CollectionView(records, self._config, self, tray_available=self._tray_available)
             self._collection_view.record_activated.connect(self._show_detail)
             self._collection_view.add_watch_requested.connect(self._show_add_form)
             self._collection_view.assign_worn_requested.connect(self._on_assign_worn)
@@ -216,6 +227,7 @@ class MainWindow(QMainWindow):
             self._collection_view.compare_requested.connect(self._show_compare)
             self._collection_view.export_requested.connect(self._export_pdf)
             self._collection_view.pick_requested.connect(self._on_pick_requested)
+            self._collection_view.language_selected.connect(self._on_language_selected)
             self._stack.addWidget(self._collection_view)
             self._stack.setCurrentWidget(self._collection_view)
         else:
@@ -227,6 +239,8 @@ class MainWindow(QMainWindow):
         self._sync_tray_records()
 
     def _show_detail(self, record: WatchRecord) -> None:
+        self._last_detail_record = record
+
         def _apply() -> None:
             if self._detail_view is not None:
                 self._stack.removeWidget(self._detail_view)
@@ -249,6 +263,8 @@ class MainWindow(QMainWindow):
             motion.fade_transition(self._stack, lambda: self._stack.setCurrentWidget(self._collection_view))
 
     def _show_compare(self, records: list[WatchRecord]) -> None:
+        self._last_compare_records = records
+
         def _apply() -> None:
             if self._compare_view is not None:
                 self._stack.removeWidget(self._compare_view)
@@ -542,5 +558,62 @@ class MainWindow(QMainWindow):
             self._tray_poll_timer.stop()
         tray.hide()
         tray.deleteLater()
+        if self._collection_view is not None:
+            # The tray submenu was the only language control reachable a
+            # moment ago -- reveal Sidebar's fallback the instant it's
+            # gone, no polling of its own needed (piggybacks on this
+            # already-polled transition).
+            self._collection_view.set_tray_available(False)
         if was_hidden:
             self.bring_to_front()
+
+    def _on_language_selected(self, code: str | None) -> None:
+        self._config.set_language(code)
+        self._config.save()
+        app = QApplication.instance()
+        # Always clear first, even when installing a different non-English
+        # language: without this, switching A -> B would leave A's
+        # translators installed alongside B's, and Qt's fallback chain
+        # would silently patch in A's text for any key B's catalog doesn't
+        # have -- a mixed-language UI. See uninstall_language()'s own
+        # docstring.
+        uninstall_language(app)
+        if code is not None and not install_language(app, code):
+            # Left untranslated on purpose, same reasoning as main.py's
+            # startup path: by this point uninstall_language() has already
+            # run and install_language() only installs on success, so the
+            # app is genuinely back in English when this shows -- but
+            # depending on the translator system while reporting its own
+            # failure is exactly the wrong moment to start trusting it.
+            QMessageBox.warning(
+                self, "SAAT",
+                f"Could not load the {SUPPORTED_LANGUAGES.get(code, code)} translation. Continuing in English.",
+            )
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.LanguageChange and not self._retranslate_pending:
+            # One user-initiated switch can still resolve to more than one
+            # LanguageChange delivery (uninstall_language() removes up to
+            # two translators, each capable of posting one) -- Qt's own
+            # event compression collapsed this to a single delivery in
+            # every case measured during development, but that's an
+            # implementation detail of postEvent(), not a documented
+            # guarantee, and rapid re-triggering (clicking a second
+            # language before the first's fade transition finishes) is a
+            # real path to more than one regardless. _show_detail/
+            # _show_compare each wrap in motion.fade_transition, whose
+            # deferred _apply() would removeWidget()/deleteLater() the same
+            # widget twice if re-entered -- so collapse every delivery in
+            # one event-loop turn into a single re-show via singleShot(0),
+            # rather than trust the count to stay at one.
+            self._retranslate_pending = True
+            QTimer.singleShot(0, self._apply_pending_retranslate)
+        super().changeEvent(event)
+
+    def _apply_pending_retranslate(self) -> None:
+        self._retranslate_pending = False
+        current = self._stack.currentWidget()
+        if current is self._detail_view and self._last_detail_record is not None:
+            self._show_detail(self._last_detail_record)
+        elif current is self._compare_view and self._last_compare_records is not None:
+            self._show_compare(self._last_compare_records)
