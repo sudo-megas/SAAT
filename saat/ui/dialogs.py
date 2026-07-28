@@ -69,6 +69,13 @@ def confirm_discard_changes(parent: QWidget | None) -> bool:
         QCoreApplication.translate("Dialogs", "Discard"), QMessageBox.ButtonRole.DestructiveRole
     )
     discard_button.setProperty("variant", "destructive")
+    # Unlike DeleteConfirmDialog's delete button (property set before its
+    # first show/polish), this button is already live when the property
+    # lands -- Qt won't re-evaluate the QSS selector without an explicit
+    # repolish, so the destructive styling would otherwise silently never
+    # apply (matches cards.py's set_cursor_focused() pattern).
+    discard_button.style().unpolish(discard_button)
+    discard_button.style().polish(discard_button)
     cancel_button = box.addButton(
         QCoreApplication.translate("Dialogs", "Cancel"), QMessageBox.ButtonRole.RejectRole
     )

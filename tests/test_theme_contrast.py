@@ -46,6 +46,24 @@ TEXT_FIELDS = ["text", "text_muted"]
 UI_FIELDS = ["gilt", "ruby"]
 BACKGROUND_FIELDS = ["plate", "plate_high"]
 
+# Distinct from UI_FIELDS above: this treats gilt/ruby as solid-fill
+# BACKGROUNDS with plate@ read as text on top -- the destructive button
+# (theme.qss QPushButton[variant="destructive"]), the primary button, and
+# every QLineEdit/QComboBox/QListWidget/QMenu selection highlight all pair
+# them this way. UI_FIELDS' own test (gilt/ruby as small accent shapes
+# against plate/plate_high) stays valid and unchanged; this is an
+# additional, previously-untested pairing, not a replacement.
+ON_ACCENT_FIELDS = ["gilt", "ruby"]
+
+# rule@ is deliberately never added as a text background here. A rule@
+# value that clears 4.5:1 against text@ collapses to ~1:1 against
+# plate_high@ in catppuccin-latte and kanagawa-lotus specifically -- rule@
+# borders dozens of plate_high@ surfaces app-wide, so "fix" would make the
+# hairline itself disappear. theme.qss's three selection-highlight rules
+# that used to pair rule@+text@ now use gilt@+plate@ instead (same pairing
+# this file already checks below) -- the failing pairing was deleted, not
+# left uncovered.
+
 # Documented, honest exceptions where no fully-compliant same-family
 # substitution exists (SPEC.md §6 items 10/37) — see each palette's own
 # TOML comment for the full reasoning and every alternative considered.
@@ -71,6 +89,22 @@ KNOWN_CONTRAST_SHORTFALLS = {
     # comment/deprecated role); coincides with `rule`'s own value.
     ("kanagawa-lotus", "text_muted", "plate"): 4.262911999110539,
     ("kanagawa-lotus", "text_muted", "plate_high"): 3.2122309256423045,
+
+    # plate@ vs gilt@/ruby@ as a solid-fill text background (ON_ACCENT_FIELDS
+    # below) -- unlike the shortfalls above, a same-family fix DOES exist for
+    # each of these (a small lightness-only nudge to gilt@/ruby@ clears 4.5:1
+    # without visibly changing the palette's character), it just hasn't been
+    # applied: these ten palettes are checked against their own published
+    # upstream source values (release notes), so nudging a swatch away from
+    # its authentic reference is a product call for a human to make, not
+    # something to do silently while fixing the app-side pairing bug that
+    # made this test exist. Revisit and shrink this block if that call is made.
+    ("default-light", "gilt", "plate"): 4.3604333731894895,
+    ("default-dark", "ruby", "plate"): 3.509859287322408,
+    ("rose-pine-dawn", "gilt", "plate"): 3.4691307752426224,
+    ("rose-pine-dawn", "ruby", "plate"): 3.8406570202210726,
+    ("nord", "ruby", "plate"): 3.0529785210102194,
+    ("kanagawa-lotus", "ruby", "plate"): 4.0563844112651095,
 }
 
 
@@ -155,6 +189,26 @@ class PaletteContrastTests(unittest.TestCase):
                             ratio, minimum,
                             f"{entry.id}: {fg_name} ({fg}) on {bg_name} ({bg}): {ratio:.2f}:1",
                         )
+
+    def test_plate_meets_4_5_to_1_as_text_on_gilt_and_ruby(self) -> None:
+        """The destructive/primary buttons and every combobox/list/menu
+        selection highlight all paint plate@ as literal button/item TEXT on
+        a solid gilt@/ruby@ fill (theme.qss) -- read as words, not glanced
+        at as an accent shape, so held to the 4.5:1 body-text bar like
+        TEXT_FIELDS above, not UI_FIELDS' 3:1. Always plate@, never
+        plate_high@, in every real site -- see ON_ACCENT_FIELDS' comment."""
+        for entry in theme.palettes():
+            theme.set_palette(entry.id)
+            palette = theme.colors()
+            for bg_name in ON_ACCENT_FIELDS:
+                bg = getattr(palette, bg_name)
+                with self.subTest(palette=entry.id, background=bg_name):
+                    ratio = contrast_ratio(palette.plate, bg)
+                    minimum = _minimum_ratio_for(entry.id, bg_name, "plate", 4.5)
+                    self.assertGreaterEqual(
+                        ratio, minimum,
+                        f"{entry.id}: plate ({palette.plate}) on {bg_name} ({bg}): {ratio:.2f}:1",
+                    )
 
 
 class CardHoverAndSelectionContrastTests(unittest.TestCase):

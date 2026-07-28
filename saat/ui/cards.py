@@ -63,6 +63,19 @@ MAINTENANCE_DOT_SIZE = 10
 WORE_TODAY_BAR_HEIGHT = 32
 CARD_RADIUS = 4.0  # must match theme.qss's watch-card border-radius: 4px
 
+# theme.qss's watch-card border is 1px at rest, 2px when cursor-focused
+# (theme.qss's [cursor-focused="true"] rule) -- but Qt's contentsRect(),
+# which QVBoxLayout(self) actually lays children into, is fixed at
+# construction/first-polish time and never grows when a later property
+# change repaints a wider border (confirmed empirically: set_cursor_focused()
+# repolishes the frame but contentsRect() stays put). So every full-bleed
+# child below reserves the larger 2px unconditionally, in every state,
+# rather than trying to track the live border width -- the alternative
+# (re-cropping the photo on every focus toggle) would be both wasteful and
+# visibly jumpy. CARD_BORDER_INSET must match that 2px rule's width.
+CARD_BORDER_INSET = 2
+_QSS_REST_BORDER = 1  # theme.qss's watch-card REST-state border width, already reserved by contentsRect() itself
+
 
 def _image_height(width: int) -> int:
     return int(width * 5 / 4)  # 4:5 portrait crop, at whatever width the card is currently rendering
@@ -218,7 +231,16 @@ class WatchCard(QFrame):
         self._hover_animation.valueChanged.connect(self._on_hover_progress_changed)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        # contentsRect() already reserves _QSS_REST_BORDER (1px); top up to
+        # the full CARD_BORDER_INSET (2px) so full-bleed children never
+        # overflow past the border in either the rest or cursor-focused
+        # state (see CARD_BORDER_INSET's comment above). Bottom stays 0 --
+        # the card's own height isn't pre-fixed the way its width is (no
+        # setFixedHeight on WatchCard itself), so it grows to fit its
+        # children instead of clipping them; there's no bottom-edge overflow
+        # to guard against.
+        extra_inset = CARD_BORDER_INSET - _QSS_REST_BORDER
+        layout.setContentsMargins(extra_inset, extra_inset, extra_inset, 0)
         layout.setSpacing(0)
 
         if record.watch is not None:
@@ -327,7 +349,7 @@ class WatchCard(QFrame):
         painter.end()
 
     def _build_image(self, record: WatchRecord, compare_selected: bool) -> QWidget:
-        width = self._render_width
+        width = self._render_width - 2 * CARD_BORDER_INSET
         image_height = _image_height(width)
         self._image_path = first_image(record)
         pixmap = cropped_pixmap(self._image_path, width, image_height) if self._image_path else None
@@ -412,15 +434,16 @@ class WatchCard(QFrame):
             # (shared by every card) applies to it.
             return
 
-        image_height = _image_height(width)
-        self._image_container.setFixedSize(width, image_height)
+        content_width = width - 2 * CARD_BORDER_INSET
+        image_height = _image_height(content_width)
+        self._image_container.setFixedSize(content_width, image_height)
 
         old_label = self._photo_label
-        pixmap = cropped_pixmap(self._image_path, width, image_height) if self._image_path else None
+        pixmap = cropped_pixmap(self._image_path, content_width, image_height) if self._image_path else None
         if pixmap is not None:
             new_label: QLabel = _CardPhoto(pixmap)
         else:
-            new_label = _CardPlaceholder(self._placeholder_text(self._record.watch), QSize(width, image_height))
+            new_label = _CardPlaceholder(self._placeholder_text(self._record.watch), QSize(content_width, image_height))
         new_label.setParent(self._image_container)
         new_label.move(0, 0)
         new_label.lower()  # overlays (checkbox/dot/bars) were parented after the original label -- keep them on top
@@ -431,14 +454,14 @@ class WatchCard(QFrame):
             old_label.deleteLater()
 
         if self._maintenance_dot is not None:
-            self._maintenance_dot.move(width - MAINTENANCE_DOT_SIZE - CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
+            self._maintenance_dot.move(content_width - MAINTENANCE_DOT_SIZE - CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
 
         if self._wore_today_bar is not None:
-            self._wore_today_bar.setFixedSize(width, WORE_TODAY_BAR_HEIGHT)
+            self._wore_today_bar.setFixedSize(content_width, WORE_TODAY_BAR_HEIGHT)
             self._wore_today_bar.move(0, image_height - WORE_TODAY_BAR_HEIGHT)
 
         if self._wishlist_info_bar is not None:
-            self._wishlist_info_bar.setFixedSize(width, WORE_TODAY_BAR_HEIGHT)
+            self._wishlist_info_bar.setFixedSize(content_width, WORE_TODAY_BAR_HEIGHT)
             self._wishlist_info_bar.move(0, image_height - WORE_TODAY_BAR_HEIGHT)
 
         self.updateGeometry()  # forces Qt to recompute the cached sizeHint() the parent FlowLayout reads
@@ -478,7 +501,7 @@ class WatchCard(QFrame):
         # narrow gap: only the frame width stays in sync after a resize,
         # not this height, for a card type rare enough (a corrupt
         # watch.toml) that it isn't worth the extra bookkeeping.
-        container.setFixedHeight(_image_height(self._render_width) + TEXT_BLOCK_HEIGHT)
+        container.setFixedHeight(_image_height(self._render_width - 2 * CARD_BORDER_INSET) + TEXT_BLOCK_HEIGHT)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(CARD_CONTENT_PADDING, CARD_CONTENT_PADDING, CARD_CONTENT_PADDING, CARD_CONTENT_PADDING)
         layout.setSpacing(6)

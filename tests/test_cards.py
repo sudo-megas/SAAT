@@ -45,11 +45,18 @@ def _leave(card: WatchCard) -> None:
     card.leaveEvent(QEvent(QEvent.Type.Leave))
 
 
-def _border_pixel(card: WatchCard) -> QColor:
-    """Top edge, inset past the rounded corner -- the one place the 1px
-    border is guaranteed to be a solid, unaliased run of its full color."""
+def _border_pixel(card: WatchCard, edge: str = "top") -> QColor:
+    """Midpoint of the requested edge, inset past the rounded corners -- the
+    one place the border is guaranteed to be a solid, unaliased run of its
+    full color. left/right sample at the vertical midpoint, inside the image
+    block's own y-range -- regression coverage for a real bug where full-bleed
+    children there (photo/placeholder/wore-today bar) overflowed past the
+    frame's own border and painted over it, right edge only (cards.py's
+    CARD_BORDER_INSET)."""
     image = card.grab().toImage()
-    return image.pixelColor(image.width() // 2, 0)
+    w, h = image.width(), image.height()
+    x, y = {"top": (w // 2, 0), "bottom": (w // 2, h - 1), "left": (0, h // 2), "right": (w - 1, h // 2)}[edge]
+    return image.pixelColor(x, y)
 
 
 class WatchCardMaintenanceDotTests(unittest.TestCase):
@@ -249,7 +256,9 @@ class WatchCardHoverBorderAnimationTests(unittest.TestCase):
     def test_border_is_rule_colored_at_rest(self) -> None:
         card = WatchCard(self.record)
         card.show()
-        self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().rule)))
+        rule = QColor(theme.colors().rule)
+        for edge in ("top", "left", "right", "bottom"):
+            self.assertTrue(_close(_border_pixel(card, edge), rule), f"{edge} edge")
 
     def test_entering_hover_starts_an_animation_toward_fully_hovered(self) -> None:
         card = WatchCard(self.record)
@@ -259,11 +268,18 @@ class WatchCardHoverBorderAnimationTests(unittest.TestCase):
         self.assertEqual(card._hover_animation.endValue(), 1.0)
 
     def test_border_reaches_gilt_once_the_hover_animation_completes(self) -> None:
+        """Regression for a reported bug: the right edge specifically was
+        painted over by the image container's full-bleed children (they were
+        sized to the card's full outer width, overflowing past the frame's
+        own inset border), so only top/left/bottom ever read as gilt. All
+        four edges must agree, not just the one this test used to check."""
         card = WatchCard(self.record)
         card.show()
         _enter(card)
         card._hover_animation.setCurrentTime(ANIM_DURATION_MS)
-        self.assertTrue(_close(_border_pixel(card), QColor(theme.colors().gilt)))
+        gilt = QColor(theme.colors().gilt)
+        for edge in ("top", "left", "right", "bottom"):
+            self.assertTrue(_close(_border_pixel(card, edge), gilt), f"{edge} edge")
 
     def test_leaving_hover_animates_the_border_back_to_rule(self) -> None:
         card = WatchCard(self.record)

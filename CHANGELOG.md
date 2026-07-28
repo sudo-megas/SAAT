@@ -36,6 +36,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   above — a light/dark binary can't represent ten presets, so the control itself moved
   rather than growing a second icon beside an already full top bar.
 
+### Fixed
+
+- The search field's icon stayed on whichever palette was active at startup and never
+  updated on a later switch — the one element in the app that didn't re-theme.
+- A grid card's hover/selection border was missing along part of its right edge: the
+  photo, placeholder, and "Wore this today" bar were sized to the card's full outer
+  width and painted over the frame's own border there.
+- Destructive-button text (Delete, Discard) and selected combobox/list/menu item text
+  were illegible against their background in several palettes — both now read as the
+  same light/dark text colour already used on the primary button and text selections,
+  instead of the general body-text colour.
+- The unsaved-changes "Discard" confirmation button never actually received its
+  intended red styling, regardless of palette.
+
 ## [1.7.8] - 2026-07-28
 
 ### Added

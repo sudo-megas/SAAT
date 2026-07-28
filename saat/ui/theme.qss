@@ -102,7 +102,7 @@ QPushButton[variant="link"]:disabled {
 
 QPushButton[variant="destructive"] {
     background: @ruby@;
-    color: @text@;
+    color: @plate@;
     border: 1px solid @ruby@;
 }
 
@@ -281,8 +281,8 @@ QComboBox QAbstractItemView {
     background: @plate-high@;
     color: @text@;
     border: 1px solid @rule@;
-    selection-background-color: @rule@;
-    selection-color: @text@;
+    selection-background-color: @gilt@;
+    selection-color: @plate@;
     outline: none;
 }
 
@@ -299,8 +299,8 @@ QListWidget::item {
 }
 
 QListWidget::item:selected {
-    background: @rule@;
-    color: @text@;
+    background: @gilt@;
+    color: @plate@;
 }
 
 QListWidget::item:hover:!selected {
@@ -416,7 +416,8 @@ QMenu::item {
 }
 
 QMenu::item:selected {
-    background: @rule@;
+    background: @gilt@;
+    color: @plate@;
 }
 
 QMenu::indicator {
