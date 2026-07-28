@@ -4,6 +4,59 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1] - 2026-07-29
+
+### Added
+
+- **Windows support.** An Inno Setup installer for Windows 10 and 11, and a portable
+  `.zip` alongside it. The installer is per-user — it installs to
+  `%LOCALAPPDATA%\Programs\SAAT`, never asks for administrator rights, adds a Start
+  Menu entry and an optional desktop shortcut, and registers a normal uninstaller in
+  Apps & Features. Installed mode keeps the collection in `%LOCALAPPDATA%\SAAT` and
+  settings in `%APPDATA%\SAAT`; the portable `.zip` keeps both beside the executable,
+  exactly as the Linux tarball does.
+- **Uninstalling on Windows never deletes the collection.** The program installs
+  beside `%LOCALAPPDATA%\SAAT` rather than inside it, so the uninstaller cannot reach
+  it — the same guarantee the `.deb`'s purge already made, made structurally.
+- Autostart on Windows: a shortcut in the per-user Startup folder rather than a
+  registry Run key, so it is visible and removable by hand. The tray's "Start at
+  login" item still reflects whether the entry exists on disk.
+- `run.ps1`, the Windows developer launcher. It deliberately does not set
+  `QT_QPA_PLATFORM` — the Wayland hint in `run.sh` is Linux-only.
+- The test suite runs on `windows-latest` as well as `ubuntu-22.04` in CI.
+- `docs/PLATFORM-AUDIT.md` — the inventory of every Linux assumption in the codebase
+  that this milestone was built against.
+
+### Changed
+
+- Watch folder names now collide **case-insensitively on every platform**. Generated
+  slugs are lowercased and never collided by case on their own; hand-authored folders
+  could, and a collection carrying both `Seiko-SKX007` and `seiko-skx007` is two
+  watches on Linux and one on Windows.
+- Slugs are sanitised against Windows' reserved device names (`con`, `prn`, `aux`,
+  `nul`, `com1`–`com9`, `lpt1`–`lpt9`) and capped in length, on every platform.
+- Saving retries briefly when the destination file is momentarily locked, which
+  antivirus and search indexing routinely cause on Windows. A genuinely locked file
+  still surfaces its error.
+- The README covers three platforms, Windows first, including the SmartScreen warning
+  and the two clicks needed to get past it.
+- `SAAT.spec` embeds a Windows version resource generated from `__version__`.
+
+### Fixed
+
+- A failed save could leave a stray `watch.toml.tmp` in a watch folder permanently.
+  Pre-existing on Linux, found while making the write path survivable on Windows.
+- Two images added to one watch whose filenames differed only by capitalisation would
+  silently overwrite each other on a case-insensitive filesystem.
+
+### Notes
+
+- The Windows installer is **unsigned**, so SmartScreen shows "Windows protected your
+  PC". Click **More info**, then **Run anyway**. See the release notes.
+- Windows support is verified by CI, not by use. The suite passes and the build
+  launches on `windows-latest`; nobody has yet run the installer on a real Windows
+  machine. Stated plainly in `docs/release-notes/2.1.md` rather than implied.
+
 ## [2.0] - 2026-07-29
 
 ### Added

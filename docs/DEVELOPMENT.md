@@ -10,6 +10,51 @@ Every milestone bumps `__version__` in `saat/__init__.py` and adds its entry to
 suite fails if `__version__` doesn't match the most recent version heading in
 `CHANGELOG.md`.
 
+## Platforms
+
+SAAT runs on Linux and Windows. Since milestone 24 the test suite runs on both in CI
+(`test.yml` has a matrix over `ubuntu-22.04` and `windows-latest`, `fail-fast: false`
+so a failure on one cannot hide behind the other), and a release produces four
+artifacts from two builds: a `.tar.gz` and a `.deb` from the Linux build, and a
+`.zip` and an Inno Setup installer from the Windows one.
+
+**The Wayland platform hint is Linux-only.** `run.sh` exports
+`QT_QPA_PLATFORM=wayland` because Qt would otherwise sometimes pick the X11 backend
+on the Wayland session this project targets. `run.ps1`, the Windows developer
+launcher, deliberately does not set `QT_QPA_PLATFORM` at all: Windows has one
+platform plugin, Qt selects it correctly, and forcing anything there is at best
+redundant and at worst breaks the app. Nothing in `saat/` reads the variable — it is
+a launcher concern on both platforms, which is why there are two launchers rather
+than one with a branch.
+
+Building on Windows:
+
+```powershell
+.\run.ps1                      # dev: creates .venv, installs, runs
+
+.venv\Scripts\pip install -r requirements-build.txt
+.venv\Scripts\pyside6-lrelease saat\resources\i18n\saat_tr.ts -qm saat\resources\i18n\saat_tr.qm
+.venv\Scripts\pyinstaller SAAT.spec
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=2.1 packaging\windows\saat.iss
+```
+
+`SAAT.spec` is platform-aware in exactly one place: it generates a Windows
+`VERSIONINFO` resource from `saat.__version__` when `sys.platform == 'win32'`, and
+does nothing extra elsewhere. Everything else in it was already portable.
+
+Three invariants are enforced on **every** platform rather than only where they are
+needed, and the tests for them do not skip on Linux — see
+`tests/test_platform_invariants.py`. Slug collisions are detected
+case-insensitively; slugs are sanitised against Windows' reserved device names and
+length limit; and the atomic write retries a locked destination. The reasoning is in
+SPEC.md §2 and §3: a collection is a folder of plain files that gets copied between
+machines, so a rule applied on one platform only produces collections the other
+cannot open.
+
+`docs/PLATFORM-AUDIT.md` is the inventory milestone 24 was built against — every
+place the codebase assumed Linux, with file and line references. Worth reading
+before touching the path layer or `autostart.py`.
+
 ## Localisation
 
 SAAT ships English (default, no translation file) and Turkish. See SPEC.md's
@@ -122,8 +167,13 @@ The build, smoke test, and the GitHub release itself are handled by
 `pyinstaller`/`tar`/`gh release create` step in an actual release anymore. This checklist
 is about landing the right source commit and tagging it; CI does the rest.
 
-Since milestone 23 a release produces **two Linux artifacts from one build**: the
-portable `.tar.gz`, and a `.deb` the `deb` job wraps around that same tarball. The `deb`
+Since milestone 24 a release produces **four artifacts from two builds**. The Linux
+build makes the portable `.tar.gz`, and the `deb` job wraps that same tarball rather
+than building again — one build, two artifacts, so they cannot drift. The Windows
+build has to happen on a Windows runner, so it produces its own `.zip` and Inno
+Setup installer from one `pyinstaller` run. All four attach to the same release, and
+every build job is in the release job's `needs:` list so one platform failing can
+never leave a half-populated release behind. The `deb`
 job also builds the package with `lintian` gating on errors and warnings, installs it
 with `apt`, launches the installed `/usr/bin/saat` to confirm installed-mode path
 resolution works through the symlink, and then removes *and purges* it while asserting a

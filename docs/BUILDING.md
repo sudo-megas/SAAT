@@ -33,6 +33,21 @@ On Arch, the system Python is externally managed (PEP 668), so a bare `pip insta
 into it is refused. The `run.sh` venv route sidesteps that and is self-contained;
 `sudo pacman -S pyside6 python-pillow` also works if you prefer.
 
+On Windows, use `run.ps1` instead:
+
+```powershell
+.\run.ps1
+```
+
+If PowerShell refuses to run it, Windows is blocking unsigned local scripts — either
+`powershell -ExecutionPolicy Bypass -File .\run.ps1` once, or
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` permanently.
+
+It is a separate file rather than something clever because of one deliberate
+difference: `run.sh` exports `QT_QPA_PLATFORM=wayland` and `run.ps1` does not set
+`QT_QPA_PLATFORM` at all. Windows has one platform plugin, Qt selects it correctly,
+and forcing anything there is at best redundant and at worst breaks the app.
+
 ## Run the tests
 
 ```sh
@@ -81,6 +96,42 @@ re-extracts the whole Qt runtime to a temp directory on every launch and would p
 your data outside the app folder. AppImage is not used either — they are mounted
 read-only, so the data directory cannot live inside one, and they need FUSE 2.
 `SAAT.spec` documents the rest of the shape.
+
+## Build for Windows
+
+Needs a Windows machine — a Windows binary cannot be cross-built from Linux, which
+is why CI has a separate `windows-latest` job rather than reusing the Linux one.
+
+```powershell
+.venv\Scripts\pip install -r requirements-build.txt
+.venv\Scripts\pyside6-lrelease saat\resources\i18n\saat_tr.ts -qm saat\resources\i18n\saat_tr.qm
+.venv\Scripts\pyinstaller SAAT.spec
+```
+
+That produces `dist\SAAT\` — the same one-folder layout as Linux, with `SAAT.exe` in
+place of `SAAT`. Zip it for the portable artifact. Then, for the installer:
+
+```powershell
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=2.1 packaging\windows\saat.iss
+```
+
+which writes `dist\SAAT-v2.1-windows-x64-setup.exe`.
+
+`SAAT.spec` needs no separate Windows variant. It is platform-aware in exactly one
+place — it generates a `VERSIONINFO` resource from `saat.__version__` when
+`sys.platform == 'win32'` — and everything else in it was already portable:
+tuple-form `datas`, `console=False`, and a real multi-resolution `.ico`.
+
+The installer is per-user (`PrivilegesRequired=lowest`), installs to
+`%LOCALAPPDATA%\Programs\SAAT`, and ships the `.installed` marker as a file so the
+uninstaller removes it. Note that the program directory and the data directory
+(`%LOCALAPPDATA%\SAAT`) are **siblings, not nested** — that is what makes "uninstall
+never removes the collection" structural rather than a promise, and it is why
+`DefaultDirName` must never be changed to `{localappdata}\SAAT`.
+
+**The installer is unsigned and will trip SmartScreen.** There is no way around that
+without a code-signing certificate, and attempting one is out of scope. The README
+tells users the two clicks needed.
 
 ## Install it system-wide without a package
 

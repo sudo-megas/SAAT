@@ -481,14 +481,26 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           $ErrorActionPreference = "Stop"
-          Test-Path dist\SAAT\_internal\resources\i18n\saat_tr.qm -PathType Leaf
-          Test-Path dist\SAAT\_internal\ui\theme.qss -PathType Leaf
-          if (-not (Test-Path dist\SAAT\_internal\PySide6\plugins\iconengines\qsvgicon.dll)) {
-            if (-not (Test-Path dist\SAAT\_internal\PySide6\Qt\plugins\iconengines\qsvgicon.dll)) {
-              Write-Host "::error::the SVG icon engine plugin is missing from the bundle"
-              Get-ChildItem -Recurse -Filter "qsvgicon*" dist\SAAT | Select-Object -First 5
+
+          # A bare Test-Path prints True or False and fails nothing, so
+          # each assertion has to act on the result.
+          foreach ($required in @(
+            "dist\SAAT\_internal\resources\i18n\saat_tr.qm",
+            "dist\SAAT\_internal\ui\theme.qss"
+          )) {
+            if (-not (Test-Path $required -PathType Leaf)) {
+              Write-Host "::error::missing from the bundle: $required"
               exit 1
             }
+          }
+
+          # PyInstaller has moved the Qt plugin root between versions, so
+          # the plugin is looked for rather than asserted at one path.
+          $iconEngine = Get-ChildItem -Recurse -Filter "qsvgicon.dll" dist\SAAT -ErrorAction SilentlyContinue
+          if (-not $iconEngine) {
+            Write-Host "::error::the SVG icon engine plugin is missing from the bundle"
+            Get-ChildItem -Recurse -Directory -Filter "iconengines" dist\SAAT | Select-Object -First 5
+            exit 1
           }
 
           $before = Test-Path "$env:LOCALAPPDATA\SAAT"

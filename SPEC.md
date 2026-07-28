@@ -35,10 +35,18 @@ Non-negotiable. Do not improve past them.
    copying the folder to a USB stick and running it elsewhere must work with all data
    intact. Installed mode redirects both to the OS's standard per-user locations, and
    only activates when the executable is frozen *and* a `.installed` marker file sits
-   beside it, written by `install.sh` or shipped inside the `.deb` as a package file
-   (milestone 23 — shipped rather than written by `postinst`, so dpkg owns it and
-   removes it on purge instead of leaving it orphaned) — never inferred from
-   XDG variables alone. The marker opts IN; portable never opts OUT. A missing marker
+   beside it, written by `install.sh` or shipped as a file inside the `.deb` and the
+   Windows installer (milestone 23/24 — shipped rather than written by a `postinst`
+   or an installer script, so the package manager owns it and removes it cleanly
+   instead of leaving it orphaned) — never inferred from
+   XDG variables alone. "The OS's standard per-user locations" means
+   `$XDG_DATA_HOME/saat` and `$XDG_CONFIG_HOME/saat` on Linux, and
+   `%LOCALAPPDATA%\SAAT` and `%APPDATA%\SAAT` on Windows (milestone 24) — the same
+   data/config split, following each platform's own convention, since on Windows a
+   collection with its photographs belongs to the machine while settings follow the
+   profile between machines. Portable mode is identical everywhere: beside the
+   executable, so a copy on removable media behaves the same wherever it is plugged
+   in. The marker opts IN; portable never opts OUT. A missing marker
    must never silently relocate a portable user's collection into their home directory,
    so a mispackaged installer should fail loudly (a permissions error writing beside a
    read-only system executable) rather than silently splitting a collection across two
@@ -100,6 +108,21 @@ Rules for the storage layer:
 
 - `<slug>` derives from brand + model, lowercased, non-alphanumerics to hyphens. On
   collision append `-2`, `-3`.
+
+  **Collision detection is case-INSENSITIVE, on every platform** (milestone 24).
+  Generated slugs are lowercased and so can never collide by case on their own; the
+  exposure is the hand-authored folders this section explicitly invites, where a
+  `watches/Seiko-SKX007` beside a generated `seiko-skx007` is two watches on ext4
+  and one on NTFS. Enforced everywhere rather than only on Windows, because a rule
+  applied on one platform produces collections the other cannot open — which is the
+  same bug from the other end.
+
+  **Slugs are also sanitised against Windows' whole-name rules, on every platform**:
+  the reserved DOS device names (`con`, `prn`, `aux`, `nul`, `com1`–`com9`,
+  `lpt1`–`lpt9`), which are unwritable as a complete filename component, and a
+  length cap so a pasted product description cannot produce a path Windows refuses.
+  The nine forbidden characters and trailing dots and spaces were already handled as
+  a side effect of reducing to `[a-z0-9-]` — now asserted rather than incidental.
 - Any file or directory whose name starts with `_` or `.` is skipped by the loader. That
   is how `_template.toml` stays out of the collection.
 - Format is **TOML**, read and written with `tomlkit` so hand-written comments and key
@@ -108,7 +131,16 @@ Rules for the storage layer:
   saves the file.
 - Dates use TOML's native date type, not strings.
 - Write atomically: `watch.toml.tmp`, `fsync`, `os.replace`. A crash mid-save must never
-  leave a truncated file.
+  leave a truncated file — and a *failed* save must never leave the `.tmp` behind
+  either, since an orphaned `watch.toml.tmp` reads as corruption to someone browsing
+  their collection in a file manager, which is exactly the audience this format
+  exists for. **The replace retries briefly before surfacing an error** (milestone
+  24): `os.replace` over a destination another process holds open is a non-issue on
+  POSIX and a `PermissionError` on Windows, where antivirus scanners and the search
+  indexer hold handles for milliseconds, unpredictably, right after a file is
+  written. Retrying is not swallowing (rule 7) — the error still arrives, just after
+  a few hundred milliseconds of patience. Applied on every platform: one code path
+  is easier to trust than two, and it is inert where it never triggers.
 - Before any destructive operation, copy the affected `watch.toml` to
   `backups/<slug>-<ISO timestamp>.toml`. Prune to the newest 20.
 - Deleting a watch moves its whole folder to `backups/deleted/`. Never `rm -rf`.
@@ -972,6 +1004,40 @@ mean a second, differently-behaving build to test for no benefit here, and would
 app's Qt version to whatever each derivative ships despite `requirements.txt` pinning it
 exactly. The cost is size — a few hundred megabytes, almost all Qt — stated plainly in
 the package description rather than hidden. See `packaging/README.md`.
+
+**Windows (milestone 24):** the same one-folder build again, and the same two-artifact
+shape as Linux — a portable `.zip` and an installer — both produced by one
+`pyinstaller` run on a `windows-latest` runner, since a Windows binary cannot be built
+anywhere else.
+
+```
+%LOCALAPPDATA%\Programs\SAAT\   the one-folder build, plus the .installed marker
+%LOCALAPPDATA%\SAAT\            watches/, backups/, sellers.toml
+%APPDATA%\SAAT\                 config.toml
+```
+
+The installer is **Inno Setup**, per-user (`PrivilegesRequired=lowest`), so it never asks
+for administrator rights — a watch cataloguer has no business needing them, and an
+unsigned installer requesting them is exactly the shape of the thing people are right to
+refuse. It creates Start Menu and optional Desktop shortcuts and registers a proper
+uninstaller in Apps & Features.
+
+Note the layout: the program installs to `%LOCALAPPDATA%\Programs\SAAT` and the
+collection lives at `%LOCALAPPDATA%\SAAT`. **Siblings, never parent and child.** That is
+what makes "uninstall removes the program, never the collection" structural rather than a
+promise — Inno's uninstaller removes what it installed under the app directory, and the
+data is not under it. `DefaultDirName` must never be "simplified" to `%LOCALAPPDATA%\SAAT`.
+
+Do **not** use `--onefile` on Windows either, for the same reasons as Linux plus one
+more: re-extracting the whole Qt runtime to `%TEMP%` on every launch is slower still
+with antivirus real-time scanning in the way. No MSI, no Microsoft Store, no
+auto-updater, and no registry writes beyond the uninstaller entry Inno needs.
+
+**The installer is unsigned**, and will stay unsigned until someone decides to buy a
+certificate. Windows SmartScreen therefore shows "Windows protected your PC" with the
+Run button hidden behind a **More info** link. That is documented for users rather than
+worked around; there is no legitimate way to suppress it without a certificate, and
+attempting one is out of bounds.
 
 Do **not** use `--onefile`: it extracts to a temp directory on every launch, which is
 slow with Qt bundled and puts application files outside the data directory.

@@ -12,13 +12,43 @@ framework, not the contents.
 
 ## Install
 
+Everything below is on the
+[releases page](https://github.com/sudo-megas/SAAT/releases/latest).
+
+### Windows 10 and 11
+
+Download `SAAT-v2.1-windows-x64-setup.exe` and run it.
+
+**Windows will warn you, and you have to click past it.** The installer is not code
+signed, so SmartScreen shows a blue box saying *"Windows protected your PC"* with
+only a **Don't run** button visible. To continue:
+
+1. Click **More info**
+2. Click **Run anyway**
+
+That warning means "this publisher has not paid for a certificate", not "this file
+is known to be harmful". A code-signing certificate is a few hundred dollars a year
+and this is a free hobby project; if that trade bothers you, the whole thing is
+source-available and you can build it yourself.
+
+The installer needs **no administrator rights** — it installs just for you, into
+`%LOCALAPPDATA%\Programs\SAAT`, and adds a Start Menu entry (a desktop shortcut is
+offered as an option). Uninstall from Settings → Apps in the normal way.
+
+**Uninstalling never deletes your collection.** It lives in `%LOCALAPPDATA%\SAAT`,
+which is beside the program directory rather than inside it, so the uninstaller
+cannot reach it.
+
+There is also a portable `.zip` if you would rather not install anything — extract
+it and run `SAAT.exe`. In that mode your collection lives inside the extracted
+folder, so you can keep the whole thing on a USB stick.
+
 ### Debian, Ubuntu, Mint and derivatives
 
-Download `saat_<version>_amd64.deb` from the
-[releases page](https://github.com/sudo-megas/SAAT/releases/latest) and install it:
+Download `saat_<version>_amd64.deb` and install it:
 
 ```sh
-sudo apt install ./saat_2.0-1_amd64.deb
+sudo apt install ./saat_2.1-1_amd64.deb
 ```
 
 SAAT then appears in your application menu. There is nothing else to set up.
@@ -40,12 +70,10 @@ release build, not merely intended.
 
 ### Every other Linux distribution
 
-Download the `.tar.gz` from the same
-[releases page](https://github.com/sudo-megas/SAAT/releases/latest), extract it, and
-run it:
+Download the `.tar.gz`, extract it, and run it:
 
 ```sh
-tar -xzf SAAT-v2.0-linux-x86_64.tar.gz
+tar -xzf SAAT-v2.1-linux-x86_64.tar.gz
 ./SAAT/SAAT
 ```
 
@@ -66,10 +94,12 @@ distributions without `apt` — see [docs/BUILDING.md](docs/BUILDING.md).
 This is the part worth reading. SAAT never puts your collection anywhere you cannot
 find it, and never puts it anywhere but your own machine.
 
-| | Portable (the tarball) | Installed (the `.deb`, or `install.sh`) |
+| | Portable (the tarball or `.zip`) | Installed |
 |---|---|---|
-| watches, backups | beside the executable | `~/.local/share/saat/` |
-| configuration | beside the executable | `~/.config/saat/` |
+| watches, backups — Linux | beside the executable | `~/.local/share/saat/` |
+| configuration — Linux | beside the executable | `~/.config/saat/` |
+| watches, backups — Windows | beside the executable | `%LOCALAPPDATA%\SAAT\` |
+| configuration — Windows | beside the executable | `%APPDATA%\SAAT\` |
 
 Each watch is its own folder under `watches/`, holding a `watch.toml` and an
 `images/` subfolder:
