@@ -1,15 +1,26 @@
 # SAAT's own reference plate (SPEC.md §6) — the same plate, brushed nickel in
-# daylight, not an inverted dark mode. Byte-identical to the pre-milestone-21b
-# hardcoded _LIGHT values; not sourced from anywhere external.
+# daylight, not an inverted dark mode. Not sourced from anywhere external, so
+# free to adjust on its own judgment, unlike the third-party palettes below.
 id = "default-light"
 name = "Default Light"
 is_dark = false
 
-plate = "#F1EEE6"
+# nudged 2026-07-28 from the original #F1EEE6 (pre-milestone-21b hardcoded
+# _LIGHT value): a real user reported the app reading as "a combination of
+# different colors" rather than one consistent light surface -- top bar/
+# sidebar/bottom bar all sit on plate-high (pure white) while the main
+# content area, cards, and the sidebar's own filter panel sit on plate,
+# and #F1EEE6 was visibly, distractingly cream next to true white. Brought
+# within a few RGB points of plate-high instead of touching every QSS rule's
+# role assignment -- still technically distinct (so the card hover-wash
+# toward plate-high isn't a no-op), reads as one unified white surface.
+plate = "#FAF8F5"
 plate_high = "#FFFFFF"
 rule = "#DAD4C5"
 text = "#2B2822"
-# nudged from SPEC's #7C7568: measured 3.94:1 on plate, below the 4.5:1 bar
+# nudged from SPEC's #7C7568, which measured 3.94:1 against the original
+# plate (below the 4.5:1 bar); now 5.12:1 against plate's own 2026-07-28
+# nudge above, 5.42:1 against plate-high.
 text_muted = "#70695E"
 gilt = "#8A6A16"
 ruby = "#A82F24"

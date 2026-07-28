@@ -53,6 +53,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   backgrounds to read comfortably (most secondary text app-wide, in Nord's case).
   Both lightened within their own hue, since nothing else in Nord's authentic
   16-color palette sits between the original values and the next role up.
+- The Default Light preset's base background read as a visibly different cream
+  next to the pure white used for the top bar, sidebar, bottom bar, and the
+  sidebar's own filter panel — brought within a few RGB points of that white so
+  the whole app reads as one consistent light surface.
 
 ## [1.7.8] - 2026-07-28
 

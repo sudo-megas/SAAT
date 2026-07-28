@@ -98,7 +98,9 @@ KNOWN_CONTRAST_SHORTFALLS = {
     # its authentic reference is a product call for a human to make, not
     # something to do silently while fixing the app-side pairing bug that
     # made this test exist. Revisit and shrink this block if that call is made.
-    ("default-light", "gilt", "plate"): 4.3604333731894895,
+    # (default-light's own gilt/plate shortfall, formerly listed here,
+    # resolved as a side effect of nudging plate itself 2026-07-28 -- see
+    # default-light.toml.)
     ("default-dark", "ruby", "plate"): 3.509859287322408,
     ("rose-pine-dawn", "gilt", "plate"): 3.4691307752426224,
     ("rose-pine-dawn", "ruby", "plate"): 3.8406570202210726,

@@ -56,7 +56,7 @@ class PaletteRegistryTests(ThemeModeResetMixin, unittest.TestCase):
     def test_switching_palette_switches_the_returned_colors(self) -> None:
         theme.set_palette("default-light")
         self.assertEqual(theme.current_palette_id(), "default-light")
-        self.assertEqual(theme.colors().plate, "#F1EEE6")
+        self.assertEqual(theme.colors().plate, "#FAF8F5")
 
     def test_default_light_and_default_dark_differ_in_every_field(self) -> None:
         dark = theme.palette("default-dark").palette
@@ -111,7 +111,7 @@ class ApplyThemeStylesheetTests(ThemeModeResetMixin, unittest.TestCase):
         light_sheet = _app.styleSheet()
 
         self.assertIn("#1C1B19", dark_sheet)
-        self.assertIn("#F1EEE6", light_sheet)
+        self.assertIn("#FAF8F5", light_sheet)
         self.assertNotEqual(dark_sheet, light_sheet)
 
     def test_switching_and_back_returns_to_the_original_stylesheet(self) -> None:
@@ -124,7 +124,7 @@ class ApplyThemeStylesheetTests(ThemeModeResetMixin, unittest.TestCase):
     def test_omitting_palette_id_keeps_whatever_is_already_current(self) -> None:
         theme.set_palette("default-light")
         apply_theme(_app)
-        self.assertIn("#F1EEE6", _app.styleSheet())
+        self.assertIn("#FAF8F5", _app.styleSheet())
 
     def test_switching_through_all_ten_palettes_produces_no_errors(self) -> None:
         for entry in theme.palettes():

@@ -719,8 +719,8 @@ below, not just the two named next.
 mode. Same hue relationships, lightness re-tuned for a light background.
 
 ```
---plate       #F1EEE6   warm platinum, not stark white
---plate-high  #FFFFFF   elevated surfaces — lifts off the platinum base
+--plate       #FAF8F5   near-white, a hint of platinum warmth
+--plate-high  #FFFFFF   elevated surfaces, barely lighter than plate
 --rule        #DAD4C5   hairlines, borders, dividers
 --text        #2B2822   primary text, warm near-black, not pure black
 --text-muted  #70695E   labels, units, absent values
