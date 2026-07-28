@@ -369,30 +369,23 @@ QPushButton[class="card-wore-today-bar"]:hover {
 QTableWidget {
     background: @plate@;
     color: @text@;
-    gridline-color: @rule@;
     border: none;
 }
 
 QTableWidget::item {
     padding: 0 8px;
-    border-bottom: 1px solid @rule@;
-}
-
-QTableWidget::item:selected {
-    background: @plate-high@;
-    color: @text@;
 }
 
 QHeaderView::section {
-    background: @plate-high@;
+    background: transparent;
     color: @text-muted@;
     font-family: "@font-sans-condensed@";
     font-size: @size-xs@px;
     font-weight: 600;
+    letter-spacing: 0.5px;
     padding: 8px;
     border: none;
     border-bottom: 1px solid @rule@;
-    border-right: 1px solid @rule@;
 }
 
 QHeaderView::section:hover {

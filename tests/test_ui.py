@@ -105,8 +105,14 @@ class CollectionViewBehaviorTests(UITestCase):
         self.assertEqual(view._table_view.columnCount(), len(DEFAULT_COLUMN_KEYS))
 
     def test_default_sort_is_by_brand(self) -> None:
+        # Milestone 21b: column 0 is now the structural thumbnail column
+        # (no text of its own), so sort order is read from _ordered_records
+        # directly rather than back out through a table cell that used to
+        # happen to show brand -- the same accessor
+        # test_sort_direction_toggle_reverses_the_default_ascending_order
+        # already uses below for the same reason.
         view = CollectionView(self.records, self._config())
-        brands = [view._table_view.item(r, 0).text() for r in range(view._table_view.rowCount())]
+        brands = [r.watch.brand for r in view._ordered_records]
         self.assertEqual(brands, sorted(brands))
         self.assertEqual(brands, ["Casio", "Omega", "Seiko"])
 
@@ -175,16 +181,18 @@ class CollectionViewBehaviorTests(UITestCase):
     def test_double_click_after_header_sort_activates_the_correct_record(self) -> None:
         """A header-sort reorders the table's visual rows without touching
         self._records, so the record behind a double-clicked row must come
-        from data attached to the item (UserRole), never self._records[row]."""
+        from data attached to the item (UserRole), never self._records[row].
+        Sorts column 1 (the structural "name" column, keyed on model text --
+        column 0 is the thumbnail column, which carries no sortable text)."""
         view = CollectionView(self.records, self._config())
         received = []
         view.record_activated.connect(received.append)
 
-        view._table_view.sortByColumn(0, Qt.SortOrder.DescendingOrder)
+        view._table_view.sortByColumn(1, Qt.SortOrder.DescendingOrder)
         view._table_view._on_cell_double_clicked(0, 0)
 
         self.assertEqual(len(received), 1)
-        self.assertEqual(received[0].watch.brand, "Seiko")  # last alphabetically, so row 0 descending
+        self.assertEqual(received[0].watch.brand, "Omega")  # "Speedmaster" sorts last alphabetically, so row 0 descending
 
     def test_column_preset_switches_visible_columns_and_persists(self) -> None:
         config = self._config()

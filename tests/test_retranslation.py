@@ -107,15 +107,22 @@ class LiveRetranslationTests(unittest.TestCase):
         self.assertEqual(sidebar._toggle_button.text(), "Filtreleri gizle")
 
     def test_switching_to_turkish_retranslates_table_header(self) -> None:
+        # Uppercased via QLocale().toUpper() (table_view.py's _render()),
+        # not plain str.upper() -- "Mekanizma" has an ASCII lowercase i,
+        # which Turkish casing rules turn into dotted İ (MEKANİZMA), not
+        # plain ASCII I. A wrong casing call here would silently render the
+        # OS-default-locale form instead and this test wouldn't catch it,
+        # so the expected strings are QLocale(Turkish)-correct, not typed
+        # by hand.
         table = self.view._table_view
         table.set_columns(["group", "movement_kind"])
         header_text = lambda: [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())]
-        self.assertEqual(header_text(), ["Group", "Movement"])
+        self.assertEqual(header_text(), ["GROUP", "MOVEMENT"])
 
         self.assertTrue(install_language(_app, "tr"))
         _app.processEvents()
 
-        self.assertEqual(header_text(), ["Grup", "Mekanizma"])
+        self.assertEqual(header_text(), ["GRUP", "MEKANİZMA"])
 
     def test_switching_back_to_english_reverts_all_three(self) -> None:
         top_bar = self.view._top_bar

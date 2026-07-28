@@ -29,6 +29,14 @@ class CompareGroup:
     rows: list[CompareRow]
 
 
+# table_view.py's own structural identity columns (SPEC.md §6, milestone
+# 21b). thumbnail's getter always returns None, so the all-empty check
+# below already drops it; name's getter deliberately mirrors model's own
+# (so the table's native column-sort keys off the model text) and would
+# otherwise add a row here identical to the existing Model row.
+_COMPARE_EXCLUDED_KEYS = {"thumbnail", "name"}
+
+
 def build_compare_groups(records: list[WatchRecord]) -> list[CompareGroup]:
     """Watches as columns, attributes as rows, grouped in the model's order —
     built directly on saat.ui.columns.COLUMNS/GROUP_ORDER so this isn't a
@@ -40,7 +48,7 @@ def build_compare_groups(records: list[WatchRecord]) -> list[CompareGroup]:
     for group_name in GROUP_ORDER:
         rows = []
         for column in COLUMNS:
-            if column.group != group_name:
+            if column.group != group_name or column.key in _COMPARE_EXCLUDED_KEYS:
                 continue
             raw_values = [column.value(w) for w in watches]
             if all(is_empty(v) for v in raw_values):

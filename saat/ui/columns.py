@@ -110,6 +110,18 @@ class Column:
 
 COLUMNS: list[Column] = [
     # Identity
+    # thumbnail/name are table_view.py's own structural leading columns
+    # (SPEC.md §6, milestone 21b) -- registered here (rather than hardcoded
+    # in table_view.py) so they flow through the same set_columns()/header-
+    # menu/config-persistence machinery as every other column, with no
+    # special-casing there. thumbnail's getter always returns None: the
+    # column has no textual value, its cell is fully delegate-painted.
+    # name's getter deliberately mirrors model's own, so the table's native
+    # column-sort keys off the model text -- the richer brand/reference
+    # subtitle is delegate-painted from the row's own record, not carried
+    # by this column's value/text.
+    Column("thumbnail", QT_TRANSLATE_NOOP("Columns", "Photo"), "Identity", lambda w: None),
+    Column("name", QT_TRANSLATE_NOOP("Columns", "Watch"), "Identity", lambda w: w.model),
     Column("brand", QT_TRANSLATE_NOOP("Columns", "Brand"), "Identity", lambda w: w.brand),
     Column("model", QT_TRANSLATE_NOOP("Columns", "Model"), "Identity", lambda w: w.model),
     Column("reference", QT_TRANSLATE_NOOP("Columns", "Reference"), "Identity", lambda w: w.reference),
@@ -173,16 +185,26 @@ COLUMNS: list[Column] = [
 COLUMNS_BY_KEY: dict[str, Column] = {c.key: c for c in COLUMNS}
 
 DEFAULT_COLUMN_KEYS = [
-    "brand", "model", "style", "movement_kind",
+    "thumbnail", "name", "style", "movement_kind",
     "diameter_mm", "lug_width_mm", "water_resistance_m", "acquired_date",
 ]
 
 # SPEC.md §5.12: Wishlist scope's table default — wear/spec columns don't
 # apply pre-purchase, target price and desire (rating) do.
-DEFAULT_WISHLIST_COLUMN_KEYS = ["brand", "model", "target_price", "rating", "seller"]
+DEFAULT_WISHLIST_COLUMN_KEYS = ["thumbnail", "name", "target_price", "rating", "seller"]
+
+# brand/model are folded into the table's own structural "name" column
+# (thumbnail + name, both registered above) -- excluded here so picking a
+# group preset (e.g. Identity) doesn't redundantly re-add them as separate
+# configurable columns right next to the one that already shows both.
+# Still individually toggleable via the header's own right-click column
+# chooser (table_view.py's _show_header_menu), which iterates COLUMNS
+# directly rather than through this dict.
+_PRESET_EXCLUDED_KEYS = {"brand", "model"}
 
 COLUMN_PRESETS: dict[str, list[str]] = {
-    group: [c.key for c in COLUMNS if c.group == group] for group in GROUP_ORDER
+    group: [c.key for c in COLUMNS if c.group == group and c.key not in _PRESET_EXCLUDED_KEYS]
+    for group in GROUP_ORDER
 }
 
 SORT_OPTIONS = ["brand", "model", "rating", "acquired_date", "least_worn"]

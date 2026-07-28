@@ -36,21 +36,47 @@ def first_image(record: WatchRecord) -> Path | None:
     return images[0] if images else None
 
 
+_cropped_pixmap_cache: dict[tuple[str, int, int, int | None], QPixmap | None] = {}
+
+
 def cropped_pixmap(path: Path, width: int, height: int) -> QPixmap | None:
     """Scaled to fill width x height exactly, centre-cropping the excess.
     Prefers the cached thumbnail derivative when one exists — grid cards and
-    gallery strips only ever need a small crop, not the full original."""
+    gallery strips only ever need a small crop, not the full original.
+
+    Cached per (path, width, height, mtime) -- unlike icons.py's SVG
+    pixmap cache, a user's own photos can genuinely change on disk after
+    being cached once (re-cropped, re-imported, replaced), so the cache
+    key includes the source file's mtime rather than just its path: an
+    edited file gets a new key and is decoded fresh, same self-invalidating
+    shape as icons.py's cache, just keyed on file content generation
+    instead of a colour string. A missing file (mtime unreadable) uses
+    None in the key's place -- stable for repeated calls against a file
+    that stays missing, and naturally bypassed once the file exists and
+    has a real mtime, so a missing/corrupt decode is never retried forever
+    but also never retried on every single paint."""
+    try:
+        mtime_ns = path.stat().st_mtime_ns
+    except OSError:
+        mtime_ns = None
+    key = (str(path), width, height, mtime_ns)
+    if key in _cropped_pixmap_cache:
+        return _cropped_pixmap_cache[key]
+
     thumbnail = path.parent / THUMBNAIL_DIR_NAME / path.name
     source = thumbnail if thumbnail.exists() else path
 
     pixmap = QPixmap(str(source))
     if pixmap.isNull():
+        _cropped_pixmap_cache[key] = None
         return None
     scaled = pixmap.scaled(width, height, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                             Qt.TransformationMode.SmoothTransformation)
     x = max(0, (scaled.width() - width) // 2)
     y = max(0, (scaled.height() - height) // 2)
-    return scaled.copy(x, y, width, height)
+    result = scaled.copy(x, y, width, height)
+    _cropped_pixmap_cache[key] = result
+    return result
 
 
 def load_oriented_original(path: Path) -> QPixmap | None:
