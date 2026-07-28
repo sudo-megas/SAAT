@@ -122,15 +122,31 @@ The build, smoke test, and the GitHub release itself are handled by
 `pyinstaller`/`tar`/`gh release create` step in an actual release anymore. This checklist
 is about landing the right source commit and tagging it; CI does the rest.
 
+Since milestone 23 a release produces **two Linux artifacts from one build**: the
+portable `.tar.gz`, and a `.deb` the `deb` job wraps around that same tarball. The `deb`
+job also builds the package with `lintian` gating on errors and warnings, installs it
+with `apt`, launches the installed `/usr/bin/saat` to confirm installed-mode path
+resolution works through the symlink, and then removes *and purges* it while asserting a
+planted collection under `~/.local/share/saat` survives both. That last assertion is not
+a nicety — see `packaging/README.md`. Nothing in the packaging is built by hand; see
+`packaging/` for the scripts and why they are shaped the way they are.
+
 The same workflow also runs on `workflow_dispatch` as a dry run that builds and verifies
 without publishing anything (step 5) — use it before spending a tag.
 
-1. Write the release notes to `docs/release-notes/x.y.z.md` — user-facing changes only,
-   not implementation detail. Must include: what changed, the download-and-extract
-   instructions, the compatibility statement (PySide6's manylinux wheel needs glibc 2.35+;
-   building on `ubuntu-22.04` gives that floor, so the binary runs on anything with glibc
-   2.35 or newer — in practice Ubuntu 22.04+, Debian 12+, Fedora 36+, Mint 21+, and current
-   Arch), and a line stating data lives beside the executable.
+1. Write the release notes to `docs/release-notes/x.y.md` — user-facing changes only,
+   not implementation detail. Must include: what changed, how to install (the `.deb` for
+   Debian/Ubuntu, the tarball everywhere else), the compatibility statement (PySide6's
+   manylinux wheel needs glibc 2.35+; building on `ubuntu-22.04` gives that floor, so the
+   binary runs on anything with glibc 2.35 or newer — in practice Ubuntu 22.04+, Debian
+   12+, Fedora 36+, Mint 21+, and current Arch), a line stating where data lives in each
+   install mode, and — for any release that ships the package — the statement that
+   removing or purging it never deletes the collection.
+
+   Version numbers are whatever the milestone says. Two-numeral versions (`2.0`) and
+   three-numeral ones (`1.8.2`) are both valid and both accepted by
+   `tests/test_version.py`; the release-notes filename, the `CHANGELOG.md` heading, the
+   tag and `__version__` just all have to agree.
 2. Bump `__version__` in `saat/__init__.py` and add the matching `## [x.y.z]` entry to
    `CHANGELOG.md`, in the same commit as the release notes file above. Run
    `tests/test_version.py` to confirm `__version__` and the CHANGELOG heading agree (see

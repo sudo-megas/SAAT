@@ -80,6 +80,29 @@ saat: package-installs-python-bytecode *
 # come along inside the wheel.
 saat: embedded-javascript-library *
 
+# $ORIGIN-relative RUNPATH is how a one-folder PyInstaller build finds its
+# own libraries without touching the system linker configuration, and it is
+# exactly what keeps this bundle from resolving Qt out of /usr/lib. It is
+# load-bearing, not an oversight: removing it is how you get a package that
+# silently links against whatever Qt the machine happens to have.
+saat: binary-or-shlib-defines-rpath
+saat: binary-or-shlib-defines-rpath *
+saat: custom-library-search-path
+saat: custom-library-search-path *
+
+# /usr/lib/saat is a private application directory holding one program and
+# the runtime it carries. The executable there is reached through
+# /usr/bin/saat; policy's preference for /usr/libexec is about helper
+# binaries on PATH-adjacent paths, which this is not.
+saat: executable-in-usr-lib
+saat: executable-in-usr-lib *
+
+# Exec=saat resolves through PATH, which is what lets one .desktop file
+# serve both an install.sh install (/usr/local/bin/saat) and this package
+# (/usr/bin/saat) instead of two copies that drift apart. The command is in
+# this package, at /usr/bin/saat.
+saat: desktop-command-not-in-package *
+
 # dpkg-deb builds this from an already-composed tree; there is no source
 # package, no debian/rules and no build system to declare. The upstream
 # source is the repository named in Homepage.

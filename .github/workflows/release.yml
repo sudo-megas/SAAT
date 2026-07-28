@@ -54,11 +54,15 @@ env:
   LC_ALL: en_US.UTF-8
 
 jobs:
-  # One build job per artifact. Adding a platform in a later milestone
-  # (the .deb in 23, the Windows installer in 24) means adding a sibling
-  # job here that uploads its own named artifact, plus its job name in the
-  # release job's `needs:` list. Nothing else below changes: the release
-  # job downloads whatever artifacts exist rather than naming one.
+  # One job per artifact. Adding a platform (the Windows installer in
+  # milestone 24) means adding a sibling job here that uploads its own
+  # named artifact, plus its job name in the release job's `needs:` list.
+  # Nothing else below changes: the release job downloads whatever
+  # artifacts exist rather than naming one.
+  #
+  # The `deb` job below is the exception to "one job per build": it does
+  # not build anything, it wraps what this job produced. Two artifacts,
+  # one build.
   build-linux-x86_64:
     runs-on: ubuntu-22.04
     steps:
@@ -187,11 +191,170 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+  # The .deb. Deliberately NOT a second PyInstaller build: it downloads the
+  # tarball build-linux-x86_64 just produced and wraps that. One build, two
+  # artifacts -- the tarball and the package are byte-identical inside and
+  # cannot drift apart, which is the whole reason this is a separate job
+  # rather than a second `pyinstaller SAAT.spec`.
+  deb:
+    needs: build-linux-x86_64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: saat-linux-x86_64
+          path: artifacts
+
+      # Globbed rather than recomputing the build job's label: the tarball
+      # is whatever that job uploaded, and there is exactly one.
+      - name: Unpack the tarball this release is built from
+        run: |
+          set -euo pipefail
+          tarball=$(ls artifacts/*.tar.gz)
+          echo "unpacking $tarball"
+          mkdir -p dist
+          tar -xzf "$tarball" -C dist
+          test -x dist/SAAT/SAAT
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lintian dpkg-dev
+
+      # Runs packaging/audit-bundle.py as part of the build: Depends
+      # completeness, the glibc floor, and copyright coverage are all
+      # gates here, not advisories.
+      - name: Build the package
+        run: ./packaging/build-deb.sh --dist dist/SAAT --output dist
+
+      # Two passes on purpose. The first prints everything lintian has to
+      # say, at full verbosity and with no tag limit, so the report is in
+      # the job log and can be read rather than guessed at -- including
+      # info-level tags that are not failures. The second is the gate.
+      - name: Report every lintian tag
+        run: |
+          lintian --info --display-info --display-experimental \
+                  --no-tag-display-limit dist/*.deb || true
+
+      - name: Gate on lintian errors and warnings
+        run: |
+          lintian --fail-on error,warning --no-tag-display-limit dist/*.deb
+
+      - name: Install it the way a user would
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y ./dist/saat_*.deb
+
+      - name: The entry point exists and is what it claims to be
+        run: |
+          set -euo pipefail
+          test -L /usr/bin/saat
+          test -x /usr/bin/saat
+          echo "/usr/bin/saat -> $(readlink -f /usr/bin/saat)"
+          [ "$(readlink -f /usr/bin/saat)" = "/usr/lib/saat/SAAT" ]
+          test -f /usr/lib/saat/.installed
+          test -f /usr/share/applications/saat.desktop
+          test -f /usr/share/icons/hicolor/256x256/apps/saat.png
+          test -f /usr/share/doc/saat/copyright
+          test -f /usr/share/doc/saat/changelog.Debian.gz
+          test -f /usr/share/man/man1/saat.1.gz
+
+      # Launching the installed /usr/bin/saat is the end-to-end proof that
+      # installed-mode detection survives the symlink: if it did not, the
+      # app would resolve its data directory to /usr/bin and these two
+      # directories would never appear. A GUI event-loop app never exits on
+      # its own, so under a timeout 0/124/137/143 are all healthy.
+      - name: It starts, and resolves its data to the per-user locations
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          test ! -e "$HOME/.local/share/saat"
+          test ! -e "$HOME/.config/saat"
+
+          set +e
+          timeout --kill-after=5s 20s /usr/bin/saat > /tmp/deb-smoke.log 2>&1
+          status=$?
+          set -e
+          case "$status" in
+            0|124|137|143) echo "healthy launch (exit $status)" ;;
+            *)
+              echo "::error::installed saat exited $status within the smoke-test window"
+              cat /tmp/deb-smoke.log
+              exit 1
+              ;;
+          esac
+          if grep -iqE "could not load the qt platform plugin|Traceback \(most recent call last\)" /tmp/deb-smoke.log; then
+            echo "::error::smoke test log contains a known failure signature"
+            cat /tmp/deb-smoke.log
+            exit 1
+          fi
+
+          test -d "$HOME/.local/share/saat"
+          test -d "$HOME/.config/saat"
+          echo "installed mode confirmed: data resolved to ~/.local/share/saat"
+
+      # ==================================================================
+      # The data-safety guarantee. This is the assertion milestone 23
+      # exists to make automatic rather than eyeballed: uninstalling SAAT
+      # must never destroy a collection, and `apt purge` -- which people
+      # type meaning "remove it properly" -- must not either.
+      #
+      # If this step ever fails, the package is not shippable. There is no
+      # version of "fix the test" that applies.
+      # ==================================================================
+      - name: A collection survives remove, and survives purge
+        run: |
+          set -euo pipefail
+          watch_dir="$HOME/.local/share/saat/watches/a-watch-the-user-entered"
+          mkdir -p "$watch_dir"
+          printf 'brand = "Stub"\nmodel = "Purge Guard"\n' > "$watch_dir/watch.toml"
+          printf 'stub = true\n' > "$HOME/.config/saat/config.toml"
+          sha_before=$(sha256sum "$watch_dir/watch.toml" | cut -d' ' -f1)
+
+          sudo apt-get remove -y saat
+          test ! -e /usr/bin/saat
+          test -f "$watch_dir/watch.toml" || {
+            echo "::error::apt remove deleted the user's collection"
+            exit 1
+          }
+
+          sudo apt-get purge -y saat
+          test ! -e /usr/lib/saat
+          test ! -e /usr/share/applications/saat.desktop
+
+          test -f "$watch_dir/watch.toml" || {
+            echo "::error::apt purge deleted the user's collection"
+            exit 1
+          }
+          test -f "$HOME/.config/saat/config.toml" || {
+            echo "::error::apt purge deleted the user's configuration"
+            exit 1
+          }
+          [ "$(sha256sum "$watch_dir/watch.toml" | cut -d' ' -f1)" = "$sha_before" ] || {
+            echo "::error::apt purge altered the user's collection"
+            exit 1
+          }
+          echo "collection intact after remove and purge"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: saat-deb-amd64
+          path: dist/saat_*.deb
+          if-no-files-found: error
+          compression-level: 0
+
   release:
     # Every build job must succeed before anything is published, so a
     # second platform failing can never leave a half-populated release
     # behind. A later milestone's build job goes in this list.
-    needs: [build-linux-x86_64]
+    needs: [build-linux-x86_64, deb]
     # The dry run stops here: workflow_dispatch builds, tests and smoke-
     # tests, then leaves the artifact attached to the workflow run and
     # publishes nothing at all.
