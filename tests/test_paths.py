@@ -37,6 +37,20 @@ class PathsTestCase(unittest.TestCase):
         frozen_patch.start()
         self.addCleanup(frozen_patch.stop)
 
+        # Every test in this file describes the LINUX branch of the path
+        # layer: XDG variables, ~/.local/share, ~/.config. The Windows
+        # branch has its own suite in tests/test_platform_invariants.py,
+        # which pins the same flag the other way.
+        #
+        # Pinning it means both branches are exercised on every host,
+        # rather than each being covered only where CI happens to run --
+        # otherwise the Linux path resolution would go untested on Windows
+        # and vice versa, which for a two-branch function is exactly
+        # backwards.
+        linux_patch = patch.object(paths, "_WINDOWS", False)
+        linux_patch.start()
+        self.addCleanup(linux_patch.stop)
+
     def _assert_under_tmp(self, path: Path) -> None:
         self.assertTrue(
             str(path).startswith(str(self.tmp)),

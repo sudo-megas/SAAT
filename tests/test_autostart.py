@@ -45,6 +45,16 @@ class AutostartTestCase(unittest.TestCase):
         frozen_patch.start()
         self.addCleanup(frozen_patch.stop)
 
+        # This file describes the XDG autostart mechanism -- a .desktop
+        # file in $XDG_CONFIG_HOME/autostart. The Windows branch writes a
+        # .lnk into the Startup folder instead and is covered by
+        # WindowsStartupShortcutTests below, which pins the same flags the
+        # other way. Both mechanisms are therefore tested on every host.
+        for module in (autostart, paths):
+            linux_patch = patch.object(module, "_WINDOWS", False)
+            linux_patch.start()
+            self.addCleanup(linux_patch.stop)
+
     def _freeze(self, marker: bool = False) -> Path:
         exe_dir = self.tmp / "fakeapp"
         exe_dir.mkdir(parents=True, exist_ok=True)
