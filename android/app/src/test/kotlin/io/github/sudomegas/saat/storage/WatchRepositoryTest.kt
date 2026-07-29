@@ -1,6 +1,8 @@
 package io.github.sudomegas.saat.storage
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -266,6 +268,42 @@ class WatchRepositoryTest {
         repository.load()
         assertFalse(repository.delete("no-such-watch"))
         assertNull(repository.state.value.writeError)
+    }
+
+    // ---- concurrency -----------------------------------------------------
+
+    @Test
+    fun `simultaneous edits do not overwrite one another`() = runBlocking {
+        // Not hypothetical after AM8: "wore this today" lives on the detail
+        // page, on the home-screen widget and on an app shortcut, all three
+        // driving this one collection. Each edit is a read-modify-write with a
+        // suspension point in the middle, so two at once would otherwise both
+        // start from the same record and the second would silently overwrite
+        // the first — a lost day, on disk, with nothing to notice it by.
+        //
+        // Real threads here rather than Unconfined, because Unconfined would
+        // run these sequentially and the test would pass whether or not the
+        // repository actually serialises anything.
+        writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\n")
+        val repository = WatchRepository(WatchStore(paths), Dispatchers.Default)
+        repository.load()
+
+        val days = (1..20).map { LocalDate.of(2026, 1, it) }
+        coroutineScope {
+            days.forEach { day ->
+                launch(Dispatchers.Default) {
+                    repository.update("seiko-skx007", backup = false) {
+                        it.copy(worn = (it.worn + day).sorted())
+                    }
+                }
+            }
+        }
+
+        assertEquals("every edit must survive in memory", days, repository.state.value.watches.single().watch!!.worn)
+
+        val reread = repository()
+        reread.load()
+        assertEquals("and on disk", days, reread.state.value.watches.single().watch!!.worn)
     }
 
     // ---- a full turn -----------------------------------------------------
