@@ -43,8 +43,15 @@ data class WatchRecord(
  *
  * [now] is injected so the backup tests can produce a known filename instead of
  * asserting against the second the test happened to run in.
+ *
+ * OPEN, and the three writing methods with it, for one reason: hard rule 6 says
+ * a failure must reach the UI with its message intact, and that behaviour is
+ * only testable if a write can be made to fail on demand. The alternatives were
+ * worse — chmod-ing a directory read-only is a no-op when the tests run as root,
+ * and an interface with one production implementation is indirection bought for
+ * nothing. There is no other subclass and none is expected outside the tests.
  */
-class WatchStore(
+open class WatchStore(
     val paths: SaatPaths,
     private val now: () -> LocalDateTime = LocalDateTime::now,
 ) {
@@ -56,7 +63,7 @@ class WatchStore(
      * failed. A malformed file becomes a record carrying its error rather than
      * vanishing from the list — never a crash, never silent (SPEC-ANDROID 3).
      */
-    fun loadCollection(): List<WatchRecord> {
+    open fun loadCollection(): List<WatchRecord> {
         val dir = paths.watchesDir
         if (!dir.isDirectory) return emptyList()
 
@@ -106,7 +113,7 @@ class WatchStore(
      * directory already in `watches/`, hidden ones included — a name collision
      * is a filesystem fact and does not care that the loader skips `_template`.
      */
-    fun create(watch: Watch): WatchRecord {
+    open fun create(watch: Watch): WatchRecord {
         val existing = paths.watchesDir.listFiles().orEmpty()
             .filter { it.isDirectory }
             .mapTo(mutableSetOf()) { it.name }
@@ -138,7 +145,7 @@ class WatchStore(
      * @throws IllegalArgumentException if the record failed to load; there is
      *   nothing to write and overwriting the file would destroy what is there.
      */
-    fun save(record: WatchRecord, backup: Boolean = true): WatchRecord {
+    open fun save(record: WatchRecord, backup: Boolean = true): WatchRecord {
         val watch = requireNotNull(record.watch) {
             "cannot save ${record.slug}: it did not load (${record.loadError})"
         }
@@ -182,7 +189,7 @@ class WatchStore(
      * a delete leaves the same trace in the same place every other destructive
      * edit does.
      */
-    fun delete(record: WatchRecord) {
+    open fun delete(record: WatchRecord) {
         backupWatchToml(record.slug, File(record.dir, WATCH_FILENAME))
 
         val destination = availableDeletedDir(record.slug)

@@ -8,15 +8,39 @@ import androidx.core.os.LocaleListCompat
 import io.github.sudomegas.saat.config.AppConfig
 import io.github.sudomegas.saat.config.ConfigStore
 import io.github.sudomegas.saat.config.ThemeMode
+import io.github.sudomegas.saat.storage.SaatPaths
+import io.github.sudomegas.saat.storage.WatchRepository
+import io.github.sudomegas.saat.storage.WatchStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class SaatApplication : Application() {
 
     lateinit var configStore: ConfigStore
         private set
 
+    /**
+     * The collection, read once here and shared by every screen from AM3 onward.
+     *
+     * Owned by the Application rather than by a ViewModel because the widget
+     * (AM8) and the app shortcuts (AM9) need the same collection without an
+     * Activity existing, and because re-reading the whole of `watches/` on every
+     * rotation would be work with no purpose.
+     */
+    lateinit var watchRepository: WatchRepository
+        private set
+
     /** Non-null when config.toml existed but could not be read (hard rule 6). */
     var startupError: String? = null
         private set
+
+    /**
+     * Lives as long as the process. SupervisorJob so that a failure in one
+     * launched job cannot cancel the scope and silently stop the others.
+     */
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate() {
         super.onCreate()
@@ -27,6 +51,17 @@ class SaatApplication : Application() {
 
         applyLanguage(loaded.config.language)
         applyNightMode(loaded.config.themeMode)
+
+        watchRepository = WatchRepository(WatchStore(SaatPaths(filesDir)))
+
+        // Started here and not awaited: onCreate runs before the first frame, so
+        // reading every watch.toml inline would put file I/O directly in front
+        // of the launch window. The repository does its reading on the I/O
+        // dispatcher and publishes when it is done; until then the collection is
+        // simply not loaded yet, which is a state the UI has to handle anyway
+        // because an empty collection and an unread one look different
+        // (SPEC-ANDROID 5.8).
+        applicationScope.launch { watchRepository.load() }
     }
 
     /**

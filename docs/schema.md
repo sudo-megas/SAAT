@@ -23,6 +23,7 @@ status = "Owned"
 storage = ""
 rating = 4
 tags = ["daily", "grail"]
+worn = [2024-01-01, 2024-01-02]   # flat array of dates, nothing else
 
 [movement]
 caliber = "6R15"
@@ -49,8 +50,6 @@ date = 2024-01-01
 kind = "Service"
 note = "Full service"
 
-worn = [2024-01-01, 2024-01-02]   # flat array of dates, nothing else
-
 [[timing]]          # one block per timing reading
 date = 2024-01-01
 deviation_sec = 3
@@ -64,6 +63,21 @@ notes = "A daily beater."
 `log`, `timing` and `straps` carry multiple fields per entry, so each is an
 array of tables (`[[log]]`). `worn` is nothing but dates (SPEC.md §4), so it's
 a plain TOML array — an array of tables for a single scalar would be noise.
+
+## Where `worn` goes in the file, and why it matters
+
+`worn` is a top-level key, so it must appear **before the first table header**,
+alongside `tags` and `notes`. This is a TOML rule, not a preference: after
+`[[log]]`, a bare key belongs to that log entry, so a `worn` written at the
+bottom of the file silently becomes `log[N].worn` and the wear history is gone
+with no error from either app.
+
+Both apps write it in the right place — each hoists top-level keys above the
+tables — so this only bites a file typed by hand. An earlier version of the
+example below showed `worn` beneath `[[log]]` and would have produced exactly
+that loss if copied literally; it was moved up when the Android storage layer
+was built. `watches/_template.toml` still shows it in the low position, but
+commented out, so it is safe until uncommented in place.
 
 ## Round-tripping
 
