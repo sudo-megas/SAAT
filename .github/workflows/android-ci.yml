@@ -51,12 +51,41 @@ jobs:
       # default and scans the repository, so the pinned wrapper is verified here.
       - uses: gradle/actions/setup-gradle@v6
 
+      # AM2's acceptance criterion is parity with the desktop app, so CI runs the
+      # DESKTOP'S OWN CODE against what Android writes rather than a second
+      # implementation of it that could quietly drift. That is affordable because
+      # saat/storage.py has no GUI dependency at all — it imports tomlkit and the
+      # standard library and nothing else — so one pip install buys the real
+      # loader. Pinned to the version requirements.txt pins, so both apps are
+      # measured against one parser.
+      #
+      # This step writes a fully-populated watch.toml with the desktop's real
+      # writer; DesktopParityTest reads it back and asserts every field arrives,
+      # and that the fixture embedded in the test sources still matches it.
+      - name: Write a desktop-authored fixture for the Android tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check tomlkit==0.15.1
+          python3 android/tools/parity_check.py emit android/app/build/parity-in
+
       # `check` runs, in order: buildSrc's own tests (the guardian's guardian,
       # finalized onto the jar Gradle must build anyway), the app's unit tests,
       # and verifyDebugManifestPolicy + verifyReleaseManifestPolicy. The release
       # manifest is verified without assembling a release APK.
       - name: Check
         run: ./gradlew --no-daemon check
+
+      # The other direction, and the one only the desktop can answer: load the
+      # TOML the Kotlin tests just wrote using saat.storage.load_collection and
+      # assert every field survived WITH ITS TYPE — a date that came back as a
+      # string fails here, and that is precisely the failure that would otherwise
+      # wait until AM10's ZIP bridge to be discovered. Then diff the field map
+      # the encoder produced against dataclasses.fields() on saat/models.py, so a
+      # schema field missing, renamed or misspelled on the Android side fails the
+      # build instead of surfacing as an empty row in AM4.
+      - name: Verify parity against the desktop's own loader
+        working-directory: ${{ github.workspace }}
+        run: python3 android/tools/parity_check.py verify android/app/build/reports/parity
 
       - name: Assemble debug APK
         run: ./gradlew --no-daemon assembleDebug
@@ -79,6 +108,19 @@ jobs:
         with:
           name: toml-eval-${{ github.sha }}
           path: android/app/build/reports/toml-eval/
+          if-no-files-found: warn
+
+      # What each implementation wrote for the other, kept whether the parity
+      # step passed or failed — when it fails, these two files and a diff are the
+      # whole investigation.
+      - name: Upload desktop parity artefacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: parity-${{ github.sha }}
+          path: |
+            android/app/build/reports/parity/
+            android/app/build/parity-in/
           if-no-files-found: warn
 
       - name: Upload test reports on failure

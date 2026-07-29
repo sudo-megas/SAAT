@@ -3,7 +3,7 @@ package io.github.sudomegas.saat
 import io.github.sudomegas.saat.config.AppConfig
 import io.github.sudomegas.saat.config.ConfigStore
 import io.github.sudomegas.saat.config.ThemeMode
-import io.github.sudomegas.saat.config.writeAtomically
+import io.github.sudomegas.saat.storage.writeAtomically
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

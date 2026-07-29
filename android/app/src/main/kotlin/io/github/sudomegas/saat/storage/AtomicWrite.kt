@@ -1,4 +1,4 @@
-package io.github.sudomegas.saat.config
+package io.github.sudomegas.saat.storage
 
 import java.io.File
 import java.io.FileOutputStream

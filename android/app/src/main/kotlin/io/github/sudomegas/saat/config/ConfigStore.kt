@@ -1,6 +1,7 @@
 package io.github.sudomegas.saat.config
 
 import dev.eav.tomlkt.Toml
+import io.github.sudomegas.saat.storage.writeAtomically
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
