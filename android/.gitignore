@@ -1,0 +1,31 @@
+# Android build output and local machine state.
+#
+# The repository root's .gitignore already covers `build/` at any depth, which
+# catches android/build/ and android/app/build/. Everything below is what it
+# does not cover. Kept here rather than added to the root file so the AM1 diff
+# stays inside /android.
+#
+# The two keystore lines are the load-bearing ones: AM11 has the owner
+# generating a release signing key locally, and losing control of it means
+# losing the ability to update the app for every existing user. They are in
+# place from the first commit, before any keystore exists.
+
+.gradle/
+.kotlin/
+local.properties
+
+# Signing material. Never committed, under any circumstances.
+*.keystore
+*.jks
+keystore.properties
+
+# IDE
+.idea/
+*.iml
+captures/
+
+# Build artefacts and native intermediates
+*.apk
+*.aab
+*.hprof
+.cxx/

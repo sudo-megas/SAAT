@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default Dark, from saat/resources/palettes/default-dark.toml. -->
+<resources>
+    <color name="plate">#FF1C1B19</color>
+    <color name="plate_high">#FF262421</color>
+    <color name="gilt">#FFC9A227</color>
+    <color name="ruby">#FFCF3931</color>
+</resources>

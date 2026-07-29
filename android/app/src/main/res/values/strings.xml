@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Every user-visible string lives here from the first commit. No literal ever
+  enters a composable — AM11 adds values-tr/ and a string sweep at that point
+  would be the expensive way to do it.
+
+  NAMING CONVENTION, and why it exists:
+
+    nav_*        bottom-navigation destination labels
+    screen_*     screen titles and placeholder body text
+    settings_*   labels and descriptions inside Settings
+    action_*     buttons and menu items
+    error_*      messages surfaced per hard rule 6
+    field_*      a watch attribute used as a FORM LABEL or table header
+    enum_<group>_*  one suggested value within a specific enum* list
+
+  The last two are the important pair. The desktop gets away with a flat
+  vocabulary because Qt translation contexts disambiguate — the same English
+  word can carry different Turkish translations in different contexts. Android
+  string resources are one flat namespace with no such mechanism, and several
+  terms genuinely appear in more than one place: "Power Reserve" is both a
+  movement field label and a complication value; "GMT", "None", "Other",
+  "Chronograph" and "Silicone" each appear in two or three separate enum lists.
+
+  Collapsing those into one key would produce wrong labels in Turkish, and the
+  damage would only become visible in AM11 when the sweep is already frozen.
+  Hence: field_power_reserve and enum_complication_power_reserve are always
+  distinct keys, even when the English happens to match.
+
+  See android/docs/ANDROID-STRINGS.md.
+-->
+<resources>
+    <string name="app_name">SAAT</string>
+
+    <string name="nav_grid">Grid</string>
+    <string name="nav_specs">Specs</string>
+    <string name="nav_calendar">Calendar</string>
+    <string name="nav_settings">Settings</string>
+
+    <string name="screen_grid_placeholder">Grid</string>
+    <string name="screen_specs_placeholder">Specs</string>
+    <string name="screen_calendar_placeholder">Calendar</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_dynamic_colour">Dynamic colour</string>
+    <string name="settings_dynamic_colour_summary">Derive the palette from your wallpaper</string>
+
+    <string name="error_config_unreadable">Could not read settings: %1$s</string>
+    <string name="error_config_unwritable">Could not save settings: %1$s</string>
+</resources>

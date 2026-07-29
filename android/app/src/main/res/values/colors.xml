@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only the values Compose cannot own: the pre-Compose window background, and
+  the adaptive-icon background layer.
+
+  The palette itself lives in ui/theme/SaatRoles.kt so that ThemeContrastTest
+  reads the exact constants the app paints with. PaletteXmlParityTest asserts
+  every hex below equals its Kotlin counterpart, because two copies of a colour
+  always eventually drift.
+
+  Values: Default Light, from saat/resources/palettes/default-light.toml.
+-->
+<resources>
+    <color name="plate">#FFFAF8F5</color>
+    <color name="plate_high">#FFFFFFFF</color>
+    <color name="gilt">#FF8A6A16</color>
+    <color name="ruby">#FFA82F24</color>
+</resources>
