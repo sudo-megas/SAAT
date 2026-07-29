@@ -1,17 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!--
+  THERE ARE NO <uses-permission> ENTRIES HERE, AND THERE NEVER WILL BE.
+
+  SPEC-ANDROID hard rule 2. Not INTERNET, not CAMERA, not storage. Camera
+  capture goes through ACTION_IMAGE_CAPTURE, file export and import through the
+  Storage Access Framework, photographs in through the system Photo Picker —
+  none of which need a permission. This is the strongest privacy claim an
+  Android app can make and, unlike a privacy policy, anyone can verify it by
+  running `aapt dump permissions` on the APK.
+
+  It is enforced rather than remembered: verifyDebugManifestPolicy and
+  verifyReleaseManifestPolicy parse the MERGED manifest — after the manifest
+  merger has run, so a dependency cannot smuggle one in — and fail the build if
+  any permission appears. Both are wired into `check`, so it is verified on
+  every push including for the release variant, which is where an injected
+  permission would actually ship.
+
+  If a future dependency adds one, the build breaks. That is the desired
+  behaviour. Remove the dependency or override it with tools:node="remove";
+  never relax the check.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      androidx.core injects a self-defined signature permission,
+      <applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION, into every
+      merged manifest. It is not a platform capability — it grants access to
+      nothing, and exists so that ContextCompat.registerReceiver can emulate a
+      non-exported dynamic receiver on API levels below 33, where the platform
+      has no RECEIVER_NOT_EXPORTED flag.
+
+      It is removed rather than tolerated, for one reason: rule 2's value is
+      that anyone can verify it with `aapt dump permissions` on the released
+      APK. A permission that needs explaining is a permission that weakens the
+      claim, and "it is harmless, honestly" is not a thing a stranger can check.
+
+      This is safe only while the app registers no dynamic receiver with
+      RECEIVER_NOT_EXPORTED. It registers none today. If one is ever added — the
+      AM8 widget is the plausible place — this removal must be reconsidered at
+      that moment, because the receiver would fail at runtime on API 26-32
+      without it. AM8's widget receivers are manifest-declared, not dynamic, so
+      the expectation is that this stays.
+
+      Found by the guardian below on its first run, not by reading the manifest.
+    -->
+    <permission
+        android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        tools:node="remove" />
+    <uses-permission
+        android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        tools:node="remove" />
 
     <application
         android:name=".SaatApplication"
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SAAT">
 
+        <!--
+          No android:configChanges, deliberately. Suppressing recreation is how
+          a rotation bug gets "fixed" without being fixed, and AM1 guarantees
+          state survives rotation — a guarantee that is only real if the
+          Activity is genuinely recreated. The manifest guardian fails the build
+          if configChanges ever appears.
+        -->
         <activity
             android:name=".MainActivity"
+            android:enableOnBackInvokedCallback="true"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.SAAT">

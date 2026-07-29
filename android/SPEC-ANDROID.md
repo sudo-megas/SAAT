@@ -72,29 +72,71 @@ Non-negotiable. Do not improve past them.
 
 ### 2.1 Approved dependencies
 
-Kotlin stdlib and coroutines; AndroidX core, activity, lifecycle, navigation;
-Compose BOM with Material 3; Coil for image loading (decoding and caching
-collection photos is genuinely hard to do well by hand); one TOML library — `ktoml`
-or `tomlkt`, chosen in AM2 with the reasons recorded; Glance for the widget;
-JUnit and Robolectric for tests. That is the whole list.
+Kotlin stdlib and coroutines; AndroidX core, activity, lifecycle, navigation,
+**appcompat**; Compose BOM with Material 3; Coil for image loading (decoding and
+caching collection photos is genuinely hard to do well by hand); **one TOML
+library — `tomlkt`, chosen in AM1** with the measurements recorded in that
+milestone's commit message; Glance for the widget; JUnit and Robolectric for
+tests. That is the whole list.
+
+Two entries changed during AM1 and the reasons belong here rather than only in a
+commit message:
+
+- **`androidx.appcompat` was added.** Hard rule 7 below says the app never reads
+  the system locale and defaults to English. On Android that is not a default you
+  inherit — resource resolution follows the system locale the moment `values-tr/`
+  exists — so the English default must be actively asserted at every process
+  start. The only supported mechanism across the whole `minSdk 26` range is
+  `AppCompatDelegate.setApplicationLocales`, which requires this library, an
+  `AppCompatActivity`, and a `Theme.AppCompat`-descended XML theme hosting the
+  Compose theme. The framework's own `LocaleManager` is API 33+ and would leave
+  26–32 unserved. Taken in AM1 rather than AM11 because the Activity base class
+  and theme parent are expensive to change once every screen exists.
+  `kotlinx-serialization-core` arrives transitively with the TOML library and the
+  Navigation type-safe routes; it is a serialization runtime, not an SDK.
+
+- **The TOML library moved from AM2 to AM1.** Choosing it while the only consumer
+  is `config.toml` means that if it turns out to be wrong, switching costs one
+  file rather than the whole storage layer — and AM2 then inherits a library
+  already proven against a watch-shaped fixture.
 
 ---
 
 ## 3. Storage
 
-App-private internal storage (`filesDir`), laid out to mirror the desktop
-application directory:
+App-private internal storage (`filesDir`):
 
 ```
 files/
-├── watches/                   THE DATA — ships empty
+├── watches/                   THE RECORDS — ships empty
 │   └── <slug>/
-│       ├── watch.toml
-│       └── images/
+│       └── watch.toml
+├── media/                     THE PHOTOGRAPHS — ships empty
+│   └── <slug>/
+│       └── <filenames as listed in that watch's `images` key>
 ├── config.toml                theme, language, last view, sort choices
 └── backups/                   timestamped copies, pruned to the newest 20
-    └── deleted/               a removed watch's folder moves here first
+    └── deleted/               a removed watch's folders move here first
 ```
+
+**Why photographs are not inside `watches/<slug>/images/`, unlike the desktop.**
+Android's Auto Backup rules match `path` as a literal prefix and support no
+wildcards whatsoever. With photographs nested inside each watch's folder, §3.1's
+rule — back up the records, never the photographs — cannot be written down:
+`<exclude path="watches/*/images"/>` is not valid syntax, and enumerating one
+exclude per slug is impossible because slugs are created at runtime. Separating
+the two trees is what makes the rule expressible, as two static `<include>`
+lines that cannot rot as the schema changes.
+
+This changes only the phone's internal layout. **The ZIP contract in §3.2 is
+unchanged**: export re-roots `media/<slug>/*` back into `watches/<slug>/images/*`
+so the archive is exactly the desktop's shape, and import splits them apart
+again. Desktop compatibility lives in the archive, not in `filesDir`.
+
+Two consequences to carry forward: deleting a watch moves **both**
+`watches/<slug>/` and `media/<slug>/` into `backups/deleted/`, and this works
+only because a watch's `images` key holds bare filenames rather than paths —
+so it must continue to.
 
 `cacheDir` holds thumbnails and Coil's cache — disposable, never backed up, never
 exported.
@@ -118,11 +160,35 @@ Rules for the storage layer, identical to desktop where they overlap:
 
 ### 3.1 Cloud backup
 
-Android Auto Backup is **allowed** — pragmatism won, by the owner's decision — with
-explicit rules: include `watches/**/watch.toml` and `config.toml`, **exclude every
-`images/` directory**. The backup quota is roughly 25 MB; the records must always
-fit, so photos are excluded by rule rather than truncated by luck. Records are
-irreplaceable; photos are re-takeable. The ZIP export is the photo safety net.
+Android Auto Backup is **allowed** — pragmatism won, by the owner's decision.
+Records are backed up; photographs never are. The quota is roughly 25 MB, the
+records must always fit, and photographs would exhaust it — so they are excluded
+by rule rather than truncated by luck. Records are irreplaceable; photographs are
+re-takeable, and the ZIP export is their safety net.
+
+The rule is **include-only**, which is what makes it safe:
+
+```xml
+<include domain="file" path="watches"/>
+<include domain="file" path="config.toml"/>
+```
+
+Presence of any `<include>` makes everything unlisted excluded, so `media/`,
+`backups/` and `cacheDir` are left out by omission rather than by a rule someone
+must remember to update. There are no wildcards to get wrong and nothing to keep
+in sync with the schema.
+
+> An earlier draft of this section specified "include `watches/**/watch.toml`,
+> exclude every `images/` directory". That is not expressible — the backup rules
+> format has no wildcard support at all. §3's separate `media/` tree exists to
+> make this rule writable; see the note there.
+
+On Android 12+ the equivalent `data_extraction_rules.xml` splits backup from
+device transfer, and the two are deliberately **not** the same. `<cloud-backup>`
+carries records only, as above. `<device-transfer>` — phone to phone, during
+setup — has no quota and never leaves the two devices, so it carries the
+photographs too. Moving to a new phone brings the whole collection; a cloud
+restore brings the records and leaves the photographs to the ZIP.
 
 ### 3.2 The ZIP contract
 

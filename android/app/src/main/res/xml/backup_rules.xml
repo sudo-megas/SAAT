@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android Auto Backup, API 26-30 (android:fullBackupContent).
+
+  Records are backed up. Photographs never are. That split is the owner's
+  decision, recorded in SPEC-ANDROID 3.1, and the quota is why: Auto Backup
+  gives roughly 25 MB, records are irreplaceable, and photographs are
+  re-takeable and would blow past it. The ZIP export (AM10) is the photo safety
+  net.
+
+  THE RULE THAT SHAPED THE STORAGE LAYOUT. The `path` attribute matches a
+  literal path prefix — the format supports no wildcards at all. With photos
+  living at watches/<slug>/images/ as originally specified, excluding them would
+  need <exclude path="watches/*/images"/>, which cannot be written, or one
+  exclude per slug, which cannot be enumerated because slugs are created at
+  runtime. The rule as SPEC-ANDROID 3.1 first stated it was not expressible.
+
+  Moving photographs to a top-level media/ tree makes it expressible as two
+  static lines. Presence of any <include> makes this include-only, so media/,
+  backups/ and cacheDir are excluded by omission rather than by a rule that
+  could rot. There is nothing here to keep in sync with the schema.
+-->
+<full-backup-content>
+    <include domain="file" path="watches" />
+    <include domain="file" path="config.toml" />
+</full-backup-content>
