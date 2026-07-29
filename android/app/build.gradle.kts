@@ -46,6 +46,32 @@ android {
 }
 
 /**
+ * The desktop parity artefacts are a real output of the unit tests, and Gradle
+ * has to be told so.
+ *
+ * `DesktopParityTest` writes `build/reports/parity/`, and CI then hands those
+ * files to the desktop's own loader (`android/tools/parity_check.py verify`).
+ * With caching on — it is, in gradle.properties — a rerun with no test-source
+ * change restores the test task FROM-CACHE and re-executes nothing, so an
+ * undeclared directory would simply not exist on a fresh checkout and the verify
+ * step would fail on the second push rather than on a real problem.
+ *
+ * The fixture the desktop writes for us is declared as an input for the mirror
+ * reason: regenerating it must invalidate the tests that read it. A file tree
+ * over a directory that does not exist is empty rather than an error, which is
+ * what makes this safe to declare unconditionally.
+ */
+tasks.withType<Test>().configureEach {
+    outputs.dir(layout.buildDirectory.dir("reports/parity"))
+        .withPropertyName("desktopParityArtefacts")
+
+    inputs.files(fileTree(layout.buildDirectory.dir("parity-in")))
+        .withPropertyName("desktopWrittenFixture")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .optional()
+}
+
+/**
  * The guardian of SPEC-ANDROID hard rule 2, registered once per variant.
  *
  * This is a Gradle task rather than a unit test for a structural reason:
