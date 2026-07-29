@@ -35,19 +35,21 @@ jobs:
         working-directory: android
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ubuntu-24.04 already ships a JDK and the Android SDK, so there is no
       # setup-android step and no licence dance. Pinned rather than -latest,
       # matching the desktop workflow's stated discipline.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: android
+      # No build-root-directory input: it is not a valid input for this action
+      # and was silently ignored. `defaults.run.working-directory` above is what
+      # actually puts Gradle in android/. Wrapper checksum validation is on by
+      # default and scans the repository, so the pinned wrapper is verified here.
+      - uses: gradle/actions/setup-gradle@v6
 
       # `check` runs, in order: buildSrc's own tests (the guardian's guardian,
       # finalized onto the jar Gradle must build anyway), the app's unit tests,
@@ -62,7 +64,7 @@ jobs:
       # if-no-files-found: error so a silent empty upload is impossible — an
       # artifact that exists but contains nothing is worse than a failed build.
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: saat-debug-apk-${{ github.sha }}
           path: android/app/build/outputs/apk/debug/*.apk
@@ -73,7 +75,7 @@ jobs:
       # cross-platform compatibility.
       - name: Upload TOML evaluation reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: toml-eval-${{ github.sha }}
           path: android/app/build/reports/toml-eval/
@@ -81,7 +83,7 @@ jobs:
 
       - name: Upload test reports on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports-${{ github.sha }}
           path: |
