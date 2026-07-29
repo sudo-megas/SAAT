@@ -31,6 +31,26 @@ class PickerConfigTests(ConfigTestCase):
         self.assertEqual(Config(config.path).picker_mode(), "weighted")
 
 
+class MalformedConfigTests(ConfigTestCase):
+    def test_a_utf8_bom_does_not_reset_the_config(self) -> None:
+        """A config hand-edited in a Windows editor (Notepad, some PowerShell
+        redirects) can gain a UTF-8 BOM. Read as utf-8-sig, a valid file with a
+        BOM parses instead of silently resetting to defaults. Uses the app's
+        own serialisation, so only the BOM is under test."""
+        config = self._config()
+        config.set_picker_mode("weighted")
+        config.save()
+        config.path.write_bytes(b"\xef\xbb\xbf" + config.path.read_bytes())
+        self.assertEqual(Config(config.path).picker_mode(), "weighted")
+
+    def test_genuinely_malformed_config_still_falls_back_to_defaults(self) -> None:
+        """BOM tolerance must not swallow real corruption -- an invalid file
+        still reads as empty and the app runs on defaults."""
+        path = self.tmp / "config.toml"
+        path.write_text("this is not = valid = toml [[[", encoding="utf-8")
+        self.assertIsNone(Config(path).picker_mode())
+
+
 class LanguageConfigTests(ConfigTestCase):
     """Milestone 21: absent means English, never "follow system" -- the app
     never reads QLocale.system()/LANG/LC_ALL to choose a UI language, so an

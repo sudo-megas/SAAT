@@ -49,6 +49,16 @@ DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 
+; Upgrade over a running instance: paths.py's per-collection single-instance
+; guard keeps the previous version alive, which would leave SAAT.exe locked and
+; fail the file replacement. Let Restart Manager close the running instance for
+; the duration of the upgrade, scoped to SAAT.exe so nothing unrelated is
+; touched, and do not relaunch it afterwards -- a silent upgrade must not pop a
+; window. This changes nothing about the data-safety guarantee below.
+CloseApplications=yes
+CloseApplicationsFilter={#AppExeName}
+RestartApplications=no
+
 ; Registers the uninstaller in Apps & Features with a real icon and
 ; publisher rather than an anonymous entry.
 UninstallDisplayName={#AppName} {#AppVersion}
