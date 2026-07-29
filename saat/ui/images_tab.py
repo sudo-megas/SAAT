@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from saat.image_import import import_image, remove_image
-from saat.storage import WatchRecord
+from saat.storage import WatchRecord, safe_image_filename
 from saat.ui import icons
 from saat.ui.images import IMAGE_EXTENSIONS, cropped_pixmap, list_images
 
@@ -106,10 +106,13 @@ class ImagesTab(QWidget):
             self.changed.emit()
 
     def _unique_filename(self, name: str) -> str:
-        """Case-insensitively, for the same reason storage.unique_slug is:
-        dropping main.JPG and Main.jpg into one watch's images/ is two
-        files on ext4 and one on NTFS, and the second would silently
-        replace the first."""
+        """Sanitise the source's own filename to something writable on every
+        platform (storage.safe_image_filename -- reserved device names, length,
+        forbidden characters), then disambiguate case-insensitively, for the
+        same reason storage.unique_slug is: dropping main.JPG and Main.jpg into
+        one watch's images/ is two files on ext4 and one on NTFS, and the
+        second would silently replace the first."""
+        name = safe_image_filename(name)
         existing = {item.filename.casefold() for item in self._pending}
         if name.casefold() not in existing:
             return name

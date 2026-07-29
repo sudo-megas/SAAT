@@ -15,7 +15,7 @@ from saat.image_import import thumbnail_path
 from saat.models import Watch
 from saat.storage import create_watch, load_collection, save_watch
 from saat.ui.images import list_images
-from saat.ui.images_tab import ImagesTab
+from saat.ui.images_tab import ImagesTab, _PendingImage
 from saat.ui.watch_form import WatchForm
 
 _app = QApplication.instance() or QApplication([])
@@ -95,6 +95,37 @@ class ImportAndThumbnailTests(UITestCase):
 
         self.assertFalse((images_dir / "gone.jpg").exists())
         self.assertFalse(thumbnail_path(images_dir, "gone.jpg").exists())
+
+    def test_reserved_or_unsafe_source_name_is_sanitised_on_import(self) -> None:
+        """A dropped file whose own name collides with a Windows device name
+        must be stored under a safe name -- on disk, in its thumbnail and in
+        watch.images -- so the collection stays loadable on every platform, the
+        same guarantee slugify gives folders. The source file keeps a benign
+        name (a real 'con.jpg' is not portably creatable); _unique_filename is
+        where the sanitiser runs."""
+        record = create_watch(self.watches_dir, self.backups_dir, Watch(brand="Seiko", model="SARB033"))
+        images_dir = record.path / "images"
+        source = self._make_source_image("benign-source.jpg")
+
+        tab = ImagesTab(record=None)
+        safe_name = tab._unique_filename("con.jpg")
+        self.assertEqual(safe_name, "con-image.jpg")
+        tab._pending.append(_PendingImage(filename=safe_name, display_path=source, source_path=source))
+        result = tab.commit(images_dir)
+
+        self.assertEqual(result, ["con-image.jpg"])
+        self.assertTrue((images_dir / "con-image.jpg").exists())
+        self.assertTrue(thumbnail_path(images_dir, "con-image.jpg").exists())
+
+        # The safe name round-trips through watch.toml and list_images -- the
+        # stored name must equal the on-disk basename or the image drops out.
+        save_watch(
+            self.backups_dir,
+            dataclasses.replace(record, watch=dataclasses.replace(record.watch, images=result)),
+        )
+        [reloaded] = load_collection(self.watches_dir)
+        self.assertEqual(reloaded.watch.images, ["con-image.jpg"])
+        self.assertEqual([p.name for p in list_images(reloaded)], ["con-image.jpg"])
 
 
 class ReorderAndPrimaryTests(UITestCase):
