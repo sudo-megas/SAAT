@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -62,11 +64,28 @@ class WatchRepository(
     val state: StateFlow<CollectionState> = _state.asStateFlow()
 
     /**
+     * Serialises every read-modify-write of the collection.
+     *
+     * Each mutation below reads the current state, transforms it and writes both
+     * memory and disk, with a suspension point in the middle. Without this lock
+     * two of them running at once would both read the same starting record and
+     * the second would overwrite the first — a lost edit, on disk, silently.
+     *
+     * That is not hypothetical after AM8: "wore this today" exists on the detail
+     * page, on the home-screen widget and on an app shortcut, all three driving
+     * the same collection, and a widget tap while the app is open is an ordinary
+     * thing to do. A single mutex is enough because the whole collection is one
+     * in-memory object; there is nothing to gain from finer granularity and a
+     * per-slug lock would still not protect the shared record list.
+     */
+    private val writeLock = Mutex()
+
+    /**
      * Read the whole collection. Called once at process start, off the main
      * thread; reading a few hundred small files is fast but it is still I/O and
      * it still happens while the launch window is on screen.
      */
-    suspend fun load() {
+    suspend fun load() = writeLock.withLock {
         _state.update { it.copy(isLoading = true) }
         val records = withContext(io) { store.loadCollection() }
         _state.value = CollectionState(records = records, isLoaded = true)
@@ -80,13 +99,15 @@ class WatchRepository(
      *
      * Returns null when the write failed; the error is in [CollectionState.writeError].
      */
-    suspend fun create(watch: Watch): WatchRecord? = try {
-        val created = withContext(io) { store.create(watch) }
-        _state.update { it.copy(records = (it.records + created).sortedBy(WatchRecord::slug)) }
-        created
-    } catch (e: Exception) {
-        _state.update { it.copy(writeError = describe("could not create", watch.brand, e)) }
-        null
+    suspend fun create(watch: Watch): WatchRecord? = writeLock.withLock {
+        try {
+            val created = withContext(io) { store.create(watch) }
+            _state.update { it.copy(records = (it.records + created).sortedBy(WatchRecord::slug)) }
+            created
+        } catch (e: Exception) {
+            _state.update { it.copy(writeError = describe("could not create", watch.brand, e)) }
+            null
+        }
     }
 
     /**
@@ -103,7 +124,7 @@ class WatchRepository(
         slug: String,
         backup: Boolean = true,
         transform: (Watch) -> Watch,
-    ): WatchRecord? {
+    ): WatchRecord? = writeLock.withLock {
         val current = record(slug) ?: return null
         val watch = current.watch ?: return null
 
@@ -112,7 +133,7 @@ class WatchRepository(
 
         replace(edited)
 
-        return try {
+        try {
             val saved = withContext(io) { store.save(edited, backup) }
             replace(saved)
             saved
@@ -123,12 +144,12 @@ class WatchRepository(
     }
 
     /** Move a watch into `backups/deleted/`. See [WatchStore.delete]. */
-    suspend fun delete(slug: String): Boolean {
+    suspend fun delete(slug: String): Boolean = writeLock.withLock {
         val record = record(slug) ?: return false
 
         _state.update { it.copy(records = it.records.filterNot { r -> r.slug == slug }) }
 
-        return try {
+        try {
             withContext(io) { store.delete(record) }
             true
         } catch (e: Exception) {
