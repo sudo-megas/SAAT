@@ -1,6 +1,8 @@
 package io.github.sudomegas.saat
 
 import android.app.Application
+import android.app.UiModeManager
+import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import io.github.sudomegas.saat.config.AppConfig
@@ -44,12 +46,23 @@ class SaatApplication : Application() {
     }
 
     /**
-     * Keeps the XML layer in step with the Compose theme.
+     * Keeps the XML layer in step with the Compose theme — in both of the two
+     * places that matter, which are not the same place.
      *
-     * `Theme.AppCompat.DayNight` resolves `values-night/` from AppCompatDelegate's
-     * night mode, not from the Compose theme. If the two disagree,
-     * `android:windowBackground` resolves light while Compose paints dark, and
-     * the cold-start window flashes white before the first frame.
+     * `AppCompatDelegate` drives resource resolution inside the process, so
+     * `Theme.AppCompat.DayNight` picks the right `values-night/`. That is
+     * necessary but not sufficient: the system draws the launch window BEFORE
+     * this process exists, resolving `android:windowBackground` against the
+     * DEVICE's night mode, which knows nothing about a preference stored in
+     * config.toml. Measured on a real phone: with the app set to Dark on a
+     * light-mode device, cold start showed the light plate for about 570 ms
+     * before Compose painted dark.
+     *
+     * `UiModeManager.setApplicationNightMode` exists for exactly this. It tells
+     * the system the app's own night mode, so the launch window is resolved
+     * correctly before a line of app code runs. API 31+, hence the pair: the
+     * delegate call is what works on 26-30 and still drives resources
+     * everywhere.
      */
     fun applyNightMode(mode: ThemeMode) {
         AppCompatDelegate.setDefaultNightMode(
@@ -59,5 +72,15 @@ class SaatApplication : Application() {
                 ThemeMode.DARK -> AppCompatDelegate.MODE_NIGHT_YES
             }
         )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(UiModeManager::class.java)?.setApplicationNightMode(
+                when (mode) {
+                    ThemeMode.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
+                    ThemeMode.LIGHT -> UiModeManager.MODE_NIGHT_NO
+                    ThemeMode.DARK -> UiModeManager.MODE_NIGHT_YES
+                }
+            )
+        }
     }
 }
