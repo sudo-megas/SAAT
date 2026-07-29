@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (android:dataExtractionRules). Same policy as backup_rules.xml,
+  but the platform splits it into two destinations here — and the split is worth
+  taking advantage of.
+
+  <cloud-backup> is the quota-limited one: records only, exactly as before.
+
+  <device-transfer> is phone-to-phone setup, which has NO quota and never leaves
+  the two devices. Photographs can safely travel that way, so they do. Moving to
+  a new phone carries the whole collection across; a cloud restore carries the
+  records and leaves the photographs to the ZIP export.
+
+  That distinction only became available because photographs live in their own
+  top-level tree — see backup_rules.xml for why they had to.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="watches" />
+        <include domain="file" path="config.toml" />
+    </cloud-backup>
+
+    <device-transfer>
+        <include domain="file" path="watches" />
+        <include domain="file" path="media" />
+        <include domain="file" path="config.toml" />
+    </device-transfer>
+</data-extraction-rules>

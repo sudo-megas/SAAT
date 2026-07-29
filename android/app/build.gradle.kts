@@ -1,3 +1,6 @@
+import com.android.build.api.artifact.SingleArtifact
+import io.github.sudomegas.saat.buildlogic.VerifyManifestPolicyTask
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -39,6 +42,47 @@ android {
         unitTests {
             isReturnDefaultValues = true
         }
+    }
+}
+
+/**
+ * The guardian of SPEC-ANDROID hard rule 2, registered once per variant.
+ *
+ * This is a Gradle task rather than a unit test for a structural reason:
+ * `testBuildType` defaults to debug, and AGP 9 makes it explicit — the release
+ * unit-test variant is not even created. A Robolectric test could therefore
+ * only ever see the debug manifest, forever, while release is exactly where a
+ * dependency-injected permission would actually ship. Such a guardian could
+ * stay green for twelve milestones while the released APK differed.
+ *
+ * `onVariants` with no selector fires for debug AND release, and reading
+ * MERGED_MANIFEST carries the task dependency automatically — so `./gradlew
+ * check` verifies the release manifest without assembling a release APK.
+ */
+androidComponents {
+    onVariants { variant ->
+        val capitalised = variant.name.replaceFirstChar { it.uppercase() }
+        val verify = tasks.register<VerifyManifestPolicyTask>(
+            "verify${capitalised}ManifestPolicy"
+        ) {
+            group = "verification"
+            description = "Asserts the merged ${variant.name} manifest declares no permissions."
+
+            // A read, not a transform: this observes the merger's output and
+            // can never alter it. The only way it affects the build is by
+            // failing.
+            mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
+            variantName.set(variant.name)
+            mergerReport.set(
+                layout.buildDirectory.file(
+                    "outputs/logs/manifest-merger-${variant.name}-report.txt"
+                )
+            )
+            report.set(
+                layout.buildDirectory.file("reports/manifest-policy/${variant.name}.txt")
+            )
+        }
+        tasks.named("check") { dependsOn(verify) }
     }
 }
 
