@@ -15,8 +15,10 @@ android {
         applicationId = "io.github.sudomegas.saat"
         minSdk = 26
         targetSdk = 37
+        // versionCode is bumped on every TAGGED release and AM2 is not one —
+        // SPEC-ANDROID 8. The name follows the milestone table.
         versionCode = 1
-        versionName = "0.1"
+        versionName = "0.2"
     }
 
     buildTypes {
