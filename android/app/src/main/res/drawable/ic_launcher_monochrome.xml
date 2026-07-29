@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The themed-icon layer for Android 13+.
+
+  This is NOT the foreground with its colours swapped. The system renders this
+  layer as a single-tint alpha mask, so the dial face MUST be omitted entirely:
+  including it would flatten the ring, markers, hands and crown into one solid
+  tinted disc with no watch visible in it. What remains is the same geometry
+  drawn as an outline — which is why this is authored artwork rather than an
+  export setting.
+
+  Colour is irrelevant beyond its alpha; opaque white is the convention.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82.603,51.216 H85.135 A0.759,0.759 0 0 1 85.894,51.975 V56.025 A0.759,0.759 0 0 1 85.135,56.784 H82.603 A0.759,0.759 0 0 1 81.844,56.025 V51.975 A0.759,0.759 0 0 1 82.603,51.216 Z" />
+
+    <!-- Ring only. No fill — see the note above. -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.025"
+        android:pathData="M26.663,54 a27.338,27.338 0 1,0 54.675,0 a27.338,27.338 0 1,0 -54.675,0 Z" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52.988,27.675 H55.013 A0.506,0.506 0 0 1 55.519,28.181 V33.244 A0.506,0.506 0 0 1 55.013,33.75 H52.988 A0.506,0.506 0 0 1 52.481,33.244 V28.181 A0.506,0.506 0 0 1 52.988,27.675 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52.988,74.25 H55.013 A0.506,0.506 0 0 1 55.519,74.756 V79.819 A0.506,0.506 0 0 1 55.013,80.325 H52.988 A0.506,0.506 0 0 1 52.481,79.819 V74.756 A0.506,0.506 0 0 1 52.988,74.25 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M74.756,52.481 H79.819 A0.506,0.506 0 0 1 80.325,52.988 V55.013 A0.506,0.506 0 0 1 79.819,55.519 H74.756 A0.506,0.506 0 0 1 74.25,55.013 V52.988 A0.506,0.506 0 0 1 74.756,52.481 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28.181,52.481 H33.244 A0.506,0.506 0 0 1 33.75,52.988 V55.013 A0.506,0.506 0 0 1 33.244,55.519 H28.181 A0.506,0.506 0 0 1 27.675,55.013 V52.988 A0.506,0.506 0 0 1 28.181,52.481 Z" />
+
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.038"
+        android:strokeLineCap="round"
+        android:pathData="M54,54 L71.466,43.875" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.038"
+        android:strokeLineCap="round"
+        android:pathData="M54,54 L42.609,45.9" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M51.722,54 a2.278,2.278 0 1,0 4.556,0 a2.278,2.278 0 1,0 -4.556,0 Z" />
+
+</vector>

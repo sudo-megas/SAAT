@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The desktop's dark plate (#1C1B19, default-dark's `plate`), so the mark reads
+  as gilt line-work on the same surface the app itself paints. Deliberately a
+  fixed colour rather than @color/plate: the launcher renders this icon outside
+  the app's own theme, so it must not follow the device's light/dark setting.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1C1B19"
+        android:pathData="M0,0 H108 V108 H0 Z" />
+</vector>
