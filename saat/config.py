@@ -19,7 +19,13 @@ class Config:
         if not self.path.exists():
             return tomlkit.document()
         try:
-            return tomlkit.parse(self.path.read_text(encoding="utf-8"))
+            # utf-8-sig, not utf-8: a config hand-edited in a Windows editor
+            # (Notepad, some PowerShell redirects) can gain a UTF-8 BOM, which
+            # tomlkit rejects. Reading as -sig strips a leading BOM if present
+            # and is a no-op otherwise, so a valid file with a BOM parses
+            # instead of silently resetting to defaults. Genuine corruption
+            # still falls through to the warning below.
+            return tomlkit.parse(self.path.read_text(encoding="utf-8-sig"))
         except Exception as exc:
             print(f"warning: config.toml is malformed, using defaults: {exc}", file=sys.stderr)
             return tomlkit.document()

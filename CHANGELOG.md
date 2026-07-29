@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.1] - 2026-07-29
+
+### Fixed
+
+- Imported image filenames are now sanitised the same way watch folder names
+  already were: Windows reserved device names (`con`, `nul`, `lpt1`, …) are
+  suffixed, forbidden characters are removed, and over-long names are capped —
+  while the extension and the recognisable parts of the name are kept. A photo
+  dropped in as `nul.jpg` previously landed under a name Explorer could not
+  open; it is now stored safely and stays loadable on every platform.
+- A `config.toml` carrying a UTF-8 byte-order mark — as some Windows editors
+  add — is read correctly instead of being treated as malformed and silently
+  reset to defaults. Genuinely corrupt files still fall back to defaults.
+
+### Changed
+
+- The Windows installer closes a running SAAT before an upgrade, via Restart
+  Manager, so upgrading while the app is open no longer fails on a locked
+  `SAAT.exe`. It is not relaunched afterwards.
+
+### Notes
+
+- These three fixes came out of the first real end-to-end run of the v2.1
+  Windows installer on Windows 11 — the verification `docs/release-notes/2.1.md`
+  said was still outstanding. All six items of that manual checklist passed;
+  these are the robustness gaps found alongside them.
+
 ## [2.1] - 2026-07-29
 
 ### Added

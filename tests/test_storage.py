@@ -13,6 +13,7 @@ from saat.storage import (
     create_watch,
     delete_watch,
     load_collection,
+    safe_image_filename,
     save_watch,
     slugify,
     unique_slug,
@@ -84,6 +85,45 @@ class SlugTests(unittest.TestCase):
         finally:
             QLocale.setDefault(original_default)
         self.assertEqual(len(set(results.values())), 1, results)
+
+
+class SafeImageFilenameTests(unittest.TestCase):
+    """The image-filename counterpart of SlugTests: a dropped photo's own
+    name has to survive onto disk, into watch.images and into its thumbnail as
+    the same string, safe on every filesystem, without being mangled beyond
+    recognition the way a brand/model slug is."""
+
+    def test_ordinary_name_is_kept_unchanged(self) -> None:
+        self.assertEqual(safe_image_filename("My Photo (2).png"), "My Photo (2).png")
+
+    def test_non_ascii_is_preserved(self) -> None:
+        self.assertEqual(safe_image_filename("café.jpg"), "café.jpg")
+
+    def test_reserved_device_name_is_suffixed_and_extension_kept(self) -> None:
+        self.assertEqual(safe_image_filename("con.jpg"), "con-image.jpg")
+        self.assertEqual(safe_image_filename("lpt1.jpeg"), "lpt1-image.jpeg")
+        # A reserved segment can't be left bare even behind a second extension.
+        self.assertEqual(safe_image_filename("nul.tar.png"), "nul-image.tar.png")
+
+    def test_reserved_match_is_case_insensitive_but_case_is_preserved(self) -> None:
+        self.assertEqual(safe_image_filename("NUL.PNG"), "NUL-image.PNG")
+
+    def test_forbidden_characters_are_stripped(self) -> None:
+        # A ':' mid-name must not be read as a drive/data-stream separator.
+        self.assertEqual(safe_image_filename('a<b>c:d.jpg'), "abcd.jpg")
+
+    def test_trailing_dot_or_space_is_stripped_from_stem(self) -> None:
+        self.assertEqual(safe_image_filename("photo .jpg"), "photo.jpg")
+        self.assertEqual(safe_image_filename("photo..jpg"), "photo.jpg")
+
+    def test_overlong_stem_is_clamped_but_keeps_extension(self) -> None:
+        out = safe_image_filename("a" * 300 + ".png")
+        self.assertTrue(out.endswith(".png"))
+        self.assertLessEqual(len(out[: -len(".png")]), 80)
+
+    def test_name_that_reduces_to_nothing_falls_back_to_image(self) -> None:
+        self.assertEqual(safe_image_filename("???.png"), "image.png")
+        self.assertEqual(safe_image_filename("   .jpg"), "image.jpg")
 
 
 class RoundTripTests(StorageTestCase):

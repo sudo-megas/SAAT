@@ -25,6 +25,13 @@ BACKUP_KEEP = 20
 
 _SLUG_INVALID = re.compile(r"[^a-z0-9]+")
 
+# The nine characters Windows forbids anywhere in a filename, plus the ASCII
+# control range. Unlike a folder slug (reduced all the way to [a-z0-9-]), an
+# image keeps the name the owner recognises -- case, spaces and non-ASCII
+# letters are all writable on every filesystem this app runs on -- so only the
+# genuinely-unwritable characters are stripped. See safe_image_filename().
+_FILENAME_FORBIDDEN = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
 # Windows refuses these as a whole filename component, on every drive, with
 # or without an extension: they are DOS device names and predate long
 # filenames. A slug is a directory name, so `con` or `lpt1` would be an
@@ -117,6 +124,41 @@ def unique_slug(brand: str, model: str, existing: set[str]) -> str:
     while f"{base}-{n}".casefold() in taken:
         n += 1
     return f"{base}-{n}"
+
+
+def safe_image_filename(name: str) -> str:
+    """A filesystem-safe image filename, safe on every OS this app runs on.
+
+    The image counterpart of slugify(): the same three whole-name rules --
+    forbidden-character strip, length cap, reserved-name guard -- but applied
+    to the stem only so the extension survives, and without slugify()'s
+    lowercasing/[a-z0-9-] reduction. A brand and model produce a folder slug;
+    a dropped file's own name produces this, and a photo the owner picked
+    should keep the name they recognise -- mixed case, spaces and accents are
+    all valid once the unwritable characters are gone.
+
+    Guarded on every platform, not only Windows, for the same reason slugify()
+    is: a name one filesystem accepts and another cannot open is a collection
+    that stops being portable the moment it is copied across."""
+    # Split the extension by hand rather than via Path(): a raw name can still
+    # hold a ':' or '/' at this point, which PureWindowsPath would misread as a
+    # drive or data stream. rpartition on the last dot is os-independent, and a
+    # leading-dot-only name (no real stem) is treated as having no extension.
+    head, dot, tail = name.rpartition(".")
+    stem, suffix = (head, "." + tail) if (dot and head) else (name, "")
+    suffix = _FILENAME_FORBIDDEN.sub("", suffix)
+    stem = _FILENAME_FORBIDDEN.sub("", stem).strip(" .")
+    if len(stem) > _SLUG_MAX_LENGTH:
+        stem = stem[:_SLUG_MAX_LENGTH].strip(" .")
+    if not stem:
+        stem = "image"
+    # Windows reserves con/nul/lpt1/... as the first dot-separated segment even
+    # with an extension (`con.jpg` is still the console), so guard that segment
+    # rather than the whole stem -- keeping any second extension intact.
+    segment = stem.split(".", 1)[0]
+    if segment.casefold() in _WINDOWS_RESERVED_NAMES:
+        stem = f"{segment}-image{stem[len(segment):]}"
+    return f"{stem}{suffix}"
 
 
 def load_collection(watches_dir: Path) -> list[WatchRecord]:

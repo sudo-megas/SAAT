@@ -573,6 +573,12 @@ class WindowsInstallerDataSafetyTests(unittest.TestCase):
         alongside the new one, each with its own Apps & Features entry."""
         self.assertRegex(self.iss, r"AppId=\{\{[0-9A-F-]{36}\}")
 
+    def test_it_closes_a_running_instance_on_upgrade(self) -> None:
+        """The single-instance guard keeps the previous version running, so
+        without this an upgrade would find SAAT.exe locked and fail the file
+        replacement. Restart Manager closes it for the duration instead."""
+        self.assertIn("CloseApplications=yes", self.directives)
+
     def test_it_writes_nothing_to_the_registry_of_its_own(self) -> None:
         """Milestone 24's DO-NOT list: no registry writes beyond what Inno
         Setup needs for its own uninstaller entry."""
