@@ -10,11 +10,26 @@
 
 name: Test
 
+# The paths-ignore entries keep this desktop suite from running for Android-only
+# changes. They have to live here rather than in android-ci.yml: filtering the
+# Android workflow stops desktop pushes from running Android CI, but only a
+# filter inside THIS file can stop an Android push from running the Python
+# suite. Both triggers are filtered — verified safe, master carries no branch
+# protection and no rulesets, so a path-filtered check cannot leave a pull
+# request waiting forever on a status that never reports.
+#
+# android-ci.yml is listed separately because it does not live under android/.
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - 'android/**'
+      - '.github/workflows/android-*.yml'
   pull_request:
     branches: [master]
+    paths-ignore:
+      - 'android/**'
+      - '.github/workflows/android-*.yml'
 
 env:
   QT_QPA_PLATFORM: offscreen

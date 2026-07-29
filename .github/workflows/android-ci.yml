@@ -1,0 +1,91 @@
+# CI for the Android app under /android. The desktop pipeline is test.yml and
+# the two never run for each other's changes — see the paths filters here and
+# the paths-ignore filters there.
+#
+# The debug APK uploaded by this workflow is how each milestone reaches a real
+# phone. It is not signed for release; AM11 adds android-release.yml for that.
+
+name: Android CI
+
+on:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
+
+# No `branches:` restriction, deliberately. Every working branch gets CI,
+# because AM1's own verification depends on reading real Actions runs.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-24.04 already ships a JDK and the Android SDK, so there is no
+      # setup-android step and no licence dance. Pinned rather than -latest,
+      # matching the desktop workflow's stated discipline.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: android
+
+      # `check` runs, in order: buildSrc's own tests (the guardian's guardian,
+      # finalized onto the jar Gradle must build anyway), the app's unit tests,
+      # and verifyDebugManifestPolicy + verifyReleaseManifestPolicy. The release
+      # manifest is verified without assembling a release APK.
+      - name: Check
+        run: ./gradlew --no-daemon check
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      # if-no-files-found: error so a silent empty upload is impossible — an
+      # artifact that exists but contains nothing is worse than a failed build.
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: saat-debug-apk-${{ github.sha }}
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # The measurements behind the AM1 TOML library choice, and the emitted
+      # TOML that gets parsed with the desktop's own tomlkit to prove
+      # cross-platform compatibility.
+      - name: Upload TOML evaluation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: toml-eval-${{ github.sha }}
+          path: android/app/build/reports/toml-eval/
+          if-no-files-found: warn
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ github.sha }}
+          path: |
+            android/app/build/reports/tests/
+            android/app/build/reports/manifest-policy/
+            android/buildSrc/build/reports/tests/
+          if-no-files-found: warn
