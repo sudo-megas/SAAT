@@ -181,6 +181,27 @@ one. So an unreadable collection folder is reported as a failure, creating into
 one is refused, and a watch that has never been on disk is refused outright if a
 `watch.toml` is already sitting where it would land.
 
+## config.toml
+
+A `config.toml` that will not parse loads as defaults carrying its error, so the
+app still starts — and is **moved to `config.toml.broken` before the next save
+replaces it**, rather than being written over. Nothing else keeps a copy of this
+one: there is no `backups/` snapshot behind it the way there is behind a
+`watch.toml`, so writing defaults over it would take the owner's language and
+theme with it over a typo they had not fixed yet. A second break becomes
+`config.toml.broken-2`; the first is never landed on.
+
+Refusing to save until the file is repaired was the alternative, and it loses:
+it leaves the app unable to change its own theme over a file most owners will
+never have opened. Moving aside is what deleting a watch already does — never
+erase, put it where it can still be read.
+
+A leading byte-order mark is stripped on read, because a BOM is something a
+Windows editor adds and not something an owner did wrong; without that a valid
+config would read as no config and then be set aside as broken. The desktop
+reads its own config as `utf-8-sig` for the same reason, and reads `watch.toml`
+as plain `utf-8` — this matches both halves of that.
+
 ## Edits that have not reached disk
 
 Edits are write-through: memory first, the file immediately after, the error on
