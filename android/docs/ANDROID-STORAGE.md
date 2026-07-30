@@ -50,12 +50,19 @@ believe is safe and is not is more expensive than one you know is temporary.
 So: hand-written comments survive on the phone until that watch's first edit
 there. Files you never edit on the phone keep their bytes forever.
 
-**And when they do go, a copy is kept.** The regeneration is what makes the
-snapshot in `backups/` load-bearing rather than a nicety, so the save that skips
-it — a wear-date toggle, see below — takes one anyway whenever the file on disk
-is not already exactly what this app would write. That is once per watch: after
-the first regeneration the file *is* what this app writes, and every toggle after
-it is free.
+**And when they do go, a copy is kept — subject to the 20 slots.** The
+regeneration is what makes the snapshot in `backups/` load-bearing rather than a
+nicety, so the save that skips it — a wear-date toggle, see below — takes one
+anyway whenever the file on disk is not already exactly what this app would
+write. That is once per watch: after the first regeneration the file *is* what
+this app writes, and every toggle after it is free.
+
+The slots are shared across the collection, so the honest limit is this: one
+calendar gesture across more than 20 watches that have never been edited on the
+phone — a freshly imported desktop collection is exactly that — takes a snapshot
+of each and then prunes to the newest 20, evicting the earliest of them inside
+that same gesture. Twenty recovered out of thirty rather than none, which is why
+this is worth doing and not worth claiming more for.
 
 ## Reading files the app did not write
 
@@ -142,7 +149,8 @@ file exactly as any other save does, so on a file this app has not written yet i
 would destroy comments and unmodelled keys with nothing kept anywhere — the one
 regenerating save in the app that left no copy. A save takes the snapshot
 whenever the bytes on disk are not already what it would write, whatever the
-caller asked for, which costs one slot per watch and nothing after that.
+caller asked for, which costs one slot per watch and nothing after that — up to
+the 20 the directory holds, as above.
 
 Deleting moves a watch rather than erasing it. Both of its trees go, and they
 **rejoin** into one folder shaped like a desktop watch:
