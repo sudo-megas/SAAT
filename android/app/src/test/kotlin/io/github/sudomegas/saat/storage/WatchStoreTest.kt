@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -120,6 +121,59 @@ class WatchStoreTest {
         assertTrue(record.warnings.single().startsWith("rating:"))
     }
 
+    @Test
+    fun `a watch toml that is not UTF-8 is reported, not read as damage`() {
+        // A file saved as latin-1 by whichever editor the owner had to hand. A
+        // lenient decode reads `Züblin` as `Z<?>blin` and reports nothing at
+        // all, which is worse than failing: the record then looks clean, equals
+        // what came off disk, and the first edit writes the damage back.
+        val dir = File(paths.watchesDir, "z-blin")
+        dir.mkdirs()
+        File(dir, SaatPaths.WATCH_FILENAME).writeBytes(
+            "brand = \"Züblin\"\nmodel = \"Bathyscaphe\"\n".toByteArray(Charsets.ISO_8859_1),
+        )
+
+        val record = store.loadCollection().single()
+
+        assertNull("mojibake must never pass for a watch that loaded", record.watch)
+        assertTrue(
+            "the error must name the byte, so it can be found in a file typed by hand: ${record.loadError}",
+            record.loadError.orEmpty().contains("UTF-8") && record.loadError.orEmpty().contains("0xfc"),
+        )
+    }
+
+    @Test
+    fun `a file that is not UTF-8 keeps its bytes`() {
+        val dir = File(paths.watchesDir, "z-blin")
+        dir.mkdirs()
+        val file = File(dir, SaatPaths.WATCH_FILENAME)
+        val original = "brand = \"Züblin\"\nmodel = \"Bathyscaphe\"\n".toByteArray(Charsets.ISO_8859_1)
+        file.writeBytes(original)
+
+        val record = store.loadCollection().single()
+        val failure = runCatching { store.save(record) }.exceptionOrNull()
+
+        assertTrue("expected a refusal, got $failure", failure is IllegalArgumentException)
+        assertTrue(
+            "those bytes are the only copy of the owner's text there is",
+            file.readBytes().contentEquals(original),
+        )
+    }
+
+    @Test
+    fun `a collection folder that cannot be read is a failure, not an empty collection`() {
+        // listFiles() answers null for "could not read" and an empty array for
+        // "nothing in it". An owner whose collection is briefly unreadable must
+        // not be shown the same grid as an owner who has no watches.
+        writeWatch("seiko-skx007", watchToml("Seiko", "SKX007"))
+
+        whileUnreadable(paths.watchesDir) {
+            val record = store.loadCollection().single()
+            assertNull(record.watch)
+            assertNotNull("never a silently empty collection — hard rule 6", record.loadError)
+        }
+    }
+
     // ---- byte preservation -----------------------------------------------
 
     @Test
@@ -227,6 +281,42 @@ class WatchStoreTest {
     }
 
     @Test
+    fun `a new watch never lands on a watch toml that is already there`() {
+        // The guard lives in save() rather than only in create() so that no
+        // future caller can reach the overwrite by a different route: `loaded`
+        // is null for exactly one thing, a watch create() has just named, and a
+        // file already in its way means the slug search ran against a listing
+        // that was never taken.
+        val file = writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\nnotes = \"the original\"\n")
+        val fresh = WatchRecord(
+            slug = "seiko-skx007",
+            dir = paths.watchDir("seiko-skx007"),
+            watch = Watch(brand = "Seiko", model = "SKX007"),
+        )
+
+        val failure = runCatching { store.save(fresh) }.exceptionOrNull()
+
+        assertTrue("expected a refusal, got $failure", failure is IllegalStateException)
+        assertTrue("the watch already there must be untouched", file.readText().contains("the original"))
+    }
+
+    @Test
+    fun `creating into a collection folder that cannot be read is refused`() {
+        // Without a listing there is nothing to collide with, so the slug search
+        // hands back the unsuffixed `seiko-skx007` and the save lands on top of
+        // the watch already in that folder.
+        val file = writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\nnotes = \"the original\"\n")
+
+        whileUnreadable(paths.watchesDir) {
+            val failure = runCatching { store.create(Watch(brand = "Seiko", model = "SKX007")) }
+                .exceptionOrNull()
+            assertNotNull("expected a refusal, not a silently unsuffixed slug", failure)
+        }
+
+        assertTrue("the watch already there must be untouched", file.readText().contains("the original"))
+    }
+
+    @Test
     fun `a second watch of the same model gets a numbered slug`() {
         store.create(Watch(brand = "Seiko", model = "SKX007"))
         val second = store.create(Watch(brand = "Seiko", model = "SKX007"))
@@ -325,12 +415,12 @@ class WatchStoreTest {
     }
 
     @Test
-    fun `a wear toggle can skip the snapshot`() {
+    fun `a wear toggle skips the snapshot on a file this app wrote`() {
         // SPEC.md §3: a calendar gesture can touch many watches at once, and
         // backups/ has 20 shared slots. Evictable wear toggles must not crowd
-        // out a real snapshot.
-        writeWatch("seiko-skx007", watchToml("Seiko", "SKX007"))
-        val record = store.loadCollection().single()
+        // out a real snapshot. A file this app wrote holds nothing that
+        // regenerating it could lose, so there is nothing to keep.
+        val record = store.create(Watch(brand = "Seiko", model = "SKX007"))
 
         store.save(
             record.copy(watch = record.watch!!.copy(worn = listOf(LocalDate.of(2026, 7, 29)))),
@@ -342,6 +432,55 @@ class WatchStoreTest {
             listOf(LocalDate.of(2026, 7, 29)),
             store.loadCollection().single().watch!!.worn,
         )
+    }
+
+    @Test
+    fun `a wear toggle still snapshots a file it is about to regenerate`() {
+        // `backup = false` skips the snapshot, but the save REGENERATES the file
+        // exactly as every other save does — the flag never made it gentler. On
+        // a hand-written file that is one tap in the calendar against a comment
+        // and a key nothing here models, with no copy kept anywhere, while every
+        // other regenerating save at least leaves the old bytes in backups/.
+        val handWritten = """
+            # Bought in İzmir, 2019.
+            brand = "Seiko"
+            model = "SKX007"
+            insurance_policy = "AXA-99213"
+        """.trimIndent() + "\n"
+        val file = writeWatch("seiko-skx007", handWritten)
+        val record = store.loadCollection().single()
+
+        store.save(
+            record.copy(watch = record.watch!!.copy(worn = listOf(LocalDate.of(2026, 7, 29)))),
+            backup = false,
+        )
+
+        assertFalse("the file is regenerated all the same", file.readText().contains("insurance_policy"))
+        assertEquals(
+            "so what it held has to be recoverable",
+            handWritten,
+            paths.backupsDir.listFiles().orEmpty().single().readText(),
+        )
+    }
+
+    @Test
+    fun `only the first wear toggle on a watch costs a slot`() {
+        // The cost of the rule above, and its bound: once a file has been
+        // regenerated it IS what this app writes, so every toggle after the
+        // first is free and the 20 shared slots stay free for real edits.
+        val original = watchToml("Seiko", "SKX007")
+        writeWatch("seiko-skx007", original)
+        var record = store.loadCollection().single()
+
+        repeat(5) { day ->
+            clock = clock.plusMinutes(1)
+            val worn = record.watch!!.worn + LocalDate.of(2026, 7, 20 + day)
+            record = store.save(record.copy(watch = record.watch!!.copy(worn = worn)), backup = false)
+        }
+
+        val backups = paths.backupsDir.listFiles().orEmpty()
+        assertEquals("one snapshot for the file that had bytes to lose, none after", 1, backups.size)
+        assertEquals(original, backups.single().readText())
     }
 
     // ---- deleting --------------------------------------------------------
@@ -433,5 +572,58 @@ class WatchStoreTest {
         assertEquals("phone photo", File(images, "from-the-phone.jpg").readText())
         assertFalse(record.dir.exists())
         assertFalse(media.exists())
+    }
+
+    @Test
+    fun `two photographs of the same name both survive a delete`() {
+        // The two sources can disagree about a filename: `images/front.jpg`
+        // arrived from a desktop ZIP, `media/<slug>/front.jpg` was taken on the
+        // phone, and they are different photographs. Both want one destination,
+        // and both rename and copy replace silently — so the grave would keep
+        // one and destroy the other. After a delete that grave holds the only
+        // copy of each, which makes it the one place in this app where
+        // overwriting a file cannot be undone.
+        val record = store.create(minimalWatch())
+        val nested = File(record.dir, SaatPaths.IMAGES)
+        nested.mkdirs()
+        File(nested, "front.jpg").writeText("the one from the zip")
+
+        val media = paths.watchMedia(record.slug)
+        media.mkdirs()
+        File(media, "front.jpg").writeText("the one from the phone")
+
+        store.delete(record)
+
+        val images = File(paths.deletedDir, "${record.slug}/${SaatPaths.IMAGES}")
+        assertEquals(
+            "the number goes before the extension, so it is still a .jpg to whatever opens it",
+            listOf("front-2.jpg", "front.jpg"),
+            images.listFiles().orEmpty().map { it.name }.sorted(),
+        )
+        assertEquals(
+            setOf("the one from the zip", "the one from the phone"),
+            images.listFiles().orEmpty().map { it.readText() }.toSet(),
+        )
+    }
+
+    /**
+     * Run [block] with [dir] unreadable, and restore it whatever happens.
+     *
+     * Skipped rather than failed when the mode change does not bite, which is
+     * the case if these tests are ever run as root: `listFiles()` answers for a
+     * root process regardless of the mode bits, so there would be nothing to
+     * test rather than something failing.
+     */
+    private fun whileUnreadable(dir: File, block: () -> Unit) {
+        dir.setReadable(false, false)
+        try {
+            Assume.assumeTrue(
+                "needs a non-root user: the directory is readable anyway",
+                dir.listFiles() == null,
+            )
+            block()
+        } finally {
+            dir.setReadable(true, false)
+        }
     }
 }

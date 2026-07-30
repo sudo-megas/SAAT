@@ -50,18 +50,37 @@ believe is safe and is not is more expensive than one you know is temporary.
 So: hand-written comments survive on the phone until that watch's first edit
 there. Files you never edit on the phone keep their bytes forever.
 
+**And when they do go, a copy is kept.** The regeneration is what makes the
+snapshot in `backups/` load-bearing rather than a nicety, so the save that skips
+it — a wear-date toggle, see below — takes one anyway whenever the file on disk
+is not already exactly what this app would write. That is once per watch: after
+the first regeneration the file *is* what this app writes, and every toggle after
+it is free.
+
 ## Reading files the app did not write
 
 `watch.toml` is a file you are invited to hand-edit, so the loader is built to
-survive one. Only **two** things are fatal, because only two mean "this is not a
-watch":
+survive one. Only **three** things are fatal, because only three mean "this file
+is not a watch this app can work with":
 
 - TOML that will not parse at all
 - a missing or blank `brand` or `model`
+- bytes that are not UTF-8
 
-Either produces a record carrying a `loadError`. It stays in the collection and
+Each produces a record carrying a `loadError`. It stays in the collection and
 appears in the UI with its error, rather than vanishing — never a crash, never a
-silent skip.
+silent skip. And because a record that did not load is never written back, the
+file keeps its bytes.
+
+The third is there because the lenient alternative is worse than failing. A
+`watch.toml` saved as latin-1 by whichever editor was to hand decodes without
+complaint if you let it: `Züblin` becomes `Z<?>blin`, the record looks perfectly
+clean, and since it now equals what came off disk, byte preservation does not
+protect it either — the first edit writes the replacement characters back and the
+original bytes are gone. So the decode is strict, and the error names the
+offending byte and its offset so it can be found by hand. The desktop's
+`read_text(encoding="utf-8")` raises on the same file, which is the point: a file
+neither app can read is reported by both rather than silently damaged by one.
 
 Everything else loads, and one bad field costs exactly one field:
 
@@ -118,6 +137,13 @@ A wear-date toggle skips the snapshot: one calendar gesture can touch many
 watches, and 20 slots shared across the collection would otherwise fill with
 evictable toggles and evict a real one.
 
+That skip is a **request, not an instruction**. The toggle regenerates the whole
+file exactly as any other save does, so on a file this app has not written yet it
+would destroy comments and unmodelled keys with nothing kept anywhere — the one
+regenerating save in the app that left no copy. A save takes the snapshot
+whenever the bytes on disk are not already what it would write, whatever the
+caller asked for, which costs one slot per watch and nothing after that.
+
 Deleting moves a watch rather than erasing it. Both of its trees go, and they
 **rejoin** into one folder shaped like a desktop watch:
 
@@ -129,6 +155,38 @@ backups/deleted/<slug>/images/…
 so a deleted watch is self-contained, reads as a watch to anyone browsing the
 files, and can be zipped without transforming. `backups/deleted/` is a directory,
 so it never competes with the 20-file budget.
+
+The two trees can hold **different photographs under the same filename** — one
+that arrived in `watches/<slug>/images/` from a desktop ZIP, one taken on the
+phone into `media/<slug>/`. The merge numbers the second `front-2.jpg` rather
+than replacing the first, because the grave holds the only copy of each and it is
+the one place in the app where overwriting a file cannot be undone.
+
+## When the collection folder will not open
+
+`watches/` failing to list is not the same as `watches/` being empty, and the
+difference matters twice over: an owner with a full collection must not be shown
+the empty-grid state, and — the reason it is a data question rather than a
+cosmetic one — a folder name chosen against a listing that was never taken is a
+name already on disk, so the new watch would be written straight over an existing
+one. So an unreadable collection folder is reported as a failure, creating into
+one is refused, and a watch that has never been on disk is refused outright if a
+`watch.toml` is already sitting where it would land.
+
+## Edits that have not reached disk
+
+Edits are write-through: memory first, the file immediately after, the error on
+screen if the file refuses. When it does refuse, **the edit stays in memory** —
+losing what was just typed would be a second failure stacked on the first — and
+the record keeps its old on-disk snapshot, so it still counts as unsaved and a
+later successful save writes it.
+
+Reading the collection again therefore does not replace those records with the
+older text still in their files, and does not dismiss a failure notice nobody has
+read yet. Nothing loads twice today; AM10's import will, and that is exactly when
+a wholesale reload would have quietly undone an edit the app had promised to
+keep. A record whose folder has since gone from disk is not resurrected: something
+removed that folder, and inventing it back is a larger claim than dropping an edit.
 
 ## Parity with the desktop, checked rather than asserted
 
