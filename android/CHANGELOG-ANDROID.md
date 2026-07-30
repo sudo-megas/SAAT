@@ -81,6 +81,15 @@ An edit that fails to reach disk stays in memory on purpose. Reading the
 collection again used to replace it with the older text still in the file, and
 clear the failure notice with it. Nothing loads twice today; AM10's import will.
 
+**And a sixth, in the settings file rather than the storage layer.** A
+`config.toml` that would not parse loaded as defaults — correctly, so the app
+still starts — and then the next theme toggle wrote those defaults straight over
+it. Nothing keeps a copy of this one the way `backups/` does for a watch, so a
+chosen language disappeared over a typo not yet fixed. It is moved to
+`config.toml.broken` first now. A leading byte-order mark, which is something a
+Windows editor adds rather than something anyone did wrong, is stripped on read
+so a good config is not mistaken for a broken one.
+
 ## [0.1] - 2026-07-29
 
 The scaffold. Nothing visible beyond an empty four-tab shell, which is the

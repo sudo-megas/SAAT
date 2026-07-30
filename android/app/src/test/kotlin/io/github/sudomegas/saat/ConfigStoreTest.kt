@@ -5,6 +5,7 @@ import io.github.sudomegas.saat.config.ConfigStore
 import io.github.sudomegas.saat.config.ThemeMode
 import io.github.sudomegas.saat.storage.writeAtomically
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -66,6 +67,81 @@ class ConfigStoreTest {
         assertTrue(
             "the message must name the file: ${loaded.error}",
             loaded.error!!.contains(ConfigStore.FILE_NAME),
+        )
+    }
+
+    @Test
+    fun `a config that will not parse is set aside, not written over`() {
+        // load() answers a broken file with defaults so the app still starts,
+        // and the next setting the owner touches used to write those defaults
+        // straight over the file. There is no backups/ snapshot behind this one
+        // the way there is behind a watch.toml, so the language and theme they
+        // had chosen were simply gone, over a typo not yet fixed.
+        val broken = "[language]\ncode = \"tr\"\n[theme]\nmode = \"dark\"\nthis is not toml\n"
+        val file = File(temp.root, ConfigStore.FILE_NAME)
+        file.writeText(broken)
+
+        val store = store()
+        assertNotNull(store.load().error)
+        store.save(AppConfig(themeMode = ThemeMode.LIGHT))
+
+        val rescued = File(temp.root, ConfigStore.FILE_NAME + ConfigStore.BROKEN_SUFFIX)
+        assertTrue("the unreadable file must still exist somewhere", rescued.exists())
+        assertEquals("and it must be the bytes the owner had", broken, rescued.readText())
+        assertEquals(ThemeMode.LIGHT, store.load().config.themeMode)
+    }
+
+    @Test
+    fun `a readable config is replaced in place, with nothing set aside`() {
+        val store = store()
+        store.save(AppConfig(themeMode = ThemeMode.DARK, language = "tr"))
+        store.save(AppConfig(themeMode = ThemeMode.LIGHT, language = "tr"))
+
+        assertEquals(
+            "an ordinary save must not leave rescue files scattered around",
+            listOf(ConfigStore.FILE_NAME),
+            temp.root.listFiles().orEmpty().map { it.name },
+        )
+        assertEquals(ThemeMode.LIGHT, store.load().config.themeMode)
+    }
+
+    @Test
+    fun `a second broken config does not land on the first rescue`() {
+        val file = File(temp.root, ConfigStore.FILE_NAME)
+
+        file.writeText("first break, code = \"tr\" [[[")
+        store().save(AppConfig(themeMode = ThemeMode.DARK))
+
+        file.writeText("second break, code = \"de\" [[[")
+        store().save(AppConfig(themeMode = ThemeMode.LIGHT))
+
+        assertEquals(
+            "first break, code = \"tr\" [[[",
+            File(temp.root, "${ConfigStore.FILE_NAME}${ConfigStore.BROKEN_SUFFIX}").readText(),
+        )
+        assertEquals(
+            "second break, code = \"de\" [[[",
+            File(temp.root, "${ConfigStore.FILE_NAME}${ConfigStore.BROKEN_SUFFIX}-2").readText(),
+        )
+    }
+
+    @Test
+    fun `a config with a byte order mark loads instead of being called broken`() {
+        // A Windows editor can add one, and this parser rejects it — so without
+        // the strip a perfectly good config reads as no config, and would then
+        // be set aside as broken when there is nothing wrong with it. The
+        // desktop reads its own config as utf-8-sig for exactly this reason.
+        val file = File(temp.root, ConfigStore.FILE_NAME)
+        file.writeBytes("\uFEFF[language]\ncode = \"tr\"\n".toByteArray(Charsets.UTF_8))
+
+        val loaded = store().load()
+        assertNull("a BOM is not corruption: ${loaded.error}", loaded.error)
+        assertEquals("tr", loaded.config.language)
+
+        store().save(loaded.config)
+        assertFalse(
+            "and nothing was set aside",
+            File(temp.root, ConfigStore.FILE_NAME + ConfigStore.BROKEN_SUFFIX).exists(),
         )
     }
 

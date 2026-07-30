@@ -65,14 +65,7 @@ class ConfigStore(root: File) {
         if (!file.exists()) return ConfigLoad(AppConfig())
 
         return try {
-            val dto = toml.decodeFromString<ConfigDto>(file.readText())
-            ConfigLoad(
-                AppConfig(
-                    themeMode = dto.theme?.mode?.toThemeMode() ?: ThemeMode.SYSTEM,
-                    dynamicColor = dto.theme?.dynamic_color ?: true,
-                    language = dto.language?.code ?: AppConfig.DEFAULT_LANGUAGE,
-                )
-            )
+            ConfigLoad(decode(file.readText()))
         } catch (e: Exception) {
             // Defaults so the app still starts, and the message intact so the
             // UI can show it. Never a silent fallback.
@@ -82,6 +75,8 @@ class ConfigStore(root: File) {
 
     /** @throws Exception if the write fails; the caller surfaces it. */
     fun save(config: AppConfig) {
+        setAsideIfUnreadable()
+
         val dto = ConfigDto(
             theme = ThemeSection(
                 mode = config.themeMode.name.lowercase(),
@@ -92,6 +87,63 @@ class ConfigStore(root: File) {
         writeAtomically(file, toml.encodeToString(dto))
     }
 
+    private fun decode(text: String): AppConfig {
+        // The BOM is stripped rather than tolerated because it cannot be: this
+        // parser rejects a leading U+FEFF, and a config that gains one from a
+        // Windows editor is otherwise a valid file that silently reads as no
+        // file at all — and would now be set aside as broken when it is not.
+        // The desktop reads its own config as `utf-8-sig` for exactly this, and
+        // reads `watch.toml` as plain `utf-8`; the asymmetry is theirs and this
+        // matches both halves of it.
+        val dto = toml.decodeFromString<ConfigDto>(text.removePrefix(BOM))
+        return AppConfig(
+            themeMode = dto.theme?.mode?.toThemeMode() ?: ThemeMode.SYSTEM,
+            dynamicColor = dto.theme?.dynamic_color ?: true,
+            language = dto.language?.code ?: AppConfig.DEFAULT_LANGUAGE,
+        )
+    }
+
+    /**
+     * Move a `config.toml` this app cannot read out of the way, rather than
+     * writing defaults over it.
+     *
+     * [load] answers a broken file with defaults so the app still starts — and
+     * the next setting the owner touches used to write those defaults straight
+     * over the file, taking their language and theme with it. There is no
+     * `backups/` snapshot behind this one the way there is behind a `watch.toml`,
+     * so those bytes were simply gone, over a typo they had not fixed yet.
+     *
+     * The alternative — refuse to save until the file is repaired — leaves the
+     * app unable to change its own theme over a file most owners will never have
+     * opened. Moving aside is what deletion already does elsewhere in the app:
+     * never erase, put it somewhere it can be read.
+     *
+     * Asked at save time rather than remembered from [load], so it holds however
+     * this store is called, including without a load first.
+     */
+    private fun setAsideIfUnreadable() {
+        if (!file.exists()) return
+        if (runCatching { decode(file.readText()) }.isSuccess) return
+
+        val rescued = rescuePath()
+        // A rename is one syscall and keeps no second copy. If it fails, a copy
+        // is enough — the write below replaces the original either way. If BOTH
+        // fail this throws, and not writing is the right outcome: the caller
+        // surfaces it, and nothing was destroyed to get there.
+        if (!file.renameTo(rescued)) file.copyTo(rescued)
+    }
+
+    /** `config.toml.broken`, then `-2`: a second break never lands on the first. */
+    private fun rescuePath(): File {
+        var candidate = File(file.parentFile, "$FILE_NAME$BROKEN_SUFFIX")
+        var n = 2
+        while (candidate.exists()) {
+            candidate = File(file.parentFile, "$FILE_NAME$BROKEN_SUFFIX-$n")
+            n += 1
+        }
+        return candidate
+    }
+
     private fun String.toThemeMode(): ThemeMode? {
         val value = this
         return ThemeMode.entries.firstOrNull { it.name.equals(value, ignoreCase = true) }
@@ -99,5 +151,11 @@ class ConfigStore(root: File) {
 
     companion object {
         const val FILE_NAME = "config.toml"
+
+        /** What an unreadable `config.toml` is renamed to instead of being replaced. */
+        const val BROKEN_SUFFIX = ".broken"
+
+        /** Escaped rather than typed: a literal BOM in this file would be invisible. */
+        private const val BOM = "\uFEFF"
     }
 }
