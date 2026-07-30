@@ -65,7 +65,10 @@ shared backup slots — but it regenerates the whole file exactly like any other
 save, so on a hand-written file that was one tap against its comments with no
 copy kept anywhere. The skip is now a request rather than an instruction: a save
 snapshots regardless whenever the file is not already what it would write, which
-costs one slot per watch and nothing afterwards.
+costs one slot per watch and nothing afterwards. The 20 slots are shared, so one
+gesture across more than 20 never-yet-edited watches keeps the newest 20 of those
+snapshots and prunes the rest — twenty recovered out of thirty rather than none,
+which is the claim and not a word more.
 
 A directory that cannot be listed and a directory with nothing in it are no
 longer the same answer. They were, so an unreadable `watches/` read as an empty
