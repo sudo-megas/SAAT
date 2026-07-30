@@ -35,6 +35,13 @@ data class CollectionState(
     /** Fields the loader had to forgive, each prefixed with the watch it came from. */
     val warnings: List<String>
         get() = records.flatMap { record -> record.warnings.map { "${record.slug}: $it" } }
+
+    /**
+     * The in-memory version of [slug] when it holds an edit that is not on disk
+     * yet, and null otherwise. See [WatchRepository.load].
+     */
+    internal fun unsaved(slug: String): WatchRecord? =
+        records.firstOrNull { it.slug == slug && it.isDirty }
 }
 
 /**
@@ -81,14 +88,34 @@ class WatchRepository(
     private val writeLock = Mutex()
 
     /**
-     * Read the whole collection. Called once at process start, off the main
-     * thread; reading a few hundred small files is fast but it is still I/O and
-     * it still happens while the launch window is on screen.
+     * Read the whole collection, off the main thread; reading a few hundred
+     * small files is fast but it is still I/O and it still happens while the
+     * launch window is on screen.
+     *
+     * A RELOAD KEEPS WHAT IS NOT ON DISK YET. Nothing calls this twice today,
+     * but AM10's import will, and replacing the collection wholesale would take
+     * a record whose write failed — kept in memory ON PURPOSE, see the class
+     * note — and quietly swap it for the older text still in the file. That is
+     * the exact loss the write-through policy above exists to prevent, and it
+     * would happen without a message. [CollectionState.writeError] survives for
+     * the same reason: a notice the owner has not dismissed is not dismissed by
+     * a reload.
+     *
+     * A dirty record whose folder has since gone from disk is NOT resurrected —
+     * it is absent from the fresh list, so nothing maps onto it. Something
+     * removed that folder, and inventing it back is a larger claim than
+     * dropping an edit.
      */
     suspend fun load() = writeLock.withLock {
         _state.update { it.copy(isLoading = true) }
         val records = withContext(io) { store.loadCollection() }
-        _state.value = CollectionState(records = records, isLoaded = true)
+        _state.update { previous ->
+            CollectionState(
+                records = records.map { previous.unsaved(it.slug) ?: it },
+                isLoaded = true,
+                writeError = previous.writeError,
+            )
+        }
     }
 
     fun record(slug: String): WatchRecord? = _state.value.records.firstOrNull { it.slug == slug }

@@ -46,7 +46,37 @@ measured desktop output, not the other way round.
 
 Deleting moves a watch instead of erasing it, and rejoins its record and its
 photographs into one folder shaped exactly like a desktop watch — so what is in
-`backups/deleted/` reads as a watch to anyone browsing the files.
+`backups/deleted/` reads as a watch to anyone browsing the files. Where the two
+trees hold different photographs under the same name, the second is numbered
+rather than dropped on top of the first: that folder holds the only copy of each.
+
+**Five ways the storage layer could have lost data, found by going looking for
+them and each closed with a test that fails without the fix.**
+
+A `watch.toml` saved as latin-1 rather than UTF-8 used to decode leniently —
+`Züblin` read as `Z<?>blin`, no error, a record that looked clean. Because it then
+matched what was on disk, byte preservation did not protect it either, and the
+first edit wrote the damage back over the original. Not valid UTF-8 is now a load
+failure that names the offending byte and its offset, which is what the desktop
+already did.
+
+A wear-date toggle skips its snapshot so a calendar gesture cannot fill the 20
+shared backup slots — but it regenerates the whole file exactly like any other
+save, so on a hand-written file that was one tap against its comments with no
+copy kept anywhere. The skip is now a request rather than an instruction: a save
+snapshots regardless whenever the file is not already what it would write, which
+costs one slot per watch and nothing afterwards.
+
+A directory that cannot be listed and a directory with nothing in it are no
+longer the same answer. They were, so an unreadable `watches/` read as an empty
+collection — and a folder name chosen against a listing that was never taken is a
+name already on disk, so the next new watch would have been written straight over
+an existing one. A watch that has never been on disk is now refused outright if a
+`watch.toml` is already where it would land.
+
+An edit that fails to reach disk stays in memory on purpose. Reading the
+collection again used to replace it with the older text still in the file, and
+clear the failure notice with it. Nothing loads twice today; AM10's import will.
 
 ## [0.1] - 2026-07-29
 

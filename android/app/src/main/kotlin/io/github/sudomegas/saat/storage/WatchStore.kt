@@ -3,6 +3,10 @@ package io.github.sudomegas.saat.storage
 import io.github.sudomegas.saat.storage.SaatPaths.Companion.IMAGES
 import io.github.sudomegas.saat.storage.SaatPaths.Companion.WATCH_FILENAME
 import java.io.File
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.CharBuffer
+import java.nio.charset.CodingErrorAction
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -67,7 +71,18 @@ open class WatchStore(
         val dir = paths.watchesDir
         if (!dir.isDirectory) return emptyList()
 
-        return dir.listFiles().orEmpty()
+        // listFiles() answers null for "this directory could not be read" and an
+        // empty array for "there is nothing in it". Collapsing the two would
+        // show an owner whose collection is briefly unreadable the same empty
+        // grid as an owner who has no watches — and would then let create()
+        // choose a folder name against a listing it never took. The failure
+        // travels as a record so it surfaces through the notice the malformed
+        // files already use, rather than as an exception past the loader.
+        val entries = dir.listFiles() ?: return listOf(
+            WatchRecord(dir.name, dir, loadError = "the collection folder could not be read"),
+        )
+
+        return entries
             .filter { it.isDirectory && !isHiddenEntry(it.name) }
             .sortedBy { it.name }
             .map { loadWatch(it) }
@@ -82,7 +97,7 @@ open class WatchStore(
         }
 
         val text = try {
-            file.readText()
+            readWatchText(file)
         } catch (e: Exception) {
             return WatchRecord(slug, dir, loadError = e.message ?: "could not be read")
         }
@@ -106,6 +121,48 @@ open class WatchStore(
         }
     }
 
+    /**
+     * A `watch.toml`'s text, or an [IOException] naming the byte that is not
+     * UTF-8.
+     *
+     * `File.readText()` is deliberately NOT used, and the difference is the
+     * whole point: it decodes LENIENTLY, replacing every byte it cannot make
+     * sense of with U+FFFD and reporting nothing. A `watch.toml` saved as
+     * latin-1 — an ordinary accident for a file the owner is invited to
+     * hand-edit in whatever editor they have — would load with `Züblin` read as
+     * `Z<?>blin`, no error, no warning, looking exactly like a clean record.
+     * The record is then equal to what came off disk, so byte preservation does
+     * not protect it either; the first edit regenerates the file with the
+     * replacement characters baked in, and the original bytes are gone for good.
+     *
+     * The desktop's `read_text(encoding="utf-8")` raises on those bytes. This
+     * matches it, so a file neither app can read is reported by both rather than
+     * silently rewritten into damage by one.
+     */
+    private fun readWatchText(file: File): String {
+        val bytes = file.readBytes()
+        val input = ByteBuffer.wrap(bytes)
+        // No UTF-8 byte ever decodes to more than one char — a 4-byte sequence
+        // produces a 2-char surrogate pair — so this cannot overflow.
+        val output = CharBuffer.allocate(bytes.size + 1)
+
+        val result = Charsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(input, output, true)
+
+        if (result.isError) {
+            // The decoder leaves the position at the start of the bad input,
+            // which is the one detail that makes this message actionable: it
+            // says where to look in a file the owner may have typed by hand.
+            val at = input.position()
+            val byte = bytes.getOrNull(at)?.let { "byte 0x%02x".format(it) } ?: "a truncated character"
+            throw IOException("not valid UTF-8: $byte at offset $at")
+        }
+
+        return output.flip().toString()
+    }
+
     // ---- writing ---------------------------------------------------------
 
     /**
@@ -114,7 +171,21 @@ open class WatchStore(
      * is a filesystem fact and does not care that the loader skips `_template`.
      */
     open fun create(watch: Watch): WatchRecord {
-        val existing = paths.watchesDir.listFiles().orEmpty()
+        val dir = paths.watchesDir
+        val entries = dir.listFiles()
+
+        // Null means one of two very different things, and only the directory's
+        // own existence separates them: `watches/` not being there yet is the
+        // ordinary first-run case and there is genuinely nothing to collide
+        // with, while a directory that is there and will not list is a listing
+        // we did not take. Treating the second as "nothing exists" hands back
+        // the unsuffixed slug, and the save then lands on top of a watch that
+        // was already in that folder.
+        if (entries == null && dir.isDirectory) {
+            throw IOException("the collection folder could not be read, so a folder name cannot be chosen")
+        }
+
+        val existing = entries.orEmpty()
             .filter { it.isDirectory }
             .mapTo(mutableSetOf()) { it.name }
 
@@ -142,8 +213,14 @@ open class WatchStore(
      * every caller that edits hand-typed fields must keep the default or
      * evictable wear toggles will crowd out a real snapshot.
      *
+     * It is a REQUEST rather than an instruction: a save that would regenerate
+     * bytes this app cannot reproduce takes the snapshot anyway. See
+     * [regenerationWouldLoseBytes].
+     *
      * @throws IllegalArgumentException if the record failed to load; there is
      *   nothing to write and overwriting the file would destroy what is there.
+     * @throws IllegalStateException if a watch that has never been on disk would
+     *   land on a `watch.toml` that is already there.
      */
     open fun save(record: WatchRecord, backup: Boolean = true): WatchRecord {
         val watch = requireNotNull(record.watch) {
@@ -152,19 +229,64 @@ open class WatchStore(
 
         val file = File(record.dir, WATCH_FILENAME)
 
+        // A record that has never been read from disk must never land on a file
+        // that is already there. `loaded` is null for exactly one thing this
+        // far — a watch create() has just named — so a file in the way means
+        // the slug search ran against a collection folder it could not list,
+        // and the watch already in that folder is about to be overwritten by a
+        // brand-new one. Failing is the only outcome worse than that, and it
+        // is not worse: hard rule 6 puts the message on screen.
+        check(record.loaded != null || !file.exists()) {
+            "refusing to overwrite an existing $WATCH_FILENAME in ${record.dir}"
+        }
+
         // Unedited and already on disk: writing would change the bytes of a file
         // the owner did not ask us to touch. The exists() half is a repair
         // path — if the file is gone, an unedited record is still worth writing.
         if (!record.isDirty && file.exists()) return record
 
         record.dir.mkdirs()
-        if (backup && file.exists()) {
+        if (file.exists() && (backup || regenerationWouldLoseBytes(file, record.loaded))) {
             backupWatchToml(record.slug, file)
         }
 
         writeAtomically(file, encodeWatch(watch))
 
         return record.copy(loaded = watch, loadError = null, warnings = emptyList())
+    }
+
+    /**
+     * True when the file about to be overwritten holds something this app's
+     * writer would not produce: a comment, a blank line, a key the model has no
+     * field for, `41` where we write `41.0`.
+     *
+     * This is what makes [save]'s `backup = false` safe rather than merely
+     * cheap. A wear toggle REGENERATES the whole file exactly as every other
+     * save does — the flag only skips the snapshot — so on a hand-written file
+     * one tap in the calendar would destroy its comments with no copy kept
+     * anywhere. Every other regenerating save at least leaves the old bytes in
+     * `backups/`; that one left nothing.
+     *
+     * Comparing the file against what we would write is the precise question,
+     * and it costs one snapshot per watch ever: a file that has already been
+     * regenerated once IS what we would write, so every toggle after the first
+     * skips it and the 20 shared slots stay free for real edits, which is the
+     * whole reason the flag exists.
+     */
+    private fun regenerationWouldLoseBytes(file: File, loaded: Watch?): Boolean {
+        // Nothing to compare against, so nothing can be ruled out. Unreachable
+        // from here — the check above rejects a never-loaded record onto an
+        // existing file — but the safe answer is the one that keeps a copy.
+        if (loaded == null) return true
+
+        val onDisk = try {
+            readWatchText(file)
+        } catch (e: Exception) {
+            // Changed underneath us into something unreadable. All the more
+            // reason to keep it.
+            return true
+        }
+        return onDisk != encodeWatch(loaded)
     }
 
     /**
@@ -272,14 +394,45 @@ open class WatchStore(
 
         destination.mkdirs()
         source.listFiles().orEmpty().forEach { child ->
-            val target = File(destination, child.name)
             if (child.isDirectory) {
-                moveDirectory(child, target)
-            } else if (!child.renameTo(target)) {
-                child.copyTo(target, overwrite = true)
-                child.delete()
+                moveDirectory(child, File(destination, child.name))
+            } else {
+                val target = availableName(File(destination, child.name))
+                if (!child.renameTo(target)) {
+                    child.copyTo(target)
+                    child.delete()
+                }
             }
         }
         source.delete()
+    }
+
+    /**
+     * [target], or the next free `front-2.jpg` beside it.
+     *
+     * The merge above runs when a watch has photographs in both trees: the
+     * `images/` folder it arrived from a desktop ZIP with, and the
+     * `media/<slug>/` one the phone puts new ones in. Two DIFFERENT photographs
+     * can carry the same filename across those two sources, and both `rename`
+     * and `copyTo(overwrite = true)` replace silently — so the grave would keep
+     * one and destroy the other. After a delete that is the only copy there
+     * was, which makes it the one place in the app where overwriting a file is
+     * unrecoverable.
+     *
+     * The number goes before the extension so the result is still a `.jpg` to
+     * everything that opens it. `lastIndexOf('.') > 0` rather than `>= 0` keeps
+     * a leading dot as part of the name instead of reading `.gitkeep` as an
+     * empty stem.
+     */
+    private fun availableName(target: File): File {
+        if (!target.exists()) return target
+
+        val dot = target.name.lastIndexOf('.')
+        val stem = if (dot > 0) target.name.take(dot) else target.name
+        val suffix = if (dot > 0) target.name.substring(dot) else ""
+
+        var n = 2
+        while (File(target.parentFile, "$stem-$n$suffix").exists()) n += 1
+        return File(target.parentFile, "$stem-$n$suffix")
     }
 }

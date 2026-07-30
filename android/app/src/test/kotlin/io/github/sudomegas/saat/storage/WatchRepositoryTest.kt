@@ -166,9 +166,13 @@ class WatchRepositoryTest {
 
     @Test
     fun `a wear toggle can skip the backup`() = runBlocking {
-        writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\n")
+        // Created here rather than hand-written, because a file this app has
+        // not written yet is snapshotted whatever the flag says — regenerating
+        // it would change bytes nothing else keeps a copy of. See
+        // `a wear toggle still snapshots a file it is about to regenerate`.
         val repository = repository()
         repository.load()
+        repository.create(Watch(brand = "Seiko", model = "SKX007"))
 
         repository.update("seiko-skx007", backup = false) {
             it.copy(worn = it.worn + LocalDate.of(2026, 7, 29))
@@ -218,6 +222,53 @@ class WatchRepositoryTest {
 
         repository.clearWriteError()
         assertNull(repository.state.value.writeError)
+    }
+
+    @Test
+    fun `a reload keeps an edit that has not reached disk`() = runBlocking {
+        // Nothing calls load() twice today, but AM10's import will, and a
+        // wholesale replacement takes the record whose write failed — kept in
+        // memory on purpose — and swaps it for the older text still in the file.
+        // That is the loss the write-through policy exists to prevent, and it
+        // would happen without a word.
+        writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\n")
+        val store = SometimesFailingStore(paths)
+        val repository = repository(store)
+        repository.load()
+
+        store.failing = true
+        repository.update("seiko-skx007") { it.copy(notes = "typed by the owner") }
+        store.failing = false
+
+        repository.load()
+
+        val record = repository.state.value.watches.single()
+        assertEquals(
+            "a reload must not swap the owner's edit for what is still on disk",
+            "typed by the owner",
+            record.watch!!.notes,
+        )
+        assertTrue("and it must still be pending, so a later save writes it", record.isDirty)
+    }
+
+    @Test
+    fun `a reload does not dismiss a notice the owner has not seen`() = runBlocking {
+        writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\n")
+        val store = SometimesFailingStore(paths)
+        val repository = repository(store)
+        repository.load()
+
+        store.failing = true
+        repository.update("seiko-skx007") { it.copy(rating = 5) }
+        store.failing = false
+        assertNotNull(repository.state.value.writeError)
+
+        repository.load()
+
+        assertNotNull(
+            "only clearWriteError() dismisses it, once the owner has read it",
+            repository.state.value.writeError,
+        )
     }
 
     @Test
@@ -325,6 +376,16 @@ class WatchRepositoryTest {
     }
 
     /** A store whose writes always fail, for the paths that only exist when they do. */
+    /** Fails on demand, so a test can fail one write and let the next through. */
+    private class SometimesFailingStore(paths: SaatPaths) : WatchStore(paths) {
+        var failing = false
+
+        override fun save(record: WatchRecord, backup: Boolean): WatchRecord {
+            if (failing) throw java.io.IOException("No space left on device")
+            return super.save(record, backup)
+        }
+    }
+
     private class FailingStore(paths: SaatPaths, private val reason: String) : WatchStore(paths) {
         override fun save(record: WatchRecord, backup: Boolean): WatchRecord =
             throw java.io.IOException(reason)
