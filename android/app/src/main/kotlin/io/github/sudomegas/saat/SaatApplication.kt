@@ -5,6 +5,10 @@ import android.app.UiModeManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
 import io.github.sudomegas.saat.config.AppConfig
 import io.github.sudomegas.saat.config.ConfigStore
 import io.github.sudomegas.saat.config.ThemeMode
@@ -15,10 +19,23 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okio.Path.Companion.toOkioPath
 
-class SaatApplication : Application() {
+class SaatApplication : Application(), SingletonImageLoader.Factory {
 
     lateinit var configStore: ConfigStore
+        private set
+
+    /**
+     * Where everything on disk lives, held rather than derived twice.
+     *
+     * The grid needs it to turn a watch's bare image filename into a real file
+     * under `media/<slug>/`, and the repository deliberately keeps its store
+     * private — a screen has no business reaching the writing layer through it.
+     * So the paths are a field the same way `configStore` is, handed to the
+     * ViewModel by its factory.
+     */
+    lateinit var paths: SaatPaths
         private set
 
     /**
@@ -52,7 +69,8 @@ class SaatApplication : Application() {
         applyLanguage(loaded.config.language)
         applyNightMode(loaded.config.themeMode)
 
-        watchRepository = WatchRepository(WatchStore(SaatPaths(filesDir)))
+        paths = SaatPaths(filesDir)
+        watchRepository = WatchRepository(WatchStore(paths))
 
         // Started here and not awaited: onCreate runs before the first frame, so
         // reading every watch.toml inline would put file I/O directly in front
@@ -63,6 +81,28 @@ class SaatApplication : Application() {
         // (SPEC-ANDROID 5.8).
         applicationScope.launch { watchRepository.load() }
     }
+
+    /**
+     * SPEC-ANDROID hard rule 8: no derived files inside `watches/`.
+     *
+     * Coil's default disk cache already lands in `cacheDir`, but a rule this
+     * load-bearing should not be satisfied by inheriting a library default that
+     * a future version is free to change. Naming the directory says the app
+     * decided it. `cacheDir` is disposable at any moment, never backed up
+     * (`backup_rules.xml` includes `watches` and `config.toml` and nothing
+     * else) and never exported, which is exactly what a thumbnail deserves.
+     *
+     * No network component is configured because there is nothing to fetch:
+     * every model handed to Coil is a local `File` under `media/<slug>/`.
+     */
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        ImageLoader.Builder(context)
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache").toOkioPath())
+                    .build()
+            }
+            .build()
 
     /**
      * SPEC-ANDROID hard rule 7: the app never reads the system locale to choose

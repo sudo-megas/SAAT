@@ -15,7 +15,8 @@ import io.github.sudomegas.saat.R
  * AM1 ships the shell, not the screens. Each destination states its own name
  * and nothing else — deliberately, so the milestone's diff stays readable.
  *
- * Grid becomes real in AM3, Specs in AM6, Calendar in AM7.
+ * Grid became real in AM3 and has moved to GridScreen.kt. Specs follows in AM6,
+ * Calendar in AM7.
  */
 @Composable
 private fun Placeholder(@StringRes labelRes: Int) {
@@ -27,9 +28,6 @@ private fun Placeholder(@StringRes labelRes: Int) {
         )
     }
 }
-
-@Composable
-fun GridScreen() = Placeholder(R.string.screen_grid_placeholder)
 
 @Composable
 fun SpecsScreen() = Placeholder(R.string.screen_specs_placeholder)

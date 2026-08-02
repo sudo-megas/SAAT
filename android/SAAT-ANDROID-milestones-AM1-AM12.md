@@ -251,8 +251,12 @@ Commit as TWO commits.
 1. The Grid tab becomes real: two columns portrait, three landscape, cards
    at a fixed 4:5 image crop, brand as overline, model as title, style and
    movement kind as small metadata beneath. All cards in a row the same
-   height. Coil loads images from the watch's images/ directory with
-   thumbnails cached in cacheDir - never inside watches/.
+   height. Coil loads images from the watch's media/<slug>/ directory with
+   thumbnails cached in cacheDir - never inside watches/. (Corrected in AM3:
+   this line said watches/<slug>/images/, which is the shape the exported ZIP
+   takes, not the on-device layout. SPEC-ANDROID 3 keeps photographs in a
+   separate top-level media/ tree so the Auto Backup rules can be written at
+   all, and it is authoritative.)
 2. A watch without a photo gets the neutral placeholder tile with its
    diameter and lug width set in the middle - informative, not an empty
    grey box. Absent measurements degrade gracefully within the tile.

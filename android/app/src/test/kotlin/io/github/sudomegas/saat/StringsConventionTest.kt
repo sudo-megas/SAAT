@@ -37,16 +37,27 @@ class StringsConventionTest {
         "enum_",
     )
 
-    private fun stringNames(): List<String> {
-        val file = File("src/main/res/values/strings.xml")
+    /**
+     * Every named resource in a strings file — `<string>` AND `<plurals>`.
+     *
+     * Plurals were not checked until AM3 introduced the first one, which is
+     * exactly how a convention develops a hole: the rule was never about the
+     * element name, it was about every key sharing one flat namespace.
+     */
+    private fun resourceNames(path: String): List<String> {
+        val file = File(path)
         check(file.exists()) { "missing ${file.absolutePath}" }
 
         val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
-        val nodes = doc.getElementsByTagName("string")
-        return (0 until nodes.length).map {
-            nodes.item(it).attributes.getNamedItem("name").nodeValue
+        return listOf("string", "plurals").flatMap { tag ->
+            val nodes = doc.getElementsByTagName(tag)
+            (0 until nodes.length).map {
+                nodes.item(it).attributes.getNamedItem("name").nodeValue
+            }
         }
     }
+
+    private fun stringNames(): List<String> = resourceNames(MAIN_STRINGS)
 
     @Test
     fun `every string resource carries a role prefix`() {
@@ -73,8 +84,37 @@ class StringsConventionTest {
     }
 
     @Test
+    fun `debug-only strings carry a role prefix and name themselves demo`() {
+        val names = resourceNames(DEBUG_STRINGS)
+
+        val unprefixed = names.filterNot { name -> allowedPrefixes.any { name.startsWith(it) } }
+        assertTrue(
+            "debug strings follow the same convention as any other: $unprefixed",
+            unprefixed.isEmpty(),
+        )
+
+        // Not cosmetic. verifyReleaseDemoFixturePolicy proves the fixture is
+        // absent from release partly by failing on any `demo` string resource in
+        // that variant's R.txt. If a debug-only key stopped containing "demo",
+        // that half of the check would go quietly blind.
+        val unmarked = names.filterNot { it.contains("demo", ignoreCase = true) }
+        assertTrue(
+            "every debug-only string must contain \"demo\" so the release-absence " +
+                "check can recognise it: $unmarked",
+            unmarked.isEmpty(),
+        )
+    }
+
+    @Test
     fun `no user-visible literal appears in a composable`() {
-        val sources = File("src/main/kotlin").walkTopDown().filter { it.extension == "kt" }
+        // src/debug included: the developer section is a composable like any
+        // other, and AM11's Turkish sweep has no reason to skip it.
+        val sources = listOf("src/main/kotlin", "src/debug/kotlin")
+            .map(::File)
+            .filter { it.exists() }
+            .asSequence()
+            .flatMap { it.walkTopDown() }
+            .filter { it.extension == "kt" }
 
         // Text("…"), Text(text = "…") and the same for contentDescription. A
         // bare "" is allowed — it is an absence, not a message.
@@ -92,5 +132,10 @@ class StringsConventionTest {
                 offenders.joinToString("\n"),
             offenders.isEmpty(),
         )
+    }
+
+    private companion object {
+        const val MAIN_STRINGS = "src/main/res/values/strings.xml"
+        const val DEBUG_STRINGS = "src/debug/res/values/strings.xml"
     }
 }

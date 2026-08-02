@@ -45,35 +45,6 @@ class LocalePolicyTest {
         return file.readText()
     }
 
-    /**
-     * The file's lines with comments blanked out, so that prose ABOUT this rule
-     * is not mistaken for a breach of it.
-     *
-     * Not a nicety: the two most careful explanations in the codebase — why
-     * `Slugs` avoids `lowercase(Locale.getDefault())`, and why `MainActivity`
-     * cannot use the framework's `LocaleManager` — both name the very APIs the
-     * scan below forbids. A plain text search fails on the documentation and
-     * passes on nothing, which would teach the next person to delete the
-     * comments rather than keep the rule.
-     */
-    private fun codeLines(file: File): List<IndexedValue<String>> {
-        var inBlock = false
-        return file.readLines().withIndex().map { (index, raw) ->
-            val code = StringBuilder()
-            var i = 0
-            while (i < raw.length) {
-                val pair = if (i + 1 < raw.length) raw.substring(i, i + 2) else ""
-                when {
-                    inBlock -> if (pair == "*/") { inBlock = false; i += 2 } else i++
-                    pair == "/*" -> { inBlock = true; i += 2 }
-                    pair == "//" -> i = raw.length
-                    else -> { code.append(raw[i]); i++ }
-                }
-            }
-            IndexedValue(index, code.toString())
-        }
-    }
-
     /** The `parent` of the named style in a themes.xml, or null if absent. */
     private fun themeParent(path: String, style: String): String? {
         val file = File(path)
@@ -152,14 +123,9 @@ class LocalePolicyTest {
             "LocaleManager",
         )
 
-        val offenders = File("src/main/kotlin").walkTopDown()
-            .filter { it.extension == "kt" }
-            .flatMap { file ->
-                codeLines(file)
-                    .filter { (_, line) -> forbidden.any { line.contains(it) } }
-                    .map { (i, line) -> "${file.name}:${i + 1}  ${line.trim()}" }
-            }
-            .toList()
+        val offenders = SourceScan.offenders("src/main/kotlin") { line ->
+            forbidden.any { line.contains(it) }
+        }
 
         assertTrue(
             "hard rule 7: the app never reads the system locale, but found:\n" +

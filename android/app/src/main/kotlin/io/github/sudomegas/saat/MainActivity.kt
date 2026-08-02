@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
             val config by viewModel.config.collectAsStateWithLifecycle()
 
             SaatTheme(mode = config.themeMode, dynamicColor = config.dynamicColor) {
-                SaatApp(viewModel)
+                SaatApp(app, viewModel)
             }
         }
     }

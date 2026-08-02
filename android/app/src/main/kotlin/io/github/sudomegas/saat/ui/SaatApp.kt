@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -22,6 +23,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.ui.nav.CalendarRoute
 import io.github.sudomegas.saat.ui.nav.GridRoute
 import io.github.sudomegas.saat.ui.nav.SettingsRoute
@@ -33,11 +37,22 @@ import io.github.sudomegas.saat.ui.screens.SettingsScreen
 import io.github.sudomegas.saat.ui.screens.SpecsScreen
 
 @Composable
-fun SaatApp(viewModel: SettingsViewModel) {
+fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val config by viewModel.config.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
+
+    val gridViewModel: GridViewModel = viewModel(factory = GridViewModel.factory(app))
+
+    // Only the error is collected, not the whole CollectionState: the shell has
+    // no interest in the watches themselves, and observing them here would
+    // recompose the navigation bar every time the collection changed.
+    val writeError by remember(app) {
+        app.watchRepository.state
+            .map { it.writeError }
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = null)
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -48,6 +63,16 @@ fun SaatApp(viewModel: SettingsViewModel) {
         error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    // The other half of hard rule 6, and the half AM2 built but had nowhere to
+    // put: a failed write leaves the edit in memory and its message in the
+    // repository. Until now nothing read it.
+    LaunchedEffect(writeError) {
+        writeError?.let {
+            snackbarHostState.showSnackbar(it)
+            app.watchRepository.clearWriteError()
         }
     }
 
@@ -86,12 +111,18 @@ fun SaatApp(viewModel: SettingsViewModel) {
             startDestination = GridRoute,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable<GridRoute> { GridScreen() }
+            composable<GridRoute> {
+                GridScreen(
+                    viewModel = gridViewModel,
+                    snackbarHostState = snackbarHostState,
+                )
+            }
             composable<SpecsRoute> { SpecsScreen() }
             composable<CalendarRoute> { CalendarScreen() }
             composable<SettingsRoute> {
                 SettingsScreen(
                     config = config,
+                    repository = app.watchRepository,
                     onThemeModeChange = viewModel::setThemeMode,
                     onDynamicColorChange = viewModel::setDynamicColor,
                 )
