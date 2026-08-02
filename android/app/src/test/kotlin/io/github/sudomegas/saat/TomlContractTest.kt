@@ -109,12 +109,16 @@ class TomlContractTest {
     }
 
     // NOTE ON KEY ORDER, which is a TOML rule rather than a library quirk:
-    // `worn` is a top-level key, so it must appear BEFORE the first table
-    // header. After `[[log]]`, a bare key belongs to that log entry — so
-    // `worn` written at the bottom silently becomes `log[1].worn` and the wear
-    // history vanishes. docs/schema.md's own example shows `worn` below
-    // `[[log]]` and is misleading on exactly this point; the desktop is safe
-    // only because tomlkit hoists top-level keys above tables when it writes.
+    // `worn` and `notes` are top-level keys, so they must appear BEFORE the
+    // first table header. After `[[log]]`, a bare key belongs to that log entry
+    // — so `worn` written at the bottom silently becomes `log[1].worn` and the
+    // wear history vanishes, with no error from either app, because as far as
+    // both are concerned the watch simply has no recorded days.
+    //
+    // Neither app writes one that way: encodeWatch emits every top-level key
+    // before the first table by construction, and the desktop is safe because
+    // tomlkit hoists them. docs/schema.md carries the same warning for files
+    // typed by hand, which are the only ones this can still bite.
     private val fixture = """
         brand = "Grand Seiko"
         model = "SBGA211"
