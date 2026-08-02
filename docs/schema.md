@@ -24,6 +24,7 @@ storage = ""
 rating = 4
 tags = ["daily", "grail"]
 worn = [2024-01-01, 2024-01-02]   # flat array of dates, nothing else
+notes = "A daily beater."
 
 [movement]
 caliber = "6R15"
@@ -54,8 +55,6 @@ note = "Full service"
 date = 2024-01-01
 deviation_sec = 3
 position = "Dial Up"
-
-notes = "A daily beater."
 ```
 
 ## Why identity is flat but everything else is a table
@@ -64,20 +63,24 @@ notes = "A daily beater."
 array of tables (`[[log]]`). `worn` is nothing but dates (SPEC.md §4), so it's
 a plain TOML array — an array of tables for a single scalar would be noise.
 
-## Where `worn` goes in the file, and why it matters
+## Where the top-level keys go, and why it matters
 
-`worn` is a top-level key, so it must appear **before the first table header**,
-alongside `tags` and `notes`. This is a TOML rule, not a preference: after
-`[[log]]`, a bare key belongs to that log entry, so a `worn` written at the
-bottom of the file silently becomes `log[N].worn` and the wear history is gone
-with no error from either app.
+`worn` and `notes` are top-level keys, so they must appear **before the first
+table header**, alongside `brand` and `tags`. This is a TOML rule rather than a
+preference: after `[[log]]`, a bare key belongs to that log entry, so a `worn`
+written at the bottom of the file silently becomes `log[N].worn` and the wear
+history is gone — with no error from either app, because as far as both are
+concerned the watch simply has no recorded days.
 
-Both apps write it in the right place — each hoists top-level keys above the
-tables — so this only bites a file typed by hand. An earlier version of the
-example below showed `worn` beneath `[[log]]` and would have produced exactly
-that loss if copied literally; it was moved up when the Android storage layer
-was built. `watches/_template.toml` still shows it in the low position, but
-commented out, so it is safe until uncommented in place.
+Both apps write these in the right place: each hoists top-level keys above the
+tables when it saves. So this only ever bites a file typed by hand.
+
+The example above used to show `worn` and `notes` beneath `[[log]]` and
+`[[timing]]`, which would have caused exactly that loss if copied literally.
+They were moved up when the Android storage layer was built.
+`watches/_template.toml` still shows both in the low position; it is safe as it
+stands because every line there is commented out, but uncommenting them in place
+would reintroduce the problem.
 
 ## Round-tripping
 
