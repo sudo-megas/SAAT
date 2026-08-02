@@ -4,15 +4,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import io.github.sudomegas.saat.SaatApplication
+import io.github.sudomegas.saat.config.ConfigState
 import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.WatchRecord
 import io.github.sudomegas.saat.storage.WatchRepository
+import io.github.sudomegas.saat.storage.WatchSort
+import io.github.sudomegas.saat.storage.query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.io.File
+import java.time.LocalDate
 
 /**
  * One card's worth of a watch, already resolved.
@@ -53,10 +58,23 @@ data class GridUiState(
     val isLoaded: Boolean = false,
     val isCollectionEmpty: Boolean = false,
     val failures: List<LoadFailure> = emptyList(),
-)
+    val query: String = "",
+    val sort: WatchSort = WatchSort.DEFAULT,
+) {
+    /**
+     * The collection has watches, but none of them match what was typed.
+     *
+     * Distinct from [isCollectionEmpty] on purpose: showing the "add your first
+     * watch" empty state because a search found nothing would be the app lying
+     * about what it holds.
+     */
+    val hasNoMatches: Boolean
+        get() = isLoaded && !isCollectionEmpty && cards.isEmpty() && query.isNotBlank()
+}
 
 class GridViewModel(
     private val repository: WatchRepository,
+    private val configState: ConfigState,
     private val paths: SaatPaths,
 ) : ViewModel() {
 
@@ -72,15 +90,32 @@ class GridViewModel(
      */
     private val _dismissed = MutableStateFlow<Set<String>>(emptySet())
 
+    /**
+     * Not persisted, deliberately. A sort is a preference; a search is a
+     * question you are asking right now, and reopening the app to a filtered
+     * collection you do not remember filtering is how a grid appears to lose
+     * watches. SPEC-ANDROID 3 lists sort choices among what `config.toml` holds
+     * and does not list the query.
+     */
+    private val _query = MutableStateFlow("")
+
     val state: StateFlow<GridUiState> =
-        combine(repository.state, _dismissed) { collection, dismissed ->
+        combine(
+            repository.state,
+            configState.config,
+            _query,
+            _dismissed,
+        ) { collection, config, query, dismissed ->
             // watches/failures are uncached get() filters over records
             // (WatchRepository), so each is read exactly once per emission.
             val loaded = collection.watches
             val broken = collection.failures
+            // Read once per emission and handed to the comparator, so nothing
+            // asks the clock per element.
+            val today = LocalDate.now()
 
             GridUiState(
-                cards = loaded.mapNotNull { it.toCard(paths) },
+                cards = loaded.query(query, config.sort, today).mapNotNull { it.toCard(paths) },
                 isLoaded = collection.isLoaded,
                 // Empty means empty, not "nothing readable". A collection of
                 // three malformed files is not an invitation to add your first
@@ -88,11 +123,21 @@ class GridViewModel(
                 isCollectionEmpty = collection.isLoaded && collection.records.isEmpty(),
                 failures = broken.map { it.toFailure(paths) }
                     .filterNot { it.key in dismissed },
+                query = query,
+                sort = config.sort,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GridUiState())
 
     fun dismissFailures() {
         _dismissed.value = _dismissed.value + state.value.failures.map { it.key }
+    }
+
+    fun setQuery(query: String) {
+        _query.value = query
+    }
+
+    fun setSort(sort: WatchSort) {
+        viewModelScope.launch { configState.update { it.copy(sort = sort) } }
     }
 
     companion object {
@@ -102,6 +147,7 @@ class GridViewModel(
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
                     GridViewModel(
                         repository = app.watchRepository,
+                        configState = app.configState,
                         paths = app.paths,
                     ) as T
             }

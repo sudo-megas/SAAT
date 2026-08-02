@@ -47,8 +47,18 @@
     <string name="screen_grid_card_metadata">%1$s · %2$s</string>
     <string name="screen_add_watch_stub">Adding watches arrives in a later milestone.</string>
 
+    <string name="screen_grid_no_matches">No watches match that search.</string>
+    <string name="screen_detail_placeholder">Watch detail arrives in a later milestone.</string>
+
     <string name="action_add_watch">Add watch</string>
     <string name="action_dismiss">Dismiss</string>
+    <string name="action_search">Search</string>
+    <string name="action_clear_search">Clear</string>
+    <string name="action_sort">Sort</string>
+    <string name="action_sort_brand">Brand</string>
+    <string name="action_sort_model">Model</string>
+    <string name="action_sort_acquired">Acquired (newest first)</string>
+    <string name="action_sort_least_worn">Least worn</string>
 
     <!-- The muted em-dash that stands for a value the owner has not recorded. -->
     <string name="field_absent">—</string>

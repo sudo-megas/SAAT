@@ -1,6 +1,7 @@
 package io.github.sudomegas.saat.config
 
 import dev.eav.tomlkt.Toml
+import io.github.sudomegas.saat.storage.WatchSort
 import io.github.sudomegas.saat.storage.writeAtomically
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -56,9 +57,13 @@ class ConfigStore(root: File) {
     private data class LanguageSection(val code: String? = null)
 
     @Serializable
+    private data class GridSection(val sort: String? = null)
+
+    @Serializable
     private data class ConfigDto(
         val theme: ThemeSection? = null,
         val language: LanguageSection? = null,
+        val grid: GridSection? = null,
     )
 
     fun load(): ConfigLoad {
@@ -83,6 +88,7 @@ class ConfigStore(root: File) {
                 dynamic_color = config.dynamicColor,
             ),
             language = LanguageSection(code = config.language),
+            grid = GridSection(sort = config.sort.token),
         )
         writeAtomically(file, toml.encodeToString(dto))
     }
@@ -100,6 +106,10 @@ class ConfigStore(root: File) {
             themeMode = dto.theme?.mode?.toThemeMode() ?: ThemeMode.SYSTEM,
             dynamicColor = dto.theme?.dynamic_color ?: true,
             language = dto.language?.code ?: AppConfig.DEFAULT_LANGUAGE,
+            // An unrecognised token falls back to the default rather than
+            // throwing, the same leniency the theme mode above already gets: a
+            // config written by a later version must not stop this one starting.
+            sort = WatchSort.fromToken(dto.grid?.sort),
         )
     }
 

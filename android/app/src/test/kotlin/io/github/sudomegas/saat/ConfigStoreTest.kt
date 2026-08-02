@@ -3,6 +3,7 @@ package io.github.sudomegas.saat
 import io.github.sudomegas.saat.config.AppConfig
 import io.github.sudomegas.saat.config.ConfigStore
 import io.github.sudomegas.saat.config.ThemeMode
+import io.github.sudomegas.saat.storage.WatchSort
 import io.github.sudomegas.saat.storage.writeAtomically
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -169,6 +170,62 @@ class ConfigStoreTest {
     fun `an unrecognised theme mode falls back rather than throwing`() {
         File(temp.root, ConfigStore.FILE_NAME).writeText("[theme]\nmode = \"solarized\"\n")
         assertEquals(ThemeMode.SYSTEM, store().load().config.themeMode)
+    }
+
+    // ---- the sort choice, added in AM3 -----------------------------------
+
+    @Test
+    fun `the sort choice round-trips`() {
+        val store = store()
+        store.save(AppConfig(sort = WatchSort.LEAST_WORN))
+
+        assertEquals(WatchSort.LEAST_WORN, store.load().config.sort)
+    }
+
+    @Test
+    fun `a config with no grid table yields the default sort`() {
+        writeAtomically(File(temp.root, ConfigStore.FILE_NAME), "[theme]\nmode = \"dark\"\n")
+
+        val loaded = store().load()
+        assertEquals(WatchSort.DEFAULT, loaded.config.sort)
+        assertNull("an absent preference is not an error", loaded.error)
+    }
+
+    @Test
+    fun `an unrecognised sort token falls back rather than throwing`() {
+        // Same leniency the theme mode already gets: a config written by a later
+        // version must not stop this one from starting.
+        writeAtomically(
+            File(temp.root, ConfigStore.FILE_NAME),
+            "[grid]\nsort = \"by_moon_phase\"\n",
+        )
+
+        val loaded = store().load()
+        assertEquals(WatchSort.DEFAULT, loaded.config.sort)
+        assertNull(loaded.error)
+    }
+
+    @Test
+    fun `writing one preference does not disturb the others`() {
+        // The regression ConfigState exists to prevent. ConfigStore.save writes
+        // the WHOLE file from one AppConfig, so two holders of two stale
+        // snapshots would silently overwrite each other's keys — change the
+        // sort, then the theme, and the sort quietly reverts.
+        val store = store()
+
+        store.save(AppConfig(themeMode = ThemeMode.DARK, language = "tr", sort = WatchSort.MODEL))
+        val reloaded = store.load().config
+        assertEquals(ThemeMode.DARK, reloaded.themeMode)
+        assertEquals("tr", reloaded.language)
+        assertEquals(WatchSort.MODEL, reloaded.sort)
+
+        // Now change only the theme, the way a settings screen would, carrying
+        // the rest of the config forward.
+        store.save(reloaded.copy(themeMode = ThemeMode.LIGHT))
+        val afterThemeChange = store.load().config
+        assertEquals(ThemeMode.LIGHT, afterThemeChange.themeMode)
+        assertEquals("the sort must survive a theme change", WatchSort.MODEL, afterThemeChange.sort)
+        assertEquals("tr", afterThemeChange.language)
     }
 
     @Test

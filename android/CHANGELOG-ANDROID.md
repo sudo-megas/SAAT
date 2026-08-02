@@ -3,6 +3,77 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [0.3] - 2026-08-02
+
+The first screen worth looking at. AM2 finished the storage layer and nothing
+read it; this is the wire between the two, and the first build worth carrying on
+a phone.
+
+**The grid.** Two columns portrait, three landscape, with no upper clamp so a
+tablet in landscape is not capped at two. Cards are image-forward — brand as
+overline, model as title, style and movement kind beneath — and every card in a
+row is the same height *by construction* rather than by luck: a fixed 4:5 image
+crop and three text slots whose `minLines` equals their `maxLines`. A one-word
+model and a five-word model produce identical cards at any system font scale.
+
+**A watch with no photograph is not an empty grey box.** It gets its diameter
+and lug width set in the middle of the tile, and a watch with neither — which is
+everything a brand-and-model-only entry can be — renders two muted em-dashes and
+still looks deliberate.
+
+**Photographs are read from `media/<slug>/`, not `watches/<slug>/images/`.** The
+milestone brief said the latter and was stale: SPEC-ANDROID 3 splits the two
+trees on purpose, because Android's Auto Backup rules match paths as literal
+prefixes with no wildcards, so "records backed up, photographs not" is only
+expressible as two top-level includes. `watches/<slug>/images/` is the shape of
+the exported ZIP and nothing else. The brief has been corrected.
+
+**Coil, and only `coil-compose`.** The `coil-network-*` modules carry an HTTP
+client whose manifest declares INTERNET; hard rule 2 forbids it and the manifest
+guardian would fail the build over it. Nothing here loads a URL. The disk cache
+names `cacheDir` explicitly — that is where Coil would have put it anyway, but
+hard rule 8 is not a thing to satisfy by inheriting a library default.
+
+**Malformed files are named above the grid, dismissibly.** AM2 already kept a
+broken watch in the collection carrying its error instead of quietly dropping
+it; this is the part that says so out loud. Dismissal is keyed by file *and*
+message, so a reload keeps a dismissed error dismissed while a new error on the
+same file appears again. The record standing for an unreadable `watches/`
+directory is identified by comparing directories rather than by testing its slug
+against the string `watches`, which a real watch could legitimately be called.
+
+**Sort and fuzzy search**, both built in the repository layer rather than in the
+composable, because AM6's Specs list reuses them and one implementation is the
+point. Search is a subsequence match across brand, model, reference, caliber and
+tags, matched *per field* — a concatenated search would let "sksk" borrow
+letters from "Seiko" and "SKX007" and return a hit nobody can explain. It case-
+folds with the locale-independent `lowercase()`, so a search for `iwc` still
+finds `IWC` on the Turkish phone this app is built for. Sort offers Brand,
+Model, Acquired (newest first, unknown dates last) and Least worn, and the
+choice persists to `config.toml`.
+
+**"Least worn" means longest since last worn**, which is what the phrase already
+means in the desktop app — the same sentinel, ported. Every order breaks ties on
+the slug so it is total, and the grid cannot twitch between emissions.
+
+**One owner for `config.toml`.** The sort choice made a second writer, and since
+a save writes the whole file from one snapshot, two holders would silently
+overwrite each other's keys — change the sort, then the theme, and the sort
+reverts with nothing thrown. A shared state with a mutex fixes it, the same
+shape as the fix the watch repository already carries.
+
+**The demo fixture, and why absence beats a flag.** Hard rule 1 permits exactly
+one exception to "no demo watches": a debug-only developer action generating two
+watches in code at tap time. It lives in `src/debug`, not behind
+`BuildConfig.DEBUG`, because `isMinifyEnabled` is false for release and
+flag-guarded code would still ship in the release DEX — a test could then only
+ever prove "present but disabled", which is not the claim the rule asks anyone
+to make. A Gradle task asserts the fixture is absent from the release variant's
+compiled classes and string resources, and is registered on the debug variant
+too as a positive control, without which it would pass trivially the day the
+fixture is renamed. Both halves were deliberately broken once to confirm they go
+red.
+
 ## [0.2] - 2026-07-29
 
 The storage layer. No user-visible change — the app still shows four empty

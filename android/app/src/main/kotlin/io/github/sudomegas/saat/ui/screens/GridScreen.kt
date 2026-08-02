@@ -2,6 +2,7 @@ package io.github.sudomegas.saat.ui.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -18,9 +20,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sudomegas.saat.R
@@ -42,6 +46,7 @@ import kotlinx.coroutines.launch
 fun GridScreen(
     viewModel: GridViewModel,
     snackbarHostState: SnackbarHostState,
+    onOpenWatch: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -61,6 +66,18 @@ fun GridScreen(
         // The shell's Scaffold already consumed the system bars — MainActivity
         // calls enableEdgeToEdge — so a nested default would count them twice.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            // Nothing to search or sort in an empty collection, and the empty
+            // state is specified to be quiet.
+            if (!state.isCollectionEmpty) {
+                GridTopBar(
+                    query = state.query,
+                    sort = state.sort,
+                    onQueryChange = viewModel::setQuery,
+                    onSortChange = viewModel::setSort,
+                )
+            }
+        },
         floatingActionButton = {
             // SPEC-ANDROID 5.1 calls the FAB "the one primary-weight control in
             // the app". While the collection is empty the empty state's own
@@ -90,14 +107,31 @@ fun GridScreen(
                 state.isCollectionEmpty ->
                     CollectionEmptyState(onAddWatch = showAddWatchStub)
 
-                else -> WatchGrid(cards = state.cards)
+                // A search that found nothing is NOT the collection being empty.
+                // Offering "add your first watch" here would be the app lying
+                // about what it holds.
+                state.hasNoMatches -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.screen_grid_no_matches),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                else -> WatchGrid(cards = state.cards, onOpenWatch = onOpenWatch)
             }
         }
     }
 }
 
 @Composable
-private fun WatchGrid(cards: List<WatchCard>) {
+private fun WatchGrid(cards: List<WatchCard>, onOpenWatch: (String) -> Unit) {
     // Two portrait, three landscape (SPEC-ANDROID 5.2). Keyed off orientation
     // rather than a width breakpoint, and with no upper clamp, so a tablet in
     // landscape is never capped at two.
@@ -115,7 +149,7 @@ private fun WatchGrid(cards: List<WatchCard>) {
         modifier = Modifier.fillMaxSize(),
     ) {
         items(items = cards, key = { it.slug }) { card ->
-            WatchGridCard(card = card)
+            WatchGridCard(card = card, onOpen = onOpenWatch)
         }
     }
 }

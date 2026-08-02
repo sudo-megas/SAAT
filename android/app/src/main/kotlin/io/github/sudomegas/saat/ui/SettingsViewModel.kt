@@ -5,13 +5,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.config.AppConfig
-import io.github.sudomegas.saat.config.ConfigStore
+import io.github.sudomegas.saat.config.ConfigState
 import io.github.sudomegas.saat.config.ThemeMode
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -21,59 +17,49 @@ import kotlinx.coroutines.launch
  * without `android:configChanges` — the manifest deliberately does not suppress
  * recreation, because suppressing it would make the rotation-survival guarantee
  * a lie rather than a fact.
+ *
+ * Since AM3 this no longer holds its own copy of the config. `ConfigState` owns
+ * it, because the grid's sort choice made a second writer and two snapshots of
+ * a whole-file write silently overwrite each other's keys.
  */
 class SettingsViewModel(
-    private val store: ConfigStore,
+    private val configState: ConfigState,
     private val onThemeModeChanged: (ThemeMode) -> Unit,
-    initial: AppConfig,
-    startupError: String?,
 ) : ViewModel() {
 
-    private val _config = MutableStateFlow(initial)
-    val config: StateFlow<AppConfig> = _config.asStateFlow()
+    val config: StateFlow<AppConfig> = configState.config
 
-    private val _error = MutableStateFlow(startupError)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    /**
+     * Seeded with whatever the process-start load reported, because
+     * `ConfigState` is built from that load — so a `config.toml` that could not
+     * be read still reaches the shell's snackbar without a second channel.
+     */
+    val error: StateFlow<String?> = configState.error
 
     fun setThemeMode(mode: ThemeMode) {
+        // Applied to the XML/AppCompat layer BEFORE it is persisted, so the
+        // launch window and the Compose theme cannot disagree even briefly.
         onThemeModeChanged(mode)
         persist { it.copy(themeMode = mode) }
     }
 
     fun setDynamicColor(enabled: Boolean) = persist { it.copy(dynamicColor = enabled) }
 
-    fun clearError() {
-        _error.value = null
-    }
+    fun clearError() = configState.clearError()
 
     private fun persist(transform: (AppConfig) -> AppConfig) {
-        val updated = transform(_config.value)
-        _config.value = updated
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                store.save(updated)
-            } catch (e: Exception) {
-                // Hard rule 6: the message reaches the UI intact. A settings
-                // write that fails silently would leave the app disagreeing
-                // with its own config file on the next launch.
-                _error.update { "${ConfigStore.FILE_NAME}: ${e.message ?: e::class.simpleName}" }
-            }
-        }
+        viewModelScope.launch { configState.update(transform) }
     }
 
     companion object {
         fun factory(app: SaatApplication): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    val loaded = app.configStore.load()
-                    return SettingsViewModel(
-                        store = app.configStore,
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    SettingsViewModel(
+                        configState = app.configState,
                         onThemeModeChanged = app::applyNightMode,
-                        initial = loaded.config,
-                        startupError = app.startupError ?: loaded.error,
                     ) as T
-                }
             }
     }
 }

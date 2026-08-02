@@ -23,15 +23,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.ui.nav.CalendarRoute
+import io.github.sudomegas.saat.ui.nav.DetailRoute
 import io.github.sudomegas.saat.ui.nav.GridRoute
 import io.github.sudomegas.saat.ui.nav.SettingsRoute
 import io.github.sudomegas.saat.ui.nav.SpecsRoute
 import io.github.sudomegas.saat.ui.nav.TopLevelDestination
 import io.github.sudomegas.saat.ui.screens.CalendarScreen
+import io.github.sudomegas.saat.ui.screens.DetailScreen
 import io.github.sudomegas.saat.ui.screens.GridScreen
 import io.github.sudomegas.saat.ui.screens.SettingsScreen
 import io.github.sudomegas.saat.ui.screens.SpecsScreen
@@ -76,9 +79,18 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
         }
     }
 
+    // SPEC-ANDROID 5.1: detail, form and compare are full screens pushed ABOVE
+    // the tabs. Hiding the bar is also the honest answer to "which tab is
+    // selected while Detail is open" — none is, and dimming one into a lie was
+    // the alternative. `matchesTab` stays exhaustive over the four tabs, and the
+    // routes AM4 and AM5 add join the list here rather than there.
+    val onFullScreenRoute = backStackEntry?.destination?.hierarchy
+        ?.any { node -> node.hasRoute(DetailRoute::class) } == true
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
+            if (onFullScreenRoute) return@Scaffold
             NavigationBar {
                 TopLevelDestination.entries.forEach { destination ->
                     val selected = backStackEntry?.destination?.hierarchy
@@ -115,7 +127,11 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                 GridScreen(
                     viewModel = gridViewModel,
                     snackbarHostState = snackbarHostState,
+                    onOpenWatch = { slug -> navController.navigate(DetailRoute(slug)) },
                 )
+            }
+            composable<DetailRoute> { entry ->
+                DetailScreen(slug = entry.toRoute<DetailRoute>().slug)
             }
             composable<SpecsRoute> { SpecsScreen() }
             composable<CalendarRoute> { CalendarScreen() }
