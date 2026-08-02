@@ -7,15 +7,28 @@
 
 name: Android CI
 
+# The parity step below runs the DESKTOP'S own loader and diffs its field map
+# against dataclasses.fields(saat.models.Watch), which makes those desktop files
+# inputs to this workflow even though they sit outside android/. Filtering on
+# android/** alone meant a field renamed on the desktop went unchecked until the
+# next unrelated Android push — arriving months later, and reading as an Android
+# regression when it is nothing of the sort. docs/schema.md is listed for the
+# same reason: it is the shared contract both apps are measured against.
 on:
   push:
     paths:
       - 'android/**'
       - '.github/workflows/android-ci.yml'
+      - 'saat/models.py'
+      - 'saat/storage.py'
+      - 'docs/schema.md'
   pull_request:
     paths:
       - 'android/**'
       - '.github/workflows/android-ci.yml'
+      - 'saat/models.py'
+      - 'saat/storage.py'
+      - 'docs/schema.md'
 
 # No `branches:` restriction, deliberately. Every working branch gets CI,
 # because AM1's own verification depends on reading real Actions runs.
