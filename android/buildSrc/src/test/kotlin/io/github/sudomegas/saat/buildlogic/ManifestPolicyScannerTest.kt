@@ -8,10 +8,16 @@ import org.junit.Test
  * The guardian's own guardian.
  *
  * This is not a one-off demonstration that the check works — it is a standing
- * test, and it lives in buildSrc precisely because Gradle runs `buildSrc:test`
- * before evaluating the root project. Every single Gradle invocation therefore
- * re-proves that the zero-permission check still detects a permission, with no
- * CI wiring anyone could remove.
+ * test. It was originally placed here believing that Gradle runs `buildSrc:test`
+ * before evaluating the root project, so these tests would re-run on every
+ * invocation with no CI wiring anyone could remove. That was measured and found
+ * FALSE: modern Gradle builds only buildSrc's `jar`, and the first green
+ * `./gradlew check` reported the app's tests and zero from this file — the
+ * guardian's guardian was dead code.
+ *
+ * They run now only because `buildSrc/build.gradle.kts` hangs them off that jar
+ * with `finalizedBy(tasks.test)`. That line looks redundant and is not; deleting
+ * it silently stops every test below from ever running again.
  *
  * The two false-negative and false-positive cases below are the ones that
  * matter; both are real, not hypothetical.
