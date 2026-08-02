@@ -23,11 +23,13 @@ import androidx.compose.ui.unit.dp
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.config.AppConfig
 import io.github.sudomegas.saat.config.ThemeMode
+import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.ui.theme.dynamicColorAvailable
 
 @Composable
 fun SettingsScreen(
     config: AppConfig,
+    repository: WatchRepository,
     onThemeModeChange: (ThemeMode) -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
 ) {
@@ -98,6 +100,12 @@ fun SettingsScreen(
                 )
             }
         }
+
+        // Renders the demo-watch actions in debug builds and literally nothing
+        // in release: there are two DeveloperSection composables, one per build
+        // type, and this file names neither the generator nor its package. See
+        // src/release/.../DeveloperSection.kt for why absence beats a flag.
+        DeveloperSection(repository)
     }
 }
 

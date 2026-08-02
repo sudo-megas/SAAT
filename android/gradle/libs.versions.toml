@@ -13,6 +13,12 @@ navigationCompose = "2.9.8"
 # chosen. See the AM1a commit message for the measurements.
 tomlkt = "0.6.1"
 
+# Approved in SPEC-ANDROID 2.1, added in AM3 when the grid first needed it.
+# Only coil-compose: the coil-network-* artifacts carry an HTTP client whose
+# manifest declares INTERNET, which hard rule 2 forbids and
+# verifyReleaseManifestPolicy would fail the build over.
+coil = "3.2.0"
+
 junit = "4.13.2"
 
 [libraries]
@@ -31,6 +37,8 @@ compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 
 tomlkt = { group = "dev.eav.tomlkt", name = "tomlkt", version.ref = "tomlkt" }
+
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 

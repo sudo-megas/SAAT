@@ -1,4 +1,7 @@
+import com.android.build.api.artifact.ScopedArtifact
 import com.android.build.api.artifact.SingleArtifact
+import com.android.build.api.variant.ScopedArtifacts
+import io.github.sudomegas.saat.buildlogic.VerifyDemoFixtureTask
 import io.github.sudomegas.saat.buildlogic.VerifyManifestPolicyTask
 
 plugins {
@@ -111,6 +114,44 @@ androidComponents {
             )
         }
         tasks.named("check") { dependsOn(verify) }
+
+        // The guardian of hard rule 1's closing clause: "a test asserts the
+        // mechanism is absent from release builds". Registered on BOTH variants
+        // on purpose — the debug run is the positive control, without which the
+        // release assertion would pass trivially the day the fixture is renamed.
+        //
+        // Reads the variant's own compiled classes rather than the packaged APK,
+        // so `check` never has to assemble or sign a release build.
+        val verifyDemoFixture = tasks.register<VerifyDemoFixtureTask>(
+            "verify${capitalised}DemoFixturePolicy"
+        ) {
+            group = "verification"
+            description =
+                "Asserts the demo-watch fixture is ${
+                    if (variant.name == "debug") "present in" else "absent from"
+                } the ${variant.name} variant."
+
+            expectPresent.set(variant.name == "debug")
+            variantName.set(variant.name)
+            runtimeSymbolList.set(variant.artifacts.get(SingleArtifact.RUNTIME_SYMBOL_LIST))
+            report.set(
+                layout.buildDirectory.file("reports/demo-fixture/${variant.name}.txt")
+            )
+        }
+
+        // PROJECT scope, not ALL: the question is whether OUR code carries the
+        // fixture. Dependencies cannot, and scanning every library's classes on
+        // each build would cost seconds to prove something impossible.
+        variant.artifacts
+            .forScope(ScopedArtifacts.Scope.PROJECT)
+            .use(verifyDemoFixture)
+            .toGet(
+                ScopedArtifact.CLASSES,
+                VerifyDemoFixtureTask::classJars,
+                VerifyDemoFixtureTask::classDirectories,
+            )
+
+        tasks.named("check") { dependsOn(verifyDemoFixture) }
     }
 }
 
@@ -148,6 +189,14 @@ dependencies {
     // candidate that lost, are in the AM1a commit message; that candidate left
     // the test classpath when AM1 merged, as its own comment promised.
     implementation(libs.tomlkt)
+
+    // Images. SPEC-ANDROID 2.1 approved Coil from the start; AM3 is the first
+    // milestone that shows a photograph. coil-compose ONLY — its POM pulls just
+    // coil, coil-compose-core and the Kotlin stdlib. The coil-network-* modules
+    // bring an HTTP client whose manifest declares INTERNET, which hard rule 2
+    // forbids outright and verifyReleaseManifestPolicy would fail the build
+    // over. Nothing here ever loads a URL: every model is a local File.
+    implementation(libs.coil.compose)
 
     testImplementation(libs.junit)
 }

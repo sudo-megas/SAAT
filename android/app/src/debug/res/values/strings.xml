@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY.
+
+  These four strings back the sanctioned developer action of SPEC-ANDROID hard
+  rule 1. They live in src/debug/res so the release APK does not contain them at
+  all — not merely unreferenced, but absent, so that running `strings` over the
+  shipped APK finds no trace of a demo-watch feature.
+
+  Every key here contains "demo". That is not decoration: the release-absence
+  check reads the variant's R.txt and fails if any string resource whose name
+  contains "demo" appears in the release build, and StringsConventionTest asserts
+  the naming from this side so the two halves cannot drift apart.
+-->
+<resources>
+    <string name="settings_demo_watches">Demo watches</string>
+    <string name="settings_demo_watches_summary">Debug builds only. Two watches generated in code — nothing is bundled, nothing is committed.</string>
+
+    <string name="action_add_demo_watches">Add demo watches</string>
+    <string name="action_clear_demo_watches">Clear demo watches</string>
+</resources>
