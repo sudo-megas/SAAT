@@ -12,7 +12,6 @@ navigationCompose = "2.9.8"
 # Evaluated against a watch-shaped fixture in TomlContractTest before being
 # chosen. See the AM1a commit message for the measurements.
 tomlkt = "0.6.1"
-ktoml = "0.7.1"
 
 junit = "4.13.2"
 
@@ -32,7 +31,6 @@ compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 
 tomlkt = { group = "dev.eav.tomlkt", name = "tomlkt", version.ref = "tomlkt" }
-ktoml-core = { group = "com.akuleshov7", name = "ktoml-core", version.ref = "ktoml" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 

@@ -143,15 +143,11 @@ dependencies {
     // TOML. Chosen in AM1 rather than AM2 so the storage layer inherits a
     // library already proven against a watch-shaped fixture — and so that if it
     // turns out to be wrong, switching costs one file instead of the whole
-    // storage layer. TomlContractTest holds the gates; KtomlComparisonTest runs
-    // the alternative over the same fixture. The measurements are in the AM1a
-    // commit message.
+    // storage layer. TomlContractTest holds the gates that decided it, and goes
+    // on holding them. The measurements, and the comparison against the
+    // candidate that lost, are in the AM1a commit message; that candidate left
+    // the test classpath when AM1 merged, as its own comment promised.
     implementation(libs.tomlkt)
-
-    // The losing candidate, kept on the TEST classpath only for the duration of
-    // AM1 so the comparison is reproducible from the repository rather than
-    // taken on trust. Removed once AM1 is merged.
-    testImplementation(libs.ktoml.core)
 
     testImplementation(libs.junit)
 }
