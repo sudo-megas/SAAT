@@ -3,6 +3,7 @@ package io.github.sudomegas.saat.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -53,6 +57,7 @@ import io.github.sudomegas.saat.ui.formatMeasurement
 @Composable
 fun WatchGridCard(
     card: WatchCard,
+    onOpen: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -60,11 +65,13 @@ fun WatchGridCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
         border = BorderStroke(Dp.Hairline, MaterialTheme.colorScheme.outlineVariant),
-        // Not clickable yet: AM3b gives the card its tap target once there is a
-        // Detail destination to send it to. A card that swallowed a tap and did
-        // nothing would be the dead control the empty state's button is
-        // explicitly forbidden from being.
-        modifier = modifier.fillMaxWidth(),
+        // Modifier.clickable with an explicit Role rather than Card(onClick =),
+        // which is still an experimental overload; the semantics are the same and
+        // this needs no opt-in.
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onOpen(card.slug) }
+            .semantics { role = Role.Button },
     ) {
         Box(
             modifier = Modifier

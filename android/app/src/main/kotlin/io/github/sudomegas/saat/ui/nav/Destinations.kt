@@ -22,6 +22,19 @@ object CalendarRoute
 @Serializable
 object SettingsRoute
 
+/**
+ * The first destination that carries an argument, hence a `data class` rather
+ * than an `object` — navigation-compose's type-safe API builds its route from
+ * the serializer either way, and the argument is read back with
+ * `backStackEntry.toRoute<DetailRoute>()`.
+ *
+ * Not a member of [TopLevelDestination]: SPEC-ANDROID 5.1 pushes detail, form
+ * and compare above the tabs as full screens, so this has no bottom-bar entry
+ * and the bar is hidden entirely while it is on top.
+ */
+@Serializable
+data class DetailRoute(val slug: String)
+
 enum class TopLevelDestination(
     val route: Any,
     @param:StringRes val labelRes: Int,

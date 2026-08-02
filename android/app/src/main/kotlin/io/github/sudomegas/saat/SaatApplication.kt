@@ -10,6 +10,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import io.github.sudomegas.saat.config.AppConfig
+import io.github.sudomegas.saat.config.ConfigState
 import io.github.sudomegas.saat.config.ConfigStore
 import io.github.sudomegas.saat.config.ThemeMode
 import io.github.sudomegas.saat.storage.SaatPaths
@@ -24,6 +25,17 @@ import okio.Path.Companion.toOkioPath
 class SaatApplication : Application(), SingletonImageLoader.Factory {
 
     lateinit var configStore: ConfigStore
+        private set
+
+    /**
+     * The single owner of `config.toml` while the app runs.
+     *
+     * AM3 gave the grid a sort preference, making a second writer. Since
+     * `ConfigStore.save` writes the whole file from one `AppConfig`, two holders
+     * of two snapshots would silently overwrite each other's keys — so both
+     * ViewModels share this instead.
+     */
+    lateinit var configState: ConfigState
         private set
 
     /**
@@ -65,6 +77,7 @@ class SaatApplication : Application(), SingletonImageLoader.Factory {
 
         val loaded = configStore.load()
         startupError = loaded.error
+        configState = ConfigState(configStore, loaded)
 
         applyLanguage(loaded.config.language)
         applyNightMode(loaded.config.themeMode)
