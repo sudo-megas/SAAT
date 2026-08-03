@@ -96,7 +96,7 @@ actually present when a watch goes on your wrist.** It has the same grid, spec l
 wear calendar, detail page and two-up comparison, plus a home-screen widget and a
 launcher shortcut that record today's watch in two taps without opening the app.
 
-Download `saat-release.apk` from the
+Download `saat-android-1.0.apk` from the
 [releases page](https://github.com/sudo-megas/SAAT/releases/latest) — the Android
 builds are tagged `android-v1.0` and versioned separately from the desktop app.
 

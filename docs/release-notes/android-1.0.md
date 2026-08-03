@@ -13,7 +13,7 @@ separately, so this is v1.0 rather than v2.2.
 
 ## Installing it
 
-Download `saat-release.apk` from this release and tap it.
+Download `saat-android-1.0.apk` from this release and tap it.
 
 ### Android will warn you, and you have to tap past it
 
