@@ -144,6 +144,9 @@ fun FormScreen(
             state = state,
             collection = collection,
             onChange = viewModel::update,
+            onPicked = viewModel::stagePicked,
+            newCaptureFile = { viewModel.stagedFile() },
+            onCaptured = viewModel::addStaged,
             contentPadding = innerPadding,
         )
     }
@@ -181,6 +184,9 @@ private fun FormBody(
     state: WatchFormState,
     collection: List<Watch>,
     onChange: ((WatchFormState) -> WatchFormState) -> Unit,
+    onPicked: (String, (java.io.OutputStream) -> Unit) -> Unit,
+    newCaptureFile: () -> java.io.File,
+    onCaptured: (java.io.File) -> Unit,
     contentPadding: PaddingValues,
 ) {
     // Which groups are open survives rotation but is not persisted further: it
@@ -222,6 +228,16 @@ private fun FormBody(
             StringListEditor(R.string.field_tags, state.tags, emptyList()) { v ->
                 onChange { it.copy(tags = v) }
             }
+        }
+
+        FormSection(R.string.screen_form_group_images, IMAGES in open.value, { toggle(IMAGES) }) {
+            ImagesEditor(
+                images = state.images,
+                onPicked = onPicked,
+                newCaptureFile = newCaptureFile,
+                onCaptured = onCaptured,
+                apply = onChange,
+            )
         }
 
         FormSection(R.string.screen_form_group_movement, MOVEMENT in open.value, { toggle(MOVEMENT) }) {
@@ -382,7 +398,7 @@ private fun FormBody(
                 materials = STRAP_MATERIALS.plusExisting(
                     existingListValues(collection) { watch -> watch.straps.mapNotNull { it.material } },
                 ),
-                images = state.images,
+                images = state.images.map { it.filename },
             ) { v -> onChange { it.copy(straps = v) } }
         }
 
@@ -446,6 +462,7 @@ private fun FormBody(
 }
 
 private const val IDENTITY = "identity"
+private const val IMAGES = "images"
 private const val MOVEMENT = "movement"
 private const val CASE = "case"
 private const val DIAL = "dial"
@@ -462,7 +479,7 @@ private const val NOTES = "notes"
  * tabs to show.
  */
 private val ALL_GROUPS = setOf(
-    IDENTITY, MOVEMENT, CASE, DIAL, STRAPS, ACQUISITION, MAINTENANCE, LOG, TIMING, NOTES,
+    IDENTITY, IMAGES, MOVEMENT, CASE, DIAL, STRAPS, ACQUISITION, MAINTENANCE, LOG, TIMING, NOTES,
 )
 
 /** A `Set<String>` is not one of the types the default saver handles. */

@@ -123,6 +123,9 @@
     <string name="screen_form_title_add">Add watch</string>
     <string name="screen_form_title_edit">Edit watch</string>
     <string name="screen_form_group_identity">Identity</string>
+    <string name="screen_form_group_images">Images</string>
+    <string name="screen_form_images_empty">No photographs yet. Choose one, or take one — neither needs a permission.</string>
+    <string name="screen_form_images_primary">Primary</string>
     <string name="screen_form_group_movement">Movement</string>
     <string name="screen_form_group_case">Case</string>
     <string name="screen_form_group_dial">Dial</string>
@@ -157,6 +160,11 @@
     <string name="action_add">Add</string>
     <string name="action_remove">Remove</string>
     <string name="action_edit_watch">Edit</string>
+    <string name="action_choose_photos">Choose photos</string>
+    <string name="action_take_photo">Take photo</string>
+    <string name="action_set_primary">Set primary</string>
+    <string name="action_move_up">Up</string>
+    <string name="action_move_down">Down</string>
     <string name="action_add_strap">Add strap</string>
     <string name="action_add_log_entry">Add log entry</string>
     <string name="action_add_timing_reading">Add timing reading</string>

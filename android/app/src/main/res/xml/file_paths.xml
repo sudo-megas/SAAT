@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the FileProvider is allowed to expose. Exactly one directory, inside
+  cacheDir, and nothing else.
+
+  This is the narrowest useful grant. A camera app handed a URI from here can
+  write the one file it was given and can reach nothing around it: not
+  `watches/`, not `media/`, not `config.toml`, not `backups/`. The records are
+  outside the provider's world entirely, which is a stronger statement than any
+  runtime check — there is no URI that names them.
+
+  cacheDir rather than filesDir for a second reason as well. A photograph on its
+  way in from the camera is not part of the collection yet — the owner may back
+  out of the form without saving — and cacheDir is the one place Android is free
+  to reclaim, is never backed up (`backup_rules.xml` lists `watches` and
+  `config.toml` and nothing else) and is never exported. A staged photograph that
+  is abandoned costs nothing and disappears on its own. It becomes a record only
+  when the watch is saved and the bytes are copied into `media/<slug>/`.
+-->
+<paths>
+    <cache-path
+        name="staged_images"
+        path="staged-images/" />
+</paths>

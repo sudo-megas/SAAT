@@ -11,6 +11,7 @@ import io.github.sudomegas.saat.storage.TimingEntry
 import io.github.sudomegas.saat.storage.Watch
 import io.github.sudomegas.saat.storage.withSingleFitted
 import io.github.sudomegas.saat.ui.formatMeasurement
+import java.io.File
 import java.time.LocalDate
 
 /**
@@ -112,11 +113,21 @@ data class WatchFormState(
     val notes: String = "",
 
     /**
-     * Bare filenames, primary first — the order becomes `Watch.images`. AM5b
-     * fills this from the picker and the camera; AM5a only carries it through
-     * an edit so a save cannot drop a watch's photographs.
+     * The photographs, primary first — the order becomes `Watch.images`.
+     *
+     * Holds staged files as well as saved ones, so a photograph picked and then
+     * abandoned never reaches `media/`. See [FormImage].
      */
-    val images: List<String> = emptyList(),
+    val images: List<FormImage> = emptyList(),
+
+    /**
+     * Photographs the owner removed that are still on disk.
+     *
+     * Collected rather than deleted on the spot: backing out of the form must
+     * leave the collection exactly as it was, and a file already moved to
+     * `backups/deleted/` is a change that a discard cannot undo.
+     */
+    val removedImages: List<String> = emptyList(),
 ) {
     /**
      * The one rule that blocks a save, and the only one there will ever be.
@@ -237,10 +248,25 @@ data class WatchFormState(
             batteryDue = watch.maintenance.batteryDue,
 
             notes = watch.notes.orBlank(),
-            images = watch.images,
+            images = watch.images.map(::FormImage),
         )
     }
 }
+
+/**
+ * One photograph in the form.
+ *
+ * [staged] is non-null while the file is still in `cacheDir` and has not been
+ * copied into `media/<slug>/`. Staging rather than importing on the spot is what
+ * the desktop's images tab does too, and for two reasons that both matter: a
+ * NEW watch has no slug until it is saved, so there is nowhere to put a
+ * photograph yet; and backing out of the form must leave the collection exactly
+ * as it was, which it cannot if picking a photo already wrote one.
+ *
+ * [filename] is the name it will have once committed. It is provisional until
+ * then — the import re-uniquifies against whatever is actually on disk.
+ */
+data class FormImage(val filename: String, val staged: File? = null)
 
 data class StrapFormState(
     val material: String = "",
@@ -382,7 +408,7 @@ fun WatchFormState.toWatch(preservedWorn: List<LocalDate> = emptyList()): Watch 
     worn = preservedWorn,
     timing = timing.filterNot { it.isBlank }.map { it.toEntry() },
     notes = notes.orNull(),
-    images = images,
+    images = images.map { it.filename },
 )
 
 /**

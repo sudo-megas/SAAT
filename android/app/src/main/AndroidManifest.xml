@@ -83,6 +83,37 @@
         </activity>
 
         <!--
+          The camera hand-off, and the reason there is still no CAMERA
+          permission (AM5).
+
+          ACTION_IMAGE_CAPTURE needs somewhere to put the photograph, and it is
+          another app doing the writing. A FileProvider grants that one app
+          write access to ONE file for the length of the intent — no permission
+          asked of the owner, none held by either side afterwards.
+
+          android:exported="false" and grantUriPermissions="true" together are
+          the whole security posture: nothing can address this provider except
+          through a URI we hand out deliberately, and each grant covers a single
+          file. @xml/file_paths narrows it further, to one directory inside
+          cacheDir and nothing else — so a bug in this app cannot hand a camera
+          app a URI into `watches/` even by accident. The records are not
+          reachable through it at all.
+
+          Note the authority carries ${applicationId}: two apps declaring one
+          authority cannot both install, and SPEC-ANDROID 8 fixes the
+          applicationId forever, so this cannot collide with anything of ours.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!--
           Lets AppCompat apply a per-app locale on API levels below 33, where
           the framework's own LocaleManager does not exist. SPEC-ANDROID hard
           rule 7 requires the app to choose its language explicitly rather than
