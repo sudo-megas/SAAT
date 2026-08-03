@@ -1,0 +1,202 @@
+# Signed release APK for SAAT Android, attached to a GitHub Release.
+#
+# There is no manual upload step and there must never be one: if this workflow
+# does not produce the release, the fix belongs in this file. That is the
+# desktop's rule (docs/DEVELOPMENT.md) and it is carried over for the same
+# reason — a binary somebody built on their laptop and dragged into a release
+# page is a binary nobody can reproduce.
+#
+# NO PATH FILTER, deliberately. android-ci.yml is filtered because it runs on
+# every push and must not fire for desktop changes; this runs on an explicit tag
+# and on an explicit manual dispatch, both of which are already a decision
+# somebody made on purpose.
+#
+# The desktop workflows do not fire for these tags, verified by reading them
+# rather than assumed: release.yml triggers on `tags: ['v*']`, and `android-v1.0`
+# does not start with `v`, so it does not match. test.yml has no tag trigger at
+# all — its push trigger carries `branches: [master]`, which a tag push does not
+# satisfy.
+
+name: Android Release
+
+on:
+  push:
+    tags: ['android-v*']
+
+  # THE DRY RUN, and it is what stops a tag being spent to discover a typo.
+  # Runs every step below including the signing and the signature verification,
+  # and publishes nothing — the release job is gated on the tag event. The
+  # desktop learned this the hard way; a tag is public and awkward to retract.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # The same two Python steps android-ci.yml runs, and for the same reason:
+      # AM10's round-trip test is the release gate, and half of it is answered by
+      # the desktop's own loader rather than by anything Gradle can run.
+      - name: Write a desktop-authored fixture for the Android tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check tomlkit==0.15.1
+          python3 android/tools/parity_check.py emit android/app/build/parity-in
+
+      - name: Verify the enum* lists still match the desktop's
+        working-directory: ${{ github.workspace }}
+        run: python3 android/tools/parity_check.py enums .
+
+      # The FULL suite, not a subset. A release is the one build where running
+      # everything is obviously worth the minutes.
+      - name: Check
+        run: ./gradlew --no-daemon check
+
+      - name: Verify parity against the desktop's own loader
+        working-directory: ${{ github.workspace }}
+        run: python3 android/tools/parity_check.py verify android/app/build/reports/parity
+
+      # AM10's gate, stated as its own step so a failure here reads as what it
+      # is: the promise that unzipping an export into the desktop app's folder
+      # IS the import on that side.
+      - name: Open the exported ZIP with the desktop's loader
+        working-directory: ${{ github.workspace }}
+        run: python3 android/tools/parity_check.py zip android/app/build/reports/zip-bridge
+
+      # --- signing ----------------------------------------------------------
+      #
+      # The keystore is decoded to the RUNNER'S HOME, outside the checkout, so
+      # it cannot be picked up by anything that globs the working tree. It dies
+      # with the runner.
+      - name: Restore the keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64}" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See docs/ANDROID-RELEASING.md."
+            exit 1
+          fi
+          printf '%s' "${KEYSTORE_BASE64}" | base64 -d > "${HOME}/saat-release.jks"
+          # A truncated or newline-wrapped secret decodes to a file that is
+          # present and useless, and the failure that follows talks about a
+          # keystore format rather than about the secret. Fail here instead.
+          keytool -list -keystore "${HOME}/saat-release.jks" \
+                  -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > /dev/null
+          echo "keystore restored and readable"
+
+      - name: Build the signed release APK
+        env:
+          SAAT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          # Not a secret, and set here rather than in the repository's settings
+          # so the value is readable beside the command that uses it.
+          SAAT_KEY_ALIAS: saat
+          SAAT_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # Exported in the shell rather than declared in `env:` above, because
+          # ${HOME} is not available to the workflow expression context — an
+          # `env:` entry would have to hard-code /home/runner and would break
+          # the day the image changes. The three secrets are declared above;
+          # only the path needs the shell.
+          export SAAT_KEYSTORE_FILE="${HOME}/saat-release.jks"
+          ./gradlew --no-daemon assembleRelease
+
+      # THE STEP THAT MAKES THE PREVIOUS ONE MEAN SOMETHING. The build produces
+      # an UNSIGNED APK when the keystore material is absent — that is
+      # deliberate, so contributors can build — which means "the build
+      # succeeded" is not evidence that anything was signed. This is.
+      - name: Verify the signature
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/release/*.apk)
+          APKSIGNER=$(ls "${ANDROID_HOME}"/build-tools/*/apksigner | sort -V | tail -1)
+          "${APKSIGNER}" verify --verbose --print-certs "${APK}"
+          "${APKSIGNER}" verify "${APK}" || {
+            echo "::error::the release APK is not signed"
+            exit 1
+          }
+
+      # The emulator smoke check AM11c asks for is NOT run here, and the brief
+      # permits saying so: booting an AVD costs several minutes per run and is
+      # the flakiest thing a release pipeline can contain — a release that fails
+      # because an emulator did not come up teaches nobody anything. apkanalyzer
+      # answers the questions that actually matter about the artefact, from the
+      # artefact itself, in seconds.
+      - name: Sanity-check the APK
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/release/*.apk)
+          ANALYZER=$(ls "${ANDROID_HOME}"/cmdline-tools/*/bin/apkanalyzer | sort -V | tail -1)
+
+          echo "--- manifest summary"
+          "${ANALYZER}" manifest print "${APK}" | head -40
+
+          echo "--- the zero-permission claim, on the built artefact"
+          # Not the merged manifest this time: the thing that ships. The build
+          # already fails on a permission via verifyReleaseManifestPolicy, so
+          # this is the same rule asserted one layer further out.
+          if "${ANALYZER}" manifest permissions "${APK}" | grep -q .; then
+            echo "::error::the release APK declares a permission — SPEC-ANDROID hard rule 2"
+            "${ANALYZER}" manifest permissions "${APK}"
+            exit 1
+          fi
+          echo "no permissions declared"
+
+          echo "--- launchable activity"
+          "${ANALYZER}" manifest application-id "${APK}"
+          echo "--- size"
+          "${ANALYZER}" apk summary "${APK}"
+
+      - name: Upload the APK as a workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: saat-release-apk-${{ github.sha }}
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      # Only on a tag. A workflow_dispatch run reaches this step and skips it,
+      # which is exactly what makes the dry run safe to use freely.
+      - name: Create the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/android-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#android-v}"
+          NOTES="docs/release-notes/android-${VERSION}.md"
+
+          cd "${GITHUB_WORKSPACE}"
+          if [ ! -f "${NOTES}" ]; then
+            echo "::error::${NOTES} is missing — a release ships with notes or not at all"
+            exit 1
+          fi
+
+          # --clobber so re-running a tag replaces a bad binary rather than
+          # failing, matching the desktop's release workflow.
+          gh release create "${TAG}" \
+            --title "SAAT for Android ${VERSION}" \
+            --notes-file "${NOTES}" \
+            android/app/build/outputs/apk/release/*.apk \
+            || gh release upload "${TAG}" \
+               android/app/build/outputs/apk/release/*.apk --clobber

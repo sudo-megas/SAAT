@@ -3,6 +3,60 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [1.0] - 2026-08-03
+
+The first public release. Turkish, signing, a tag-triggered workflow, and a
+README written for somebody who will sideload an APK and deserves to know
+exactly what it does and does not do.
+
+**Turkish is not a translation layer bolted on at the end.** It cost so little
+here because AM1 forbade a literal in a composable and AM5 built `EnumChoice`
+with the stored value and the shown label as separate fields — so a Turkish
+dropdown writes the same English `watch.toml` the desktop reads, and always
+would have. The vocabulary is the desktop's own: all 99 enum labels and 129 of
+the interface strings come verbatim from `saat_tr.ts`, so a collector reading
+the two apps sees one vocabulary rather than two opinions about what a lug is
+called.
+
+**A file written under one language loads identically under the other, and now
+a test says so under a real Turkish locale.** This is the case worth having:
+`"I".lowercase()` in Turkish gives `ı`, and `String.format` writes `3,5` for
+three and a half — which is not valid TOML. A phone set to Turkish could have
+written files the desktop could not read, and the failure would have looked
+like corruption rather than like a locale bug.
+
+**Enum values translate on the detail page too, resolved per field.** The same
+English word is a different thing in different fields — "Other" is a group and
+a style, "None" a bezel and an indices — so a flat value-to-label map would pick
+whichever it met first and produce quietly wrong Turkish for the other. Free
+text keeps no label and reaches the screen as typed, because what the owner
+typed is their word rather than the app's vocabulary.
+
+**Nothing secret is in this repository and nothing can be.** The signing config
+reads four values from the environment or from Gradle properties; `.gitignore`
+has excluded keystores since AM1, before there was one to be careless with; and
+a test now checks what `.gitignore` cannot — a file added with `git add -f`, or
+a password pasted into the build script. Every other mistake in this project is
+recoverable. A signing key that reaches a public repository is not, and Android
+does not allow rotating one.
+
+**The release build stays buildable without the keystore.** An unconditional
+signing config fails at configuration time on every machine that does not have
+it, which is every contributor's. So its absence produces an *unsigned* release
+APK — and the workflow verifies the signature with `apksigner` afterwards,
+because "the build succeeded" is then not evidence that anything was signed.
+
+**The dry run is the point of the workflow's second trigger.** It builds, signs
+and verifies exactly as a tag does, and publishes nothing. A tag is public and
+awkward to retract; the desktop learned that first.
+
+**No emulator smoke test, said plainly.** Booting an AVD is several minutes and
+the flakiest thing a release pipeline can hold — a release that fails because an
+emulator did not come up teaches nobody anything. `apkanalyzer` answers the
+questions that matter about the artefact from the artefact itself, including
+re-asserting the zero-permission claim against the built APK rather than only
+against the merged manifest.
+
 ## [0.10] - 2026-08-03
 
 The release gate. The ZIP is not a backup feature — it is the contract that the
