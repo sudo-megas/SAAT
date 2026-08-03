@@ -169,28 +169,114 @@ These are AM8's and should be unaffected, but the wear path was touched.
 
 ## Results
 
-Fill in and paste back.
+Run on 2026-08-03, driven over adb against the debug APK built from this branch.
 
 ```
- 1. selection mode                    :
- 2. compare, both themes              :
-    power reserve / battery separate  :
- 3. timing sparkline                  :
- 4. maintenance line + dot (or silent):
- 5. strap compatibility               :
- 6. export completes                  :
- 7. archive opens on the desktop      :
- 8. import, skip-existing             :
- 9. photograph survives the trip      :
-10. Turkish, every screen             :
-    strings that overflow             :
-11. storage still English             :
-12. app ignores the phone's language  :
-13. widget and shortcut               :
+ 1. selection mode                    : PASS
+ 2. compare, both themes              : PASS
+    power reserve / battery separate  : PASS
+ 3. timing sparkline                  : PASS
+ 4. maintenance line + dot (or silent): PASS  (both branches)
+ 5. strap compatibility               : PASS
+ 6. export completes                  : PASS
+ 7. archive opens on the desktop      : PASS  (desktop loader, not the GUI)
+ 8. import, skip-existing             : PASS
+ 9. photograph survives the trip      : PASS
+10. Turkish, every screen             : FAIL -> FIXED, retested PASS
+    strings that overflow             : SKIP  (needs eyes — see below)
+11. storage still English             : PASS
+12. app ignores the phone's language  : FAIL -> FIXED, retested PASS
+13. widget and shortcut               : FAIL -> FIXED, retested PASS
 
-phone model / Android version         :
-anything that looked wrong            :
+phone model / Android version         : HONOR ELP-NX9 / Android 16 (API 36)
+anything that looked wrong            : eight defects, all fixed — below
 ```
+
+**The phone's own language is Turkish**, which is why item 12 was a live test
+rather than a setup step, and why so much of this was visible at all.
+
+### What each line means
+
+**1, 3, 5, 6, 9 — passed as written.** Compare is disabled at one selection and
+enabled at two; a third pick drops the first (confirmed by opening compare and
+seeing which two arrived); a tap during selection toggles instead of opening; the
+system back leaves selection mode without leaving the grid. The mechanical demo
+draws a sparkline matching its three readings and the quartz one has no Timing
+section at all. `Straps that fit` names the watch the strap is on and opens it.
+Export names the file and the counts, and a photograph came back with an
+identical md5 under `watches/<slug>/images/`.
+
+**2 — passed, and measured rather than eyeballed.** Power Reserve and Battery
+Life are two separate adjacent rows, each filled on one side and em-dashed on
+the other. The demo fixture could not show this on its own — the quartz watch
+carries no battery life — so one was added to exercise it. "Agreeing rows are
+dimmer" was measured off the screenshots instead of judged: agreeing rows render
+their glyphs at luminance 70 against 28 for differing rows in light, and 198
+against 226 in dark. Consistent to the value, in both themes.
+
+**4 — passed on both branches, which needed arranging.** With nothing due there
+is no line and no dot, and silence is easy to mistake for a broken feature, so a
+battery due date inside the 90-day window was added: the line appears with its
+date and the accent dot appears on that card only.
+
+**7 — passed against the desktop's real loader.** The archive was unzipped and
+read with `saat.storage.load_collection`, which is the contract this check names.
+Every field arrived WITH ITS TYPE — `battery_due` as a date rather than a string,
+which is the failure that would otherwise have waited for a real transfer. The
+desktop GUI itself was not launched; that part is still worth a minute of your
+own time.
+
+**8 — passed, including the part that matters.** An archive was built holding
+both demo watches and a new one, with the colliding watch's model deliberately
+changed. It reported `1 watch added, 2 skipped`, both named; the phone's copy
+kept its own model; and importing the same file again added nothing.
+
+**10 — failed, fixed, retested.** Every screen was walked in Turkish: grid,
+specs, calendar, detail, compare, the add/edit form, settings and the filter
+sheet. The chrome was already complete. The VALUES were not — the grid card, the
+specs list, the detail header and the filter sheet all printed schema enum
+values in English while the compare screen translated the same fields. Now
+consistent everywhere.
+
+**The overflow question is the one thing here still owed to a person.** Nothing
+was observed truncated, but "observed" means a script read the text, and a label
+that is clipped or ellipsised still reports its full string to an accessibility
+dump. The Turkish screenshots are attached to the session; the honest answer is
+that this needs your eyes, particularly on the top-bar titles and the form's
+buttons.
+
+**11 — passed, and re-verified after the display changes.** With the interface
+fully Turkish an export writes `kind = "Automatic"`, `status = "Owned"`, `style =
+"Field"`, `material = "Leather"`, `clasp = "Pin Buckle"` — no Turkish anywhere in
+any `watch.toml` — and the desktop read all three watches back without error.
+
+**12 — failed outright, and this is the one worth knowing about.** With
+`config.toml` saying `en`, on a Turkish phone, every screen came up Turkish.
+`AppCompatDelegate.setApplicationLocales` is called from `Application.onCreate`
+exactly as intended, but on API 33+ it finds the framework's LocaleManager by
+walking its live AppCompat Activities — and in `onCreate` there are none, so it
+returns having done nothing at all. No exception, no log. Hard rule 7 had been
+broken on every Android 13+ device for the whole life of this release, with 557
+unit tests green, because the test guarding it is a source scan and the call it
+looks for was present and was being made. Now `[en]` is asserted through the
+framework and the interface stays English.
+
+**13 — the shortcut passed; the widget did not, for a third reason.** `Wore this
+today` opens the picker without opening the app, records the day, moves it off
+the watch that previously held it, and the calendar and detail page both follow.
+The widget shows today's watch, updates the moment the assignment changes, and
+falls back to its empty state — but it said `Bugün için kayıt yok` beside an
+English app, because a widget's layout is inflated in the LAUNCHER'S process and
+resolves `@string/` against the device's language. Fixed and retested.
+
+### State the phone was left in
+
+The demo watches were cleared and regenerated so they carry the corrected
+spellings, the imported test watch and the test archives were removed, and
+Settings were put back as found — English, System theme, dynamic colour on, sort
+by brand, Identity preset. **One thing was added and left there: the today
+widget is now on the home screen**, since check 13 required pinning it. Remove it
+if you would rather not have it.
 
 ---
 

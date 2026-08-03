@@ -9,6 +9,55 @@ The first public release. Turkish, signing, a tag-triggered workflow, and a
 README written for somebody who will sideload an APK and deserves to know
 exactly what it does and does not do.
 
+### Eight fixes from the first run on a real phone
+
+`androidcheck.md` was written for a phone nobody had yet held. Working through
+it on a Turkish HONOR ELP-NX9 (Android 16, API 36) failed check 12 immediately
+and turned up seven more, with 557 unit tests, the desktop parity check and lint
+all green throughout. Every one is fixed and carries the test that would have
+caught it; the results block in `androidcheck.md` records what was seen.
+
+**The app followed the phone's language instead of its own, on every device
+running Android 13 or newer.** `config.toml` said `en` and every screen came up
+Turkish. `AppCompatDelegate.setApplicationLocales` is the right API and was
+called from the right place, but on API 33+ it reaches the framework through
+whatever AppCompat Activity happens to be alive — and in `Application.onCreate`
+none is, so it returned having done nothing, without throwing or logging. Hard
+rule 7 was broken for the whole of this release's life. The framework is asked
+directly now, the way the launch window already is.
+
+**The widget said it in Turkish too, and for a different reason.** A widget's
+layout is inflated in the LAUNCHER'S process, so `android:text="@string/…"` is
+resolved against the device's language and never asks this app. That one string
+is now resolved here and pushed across.
+
+**The detail page printed Kotlin object dumps at the owner.** Straps, log
+entries and timing readings read `EnumValue(value=Steel, labelRes=null) ·
+Brushed`. Five lines built themselves from a mixture of values and strings,
+which Kotlin infers as `List<Any>` without complaint, and `joinToString` then
+called `toString()` on a data class. Those lists name their element type now, so
+it is a compile error rather than something only a phone can notice.
+
+**Four screens printed enum values in English under a Turkish interface** — the
+grid card, the specs list, the detail page's header line and the filter sheet,
+while the compare screen, reading the same fields through the same helper, said
+them in Turkish. Two comments asserting these were "the owner's own words" were
+simply wrong about a status with five schema values and a translation apiece.
+Sorting moved with them: the facets were ordered by the English value, which
+read as no order at all once the labels were Turkish.
+
+**"Exported 1 watches and 1 photographs."** Two counts written as `%d` inside a
+sentence that had already committed to the plural, on the path AM10 calls the
+release gate. Both are plurals now, and the sentence stays one translatable unit
+because Turkish puts the destination before the verb.
+
+**The demo fixture spelled three of its own schema values wrong** — `Stainless
+steel` for `Stainless Steel`, `Steel` for `Steel Bracelet`, `Pin buckle` for
+`Pin Buckle`. Nothing failed, which is the point: an unrecognised value is legal
+and shown as typed, so a fixture value off by one capital is indistinguishable
+from something the owner invented. It just never acquires a Turkish label and
+never matches the desktop's dropdown.
+
 **Turkish is not a translation layer bolted on at the end.** It cost so little
 here because AM1 forbade a literal in a composable and AM5 built `EnumChoice`
 with the stored value and the shown label as separate fields — so a Turkish
