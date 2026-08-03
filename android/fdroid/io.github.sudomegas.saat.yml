@@ -32,12 +32,10 @@ Builds:
   - versionName: '1.0'
     versionCode: 2
 
-    # REPLACE WITH THE FULL 40-CHARACTER HASH once `android-v1.0` is cut.
-    # F-Droid's reference asks for the hash rather than the tag name, because a
-    # tag can be moved and a hash cannot — which is the whole point of building
-    # someone else's source. The tag does not exist yet; see the distribution
-    # doc for the order the gates come in.
-    commit: android-v1.0
+    # The full hash of `android-v1.0`, not the tag name. F-Droid's reference
+    # asks for the hash because a tag can be moved and a hash cannot — which is
+    # the whole point of building from someone else's source.
+    commit: 0c68a6e57ed1ce8ffb9c45221c4e7a7ee9f9097e
 
     # The path the `build` directory is generated in, which is F-Droid's own
     # definition of this field. THIS IS THE FIELD MOST LIKELY TO NEED CHANGING
