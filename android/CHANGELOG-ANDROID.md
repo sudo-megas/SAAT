@@ -3,6 +3,82 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [0.5] - 2026-08-03
+
+The app stops being read-only. From this build the phone is a full SAAT.
+
+**One scrolling form, not tabs.** SPEC-ANDROID 5.7 gives the reason rather than
+leaving it to taste: tabs on a phone hide what is unfilled, and a scroll shows
+the whole shape of the record. Collapsible group headers in spec order, all open
+to begin with. The same screen serves add and edit.
+
+**Every numeric field is a string, and the rest follows.** A number being typed
+passes through states that are not numbers — `4`, `4.`, `4.5`, a lone minus on
+the way to `-5`. A model holding `Double?` would either refuse those keystrokes
+or put something else back in the field mid-type, and both are what people mean
+when they say a form fights them. Parsing happens once, at save.
+
+**Saving with only brand and model succeeds, and nothing else can block.** That
+is the whole of validation, it is one line, and it is tested. A diameter of
+"abc" and a rating of 900 still save — the first is absent afterwards, the
+second written as given. The collection is always partly incomplete; a form that
+argued about it would not get used.
+
+**The unsaved-changes prompt compares state, not signals.** The desktop sets a
+dirty flag from widget signals, so typing a character and deleting it still
+prompts — and a prompt that fires when nothing changed is one people learn to
+dismiss without reading. Comparing *built watches* would fail the other way and
+let someone walk away from text that will never parse. Structural inequality
+against the opening state is right in both directions.
+
+**Ninety-nine enum\* values, generated from one table** into both the Kotlin
+lists and `strings.xml`, because that is exactly the size at which two
+hand-maintained copies drift — invisibly, in English. The value and its label
+are different things: the canonical English string reaches `watch.toml`, the
+resource is what AM11 translates. Every list is editable and also offers what
+the collection already uses, because the spec says the owner will buy something
+it did not anticipate.
+
+**Those strings are data, so CI now diffs them against the desktop's own
+source.** A value respelled on one side fails nothing — not the field map, not a
+round trip, not a unit test. It just means the two apps offer different
+vocabularies for one field and a collection edited on both grows two spellings
+of everything. All 99 match.
+
+**Photographs are copied, never referenced.** A `content://` URI is a temporary
+grant to someone else's file; it dies with the process and dies for good when
+the owner clears the gallery app's data. A collection whose photographs are
+borrowed empties itself over a year.
+
+**Bytes are copied verbatim — no decode, no re-encode.** That *is* how EXIF
+orientation is honoured: the tag stays in the file and Coil applies it at
+decode, exactly as the desktop's Pillow does. Baking rotation in would be lossy
+and would change a file the desktop also reads. The test builds a real JPEG in
+code, with a real orientation tag, and asserts both byte-identity and the tag's
+survival — no new dependency needed for the stronger claim.
+
+**Still zero permissions, verified on the installed APK.** The Photo Picker and
+`ACTION_IMAGE_CAPTURE` both need none, and the FileProvider is scoped to one
+directory inside `cacheDir`: a camera app handed a URI from here can reach
+nothing else. `watches/` is outside the provider's world entirely — there is no
+URI that names it.
+
+**Photographs stage in `cacheDir` until the watch is saved.** A new watch has no
+slug until it has been written once, and backing out of the form must leave the
+collection exactly as it was. An abandoned capture costs nothing.
+
+**Delete moves, it does not destroy.** Both folders — record and photographs —
+go to `backups/deleted/`, rejoined into the shape the desktop and the exported
+ZIP both use. The wear history goes with them for free, because `worn` lives in
+the watch's own file and nowhere else; that is the payoff for never having
+centralised a date index. The guard is an exact typed model name, matching the
+desktop, with autocorrect and autocapitalisation turned off so the keyboard
+cannot quietly retype it.
+
+**The debug two-watch fixture stays** for the rest of the development cycle, as
+the brief asks, and its release-absence check still passes now that a real form
+exists.
+
 ## [0.4] - 2026-08-03
 
 Where the owner actually spends time, and the first thing in the app that

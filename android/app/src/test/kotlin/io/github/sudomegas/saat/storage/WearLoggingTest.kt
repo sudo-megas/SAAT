@@ -223,6 +223,31 @@ class WearLoggingTest {
     // ---- the edges ---------------------------------------------------------
 
     @Test
+    fun `deleting a watch takes its wear history with it`() = runBlocking {
+        // AM5's brief: "Its wear history goes with it — a watch folder is a
+        // complete record, desktop rule." That needs no code at all, and this
+        // test is what says so: `worn` lives in the watch's own file and nowhere
+        // else, so moving the folder moves the history. The day it was worn is
+        // also released, rather than staying claimed by a watch that is gone.
+        writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\nworn = [2026-08-03]\n")
+        writeWatch("casio-f-91w", "brand = \"Casio\"\nmodel = \"F-91W\"\n")
+        val repository = loaded()
+
+        repository.delete("seiko-skx007")
+
+        assertNull(repository.record("seiko-skx007"))
+        val grave = File(File(paths.deletedDir, "seiko-skx007"), SaatPaths.WATCH_FILENAME)
+        assertTrue("the record must be in the grave", grave.exists())
+        assertTrue("its wear history goes with it", grave.readText().contains("2026-08-03"))
+
+        // And the day is now free: the rule is one watch per day across the
+        // collection, and a deleted watch is not in the collection.
+        val result = repository.assignWorn("casio-f-91w", listOf(today))!!
+        assertEquals(listOf(today), repository.wornOf("casio-f-91w"))
+        assertEquals(emptyMap<String, List<LocalDate>>(), result.takenFrom)
+    }
+
+    @Test
     fun `an unknown slug is null rather than an exception`() = runBlocking {
         val repository = loaded()
 
