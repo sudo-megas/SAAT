@@ -8,8 +8,9 @@ import io.github.sudomegas.saat.config.ConfigState
 import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.WatchRecord
 import io.github.sudomegas.saat.storage.WatchRepository
+import io.github.sudomegas.saat.storage.WatchFilter
 import io.github.sudomegas.saat.storage.WatchSort
-import io.github.sudomegas.saat.storage.query
+import io.github.sudomegas.saat.storage.filtered
 import io.github.sudomegas.saat.ui.detail.SpecRow
 import io.github.sudomegas.saat.ui.specs.SpecsPreset
 import io.github.sudomegas.saat.ui.specs.specsCells
@@ -35,6 +36,7 @@ data class SpecsRow(
 
 data class SpecsUiState(
     val rows: List<SpecsRow> = emptyList(),
+    val filter: WatchFilter = WatchFilter(),
     val preset: SpecsPreset = SpecsPreset.DEFAULT,
     val isLoaded: Boolean = false,
     val isCollectionEmpty: Boolean = false,
@@ -43,7 +45,8 @@ data class SpecsUiState(
 ) {
     /** The collection has watches, but none match what was typed. Same rule as the grid's. */
     val hasNoMatches: Boolean
-        get() = isLoaded && !isCollectionEmpty && rows.isEmpty() && query.isNotBlank()
+        get() = isLoaded && !isCollectionEmpty && rows.isEmpty() &&
+            (query.isNotBlank() || !filter.isEmpty)
 }
 
 /**
@@ -61,23 +64,30 @@ data class SpecsUiState(
 class SpecsViewModel(
     repository: WatchRepository,
     private val configState: ConfigState,
+    filterState: FilterState,
     private val paths: SaatPaths,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
 
     val state: StateFlow<SpecsUiState> =
-        combine(repository.state, configState.config, _query) { collection, config, query ->
+        combine(
+            repository.state,
+            configState.config,
+            _query,
+            filterState.filter,
+        ) { collection, config, query, filter ->
             val today = LocalDate.now()
             SpecsUiState(
                 rows = collection.watches
-                    .query(query, config.sort, today)
+                    .filtered(filter, query, config.sort, today)
                     .mapNotNull { it.toRow(config.specsPreset) },
                 preset = config.specsPreset,
                 isLoaded = collection.isLoaded,
                 isCollectionEmpty = collection.isLoaded && collection.records.isEmpty(),
                 query = query,
                 sort = config.sort,
+                filter = filter,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SpecsUiState())
 
@@ -115,6 +125,7 @@ class SpecsViewModel(
                     SpecsViewModel(
                         repository = app.watchRepository,
                         configState = app.configState,
+                        filterState = app.filterState,
                         paths = app.paths,
                     ) as T
             }

@@ -8,8 +8,9 @@ import io.github.sudomegas.saat.config.ConfigState
 import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.WatchRecord
 import io.github.sudomegas.saat.storage.WatchRepository
+import io.github.sudomegas.saat.storage.WatchFilter
 import io.github.sudomegas.saat.storage.WatchSort
-import io.github.sudomegas.saat.storage.query
+import io.github.sudomegas.saat.storage.filtered
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +56,7 @@ data class LoadFailure(
 
 data class GridUiState(
     val cards: List<WatchCard> = emptyList(),
+    val filter: WatchFilter = WatchFilter(),
     val isLoaded: Boolean = false,
     val isCollectionEmpty: Boolean = false,
     val failures: List<LoadFailure> = emptyList(),
@@ -69,12 +71,14 @@ data class GridUiState(
      * about what it holds.
      */
     val hasNoMatches: Boolean
-        get() = isLoaded && !isCollectionEmpty && cards.isEmpty() && query.isNotBlank()
+        get() = isLoaded && !isCollectionEmpty && cards.isEmpty() &&
+            (query.isNotBlank() || !filter.isEmpty)
 }
 
 class GridViewModel(
     private val repository: WatchRepository,
     private val configState: ConfigState,
+    private val filterState: FilterState,
     private val paths: SaatPaths,
 ) : ViewModel() {
 
@@ -105,7 +109,8 @@ class GridViewModel(
             configState.config,
             _query,
             _dismissed,
-        ) { collection, config, query, dismissed ->
+            filterState.filter,
+        ) { collection, config, query, dismissed, filter ->
             // watches/failures are uncached get() filters over records
             // (WatchRepository), so each is read exactly once per emission.
             val loaded = collection.watches
@@ -115,7 +120,8 @@ class GridViewModel(
             val today = LocalDate.now()
 
             GridUiState(
-                cards = loaded.query(query, config.sort, today).mapNotNull { it.toCard(paths) },
+                cards = loaded.filtered(filter, query, config.sort, today)
+                    .mapNotNull { it.toCard(paths) },
                 isLoaded = collection.isLoaded,
                 // Empty means empty, not "nothing readable". A collection of
                 // three malformed files is not an invitation to add your first
@@ -125,6 +131,7 @@ class GridViewModel(
                     .filterNot { it.key in dismissed },
                 query = query,
                 sort = config.sort,
+                filter = filter,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GridUiState())
 
@@ -148,6 +155,7 @@ class GridViewModel(
                     GridViewModel(
                         repository = app.watchRepository,
                         configState = app.configState,
+                        filterState = app.filterState,
                         paths = app.paths,
                     ) as T
             }

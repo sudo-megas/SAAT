@@ -18,10 +18,10 @@ android {
         applicationId = "io.github.sudomegas.saat"
         minSdk = 26
         targetSdk = 37
-        // versionCode is bumped on every TAGGED release and AM5 is not one —
+        // versionCode is bumped on every TAGGED release and AM6 is not one —
         // SPEC-ANDROID 8. The name follows the milestone table.
         versionCode = 1
-        versionName = "0.5"
+        versionName = "0.6"
     }
 
     buildTypes {

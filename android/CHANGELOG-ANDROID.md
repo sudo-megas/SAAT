@@ -3,6 +3,61 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [0.6] - 2026-08-03
+
+The desktop's table and its filter sidebar, rethought for a hand.
+
+**The Specs list is a preset switcher, not a table.** A chip row — Identity,
+Movement, Case, Dial, Straps, Acquisition — and one row per watch beneath. The
+desktop's columns could not survive a six-inch portrait screen, but the point of
+them could: studying the whole collection against one family of attributes at a
+time.
+
+**Every cell is built by AM4's own row builders.** A preset is a *selection*
+from `movementRows`, `caseRows`, `dialRows` and `acquisitionRows`, not a second
+set of field definitions — so the em-dash, the metres-with-bar water resistance,
+the derived hertz and the Quartz/Solar swap all behave here because they are the
+same code. Sort and search are AM3's, unchanged, for the same reason.
+
+**One cell per column, always.** The fully-populated fixture proved this is not
+free: `movementRows` emits both a power reserve and a battery life when a watch
+records both, which made one row a cell wider than its neighbour. A column that
+changes width by row is exactly the misalignment a preset exists to prevent.
+
+**Labels reserve two lines whether they need them or not.** Measured on the
+phone in two passes: at one line "Lug-to-Lug" and "Water Resistance" truncate;
+at "up to two" they wrap, but then "Diameter" takes one line and its figure sits
+a line above its neighbour's. `minLines == maxLines` is the same trick the grid
+card uses to keep cards the same height — alignment by construction rather than
+by luck of the vocabulary.
+
+**One filter, shared by every screen that narrows the collection.** Owned by the
+Application, not by a ViewModel, so a facet picked on the Grid is already picked
+on Specs and AM7's calendar picker joins by reading it rather than growing its
+own. Not persisted — the same judgement AM3 made about the search query: a sort
+is a preference, a filter is a question you are asking right now.
+
+**A facet's counts ignore its own selection.** Having picked Diver, the Style
+facet still says how many Field watches are one tap away, while the other facets
+narrow as you go. Counting against the fully-filtered set would show 0 beside
+everything you had not picked, and a zero that only means "you did not pick
+this" teaches nothing. Values stay visible at zero rather than vanishing, so the
+sheet never appears to lose options.
+
+**Facets with no values are hidden entirely,** so an empty collection shows only
+the summary footer — and a collection where nobody recorded a case material is
+not offered a Case material heading with nothing under it.
+
+**Active filters are chips under the top bar.** A collection quietly showing
+three of eleven watches, with nothing on screen saying why, is a collection that
+appears to have lost eight.
+
+**The collection summary is plain figures.** Watch count, split by movement
+kind, total acquisition value by currency — computed over the *filtered*
+collection, because it is the footer of the sheet doing the filtering. A price
+with no currency is counted under no currency rather than folded into TRY, which
+would invent a fact about what was paid.
+
 ## [0.5] - 2026-08-03
 
 The app stops being read-only. From this build the phone is a full SAAT.

@@ -10,7 +10,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,6 +39,7 @@ import io.github.sudomegas.saat.ui.nav.SpecsRoute
 import io.github.sudomegas.saat.ui.nav.TopLevelDestination
 import io.github.sudomegas.saat.ui.screens.CalendarScreen
 import io.github.sudomegas.saat.ui.screens.DetailScreen
+import io.github.sudomegas.saat.ui.screens.FilterSheet
 import io.github.sudomegas.saat.ui.screens.FormScreen
 import io.github.sudomegas.saat.ui.screens.GridScreen
 import io.github.sudomegas.saat.ui.screens.SettingsScreen
@@ -50,6 +54,14 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
 
     val gridViewModel: GridViewModel = viewModel(factory = GridViewModel.factory(app))
     val specsViewModel: SpecsViewModel = viewModel(factory = SpecsViewModel.factory(app))
+    // One sheet ViewModel for both tabs: there is one filter and one collection
+    // to count against, and two would be two places for the facet arithmetic to
+    // drift. Hoisted here rather than created per screen for that reason.
+    val filtersViewModel: FiltersViewModel = viewModel(factory = FiltersViewModel.factory(app))
+
+    // Which screen opened the sheet does not matter — it is the same sheet over
+    // the same filter — so one flag serves both.
+    var showFilters by rememberSaveable { mutableStateOf(false) }
 
     // Only the error is collected, not the whole CollectionState: the shell has
     // no interest in the watches themselves, and observing them here would
@@ -133,6 +145,8 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                     viewModel = gridViewModel,
                     onOpenWatch = { slug -> navController.navigate(DetailRoute(slug)) },
                     onAddWatch = { navController.navigate(FormRoute()) },
+                    onOpenFilters = { showFilters = true },
+                    onRemoveFilter = filtersViewModel::remove,
                 )
             }
             composable<DetailRoute> { entry ->
@@ -184,6 +198,8 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                 SpecsScreen(
                     viewModel = specsViewModel,
                     onOpenWatch = { slug -> navController.navigate(DetailRoute(slug)) },
+                    onOpenFilters = { showFilters = true },
+                    onRemoveFilter = filtersViewModel::remove,
                 )
             }
             composable<CalendarRoute> { CalendarScreen() }
@@ -196,6 +212,13 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                 )
             }
         }
+    }
+
+    // Outside the NavHost: the sheet belongs to the shell, not to a
+    // destination, so it survives a tab switch made while it is open and does
+    // not have to be declared twice.
+    if (showFilters) {
+        FilterSheet(viewModel = filtersViewModel, onDismiss = { showFilters = false })
     }
 }
 
