@@ -57,7 +57,12 @@ internal sealed interface EntryTarget {
  * it — so a leading `watches/` is stripped when present and what remains must be
  * `<slug>/watch.toml` or `<slug>/images/<filename>`. Deciding the shape once for
  * the whole archive would need a tie-break for a mixed one; deciding per entry
- * needs none, and a watch legitimately slugged `watches` survives it.
+ * needs none, and a watch slugged `watches` survives it in a watches/-rooted
+ * archive (`watches/watches/watch.toml`). In a SLUG-ROOTED one it does not:
+ * `watches/watch.toml` is indistinguishable from an archive root with a stray
+ * file in it, and is ignored. That is a real limitation and it is written down
+ * rather than papered over — nobody has a watch slugged `watches`, and guessing
+ * wrong in the other direction would misread an ordinary archive.
  *
  * A SLUG THAT ALREADY EXISTS IS SKIPPED WHOLE — the owner's decision, recorded
  * in SPEC-ANDROID 3.2. Not merged, not overwritten, not renamed to `-2`: an
@@ -76,16 +81,31 @@ fun importCollection(
 ): ImportSummary {
     val survey = survey(open)
 
+    // CASE-INSENSITIVELY, and by NAME rather than by isDirectory.
+    //
+    // Two separate bugs closed here. Comparing case-sensitively let an archive
+    // carrying `Seiko-SKX007` land beside an existing `seiko-skx007` — two
+    // folders that collide case-insensitively, which is exactly the collision
+    // `uniqueSlug` detects case-insensitively to prevent, arriving through the
+    // one door meant for moving a collection between platforms. On a
+    // case-insensitive filesystem the second would simply overwrite the first.
+    //
+    // Filtering on isDirectory meant a PLAIN FILE at watches/<slug> was not
+    // treated as existing, so the import accepted the slug and then failed at
+    // mkdirs — after earlier watches had already been written.
     val existing = paths.watchesDir.listFiles().orEmpty()
-        .filter { it.isDirectory }
-        .mapTo(HashSet()) { it.name }
+        .mapTo(HashSet()) { it.name.lowercase() }
 
     val accepted = LinkedHashMap<String, ByteArray>()
     val skipped = mutableListOf<String>()
+    // Tracks what THIS import is about to create, so an archive holding both
+    // `Seiko` and `seiko` cannot produce the same collision by itself.
+    val claimed = HashSet<String>()
 
     survey.tomlBySlug.forEach { (slug, bytes) ->
         when {
-            slug in existing -> skipped += slug
+            slug.lowercase() in existing -> skipped += slug
+            !claimed.add(slug.lowercase()) -> skipped += slug
             else -> accepted[slug] = bytes
         }
     }
@@ -99,7 +119,14 @@ fun importCollection(
     // interrupted import then leaves readable watches with missing pictures
     // rather than orphan pictures belonging to nothing.
     accepted.forEach { (slug, bytes) ->
-        paths.watchDir(slug).mkdirs()
+        val dir = paths.watchDir(slug)
+        // mkdirs() returns false rather than throwing, and the failure would
+        // otherwise surface one line later from writeBytes — by which point
+        // earlier watches are already on disk and the caller reports a total
+        // failure over a partial import.
+        if (!dir.isDirectory && !dir.mkdirs()) {
+            throw UnsafeArchiveException("could not create a folder for $slug")
+        }
         paths.watchToml(slug).writeBytes(bytes)
         onProgress(++done, total)
     }
@@ -139,14 +166,45 @@ private fun survey(open: () -> InputStream): Survey {
         val name = entry.name
         rejectIfUnsafe(name)
 
+        // A DIRECTORY ENTRY IS NEVER CONTENT, whatever its name looks like, and
+        // this has to be the first thing checked rather than a special case on
+        // one branch. An archive holding both `a/images/f.jpg` and
+        // `a/images/f.jpg/` used to write the real 8-byte image and then
+        // truncate it to nothing with the zero-length directory entry — while
+        // still counting it as imported. `a/watch.toml/` likewise marked a
+        // perfectly good watch malformed.
+        if (entry.isDirectory) return@useZip
+
         when (val target = targetOf(name)) {
-            null -> if (!entry.isDirectory) ignored += name
+            null -> ignored += name
 
             is EntryTarget.Toml -> {
+                // Bounded. An entry claiming to be a watch.toml can claim any
+                // size, and every accepted one is held until the write loop, so
+                // the peak is their SUM rather than the largest. A 256 MB entry
+                // is enough to exhaust an Android app heap; a real watch.toml is
+                // a couple of kilobytes.
+                if (entry.size > MAX_TOML_BYTES) {
+                    malformed += target.slug
+                    return@useZip
+                }
                 val bytes = stream.readBytes()
+                if (bytes.size > MAX_TOML_BYTES) {
+                    malformed += target.slug
+                    return@useZip
+                }
                 // Parsed now, written later, and never re-serialised in between
                 // — that is what keeps the original bytes on disk.
-                if (parses(bytes)) toml[target.slug] = bytes else malformed += target.slug
+                when {
+                    // Same slug twice in one archive — reachable because both
+                    // roots are accepted, so `watches/a/watch.toml` and
+                    // `a/watch.toml` can both appear. FIRST WINS and the second
+                    // is named, rather than last-wins in silence, which would
+                    // let a decoy entry quietly replace the real one.
+                    target.slug in toml -> ignored += name
+                    parses(bytes) -> toml[target.slug] = bytes
+                    else -> malformed += target.slug
+                }
             }
 
             is EntryTarget.Image ->
@@ -169,6 +227,12 @@ private fun extractImages(
     onWritten: () -> Unit,
 ) {
     open().useZip { entry, stream ->
+        // The same directory-entry guard as the survey, and it has to be here
+        // too because THIS is the pass that writes. A zero-length directory
+        // entry named `a/images/f.jpg/` would otherwise reopen the real image's
+        // path and truncate it to nothing.
+        if (entry.isDirectory) return@useZip
+
         val target = targetOf(entry.name)
         if (target !is EntryTarget.Image || target.slug !in accepted) return@useZip
 
@@ -229,7 +293,13 @@ internal fun targetOf(name: String): EntryTarget? {
     val parts = name.replace('\\', '/').split('/').filter { it.isNotEmpty() }
     val relative = if (parts.firstOrNull() == WATCHES) parts.drop(1) else parts
 
-    val slug = relative.getOrNull(0)?.takeIf { !isHiddenEntry(it) } ?: return null
+    // IMPORT IS THE ONLY WRITER OF watches/<slug> THAT DOES NOT GO THROUGH
+    // `slugify`, so the checks that function performs have to be repeated here
+    // or the archive gets to name a folder this app would never have created:
+    // over-long (the filesystem refuses it mid-write, after other watches have
+    // already landed), or carrying a NUL, which survives a zip entry name
+    // intact and makes every File call fail.
+    val slug = relative.getOrNull(0)?.takeIf { isUsableSlug(it) } ?: return null
 
     return when {
         relative.size == 2 && relative[1] == WATCH_FILENAME -> EntryTarget.Toml(slug)
@@ -240,6 +310,25 @@ internal fun targetOf(name: String): EntryTarget? {
         else -> null
     }
 }
+
+/**
+ * A folder name this app is willing to create.
+ *
+ * Deliberately NOT `slugify()`: that function MAKES a slug from a brand and a
+ * model, and rewriting an incoming one would rename somebody's watch on the way
+ * in and break the round trip. This only rejects the names that cannot work —
+ * the ones where accepting them means failing mid-write.
+ */
+private fun isUsableSlug(name: String): Boolean =
+    !isHiddenEntry(name) &&
+        name.length <= SLUG_MAX_LENGTH_ON_IMPORT &&
+        name.none { it == '\u0000' }
+
+/** Matches `Slugs.kt`'s own cap, which is what this app's own slugs obey. */
+private const val SLUG_MAX_LENGTH_ON_IMPORT = 80
+
+/** A watch.toml is kilobytes. This is four orders of magnitude of headroom. */
+private const val MAX_TOML_BYTES = 4L * 1024 * 1024
 
 /**
  * Does this file read as a watch?

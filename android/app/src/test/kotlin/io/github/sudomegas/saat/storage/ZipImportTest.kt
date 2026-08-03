@@ -295,6 +295,175 @@ class ZipImportTest {
         assertTrue(summary.skipped.isEmpty())
     }
 
+    // --- directory entries, which are never content ----------------------------
+
+    /**
+     * SILENT DATA LOSS BEFORE THIS WAS FIXED. An archive holding both
+     * `a/images/f.jpg` and the directory entry `a/images/f.jpg/` wrote the real
+     * image and then truncated it to zero bytes with the directory entry —
+     * while still reporting the watch as imported.
+     */
+    @Test
+    fun `a directory entry never truncates a real file of the same name`() {
+        val jpeg = byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8)
+
+        import(
+            archive(
+                "watches/a/watch.toml" to validToml.toByteArray(),
+                "watches/a/images/f.jpg" to jpeg,
+                "watches/a/images/f.jpg/" to ByteArray(0),
+            ),
+        )
+
+        assertArrayEquals(jpeg, File(paths.watchMedia("a"), "f.jpg").readBytes())
+    }
+
+    @Test
+    fun `a directory entry named like a watch toml does not mark the watch malformed`() {
+        val summary = import(
+            archive(
+                "watches/a/watch.toml" to validToml.toByteArray(),
+                "watches/a/watch.toml/" to ByteArray(0),
+            ),
+        )
+
+        assertEquals(listOf("a"), summary.added)
+        assertTrue("a good watch was reported malformed", summary.malformed.isEmpty())
+    }
+
+    // --- slugs an archive must not be allowed to name ---------------------------
+
+    /**
+     * THE COLLISION THE ZIP CONTRACT EXISTS TO AVOID CREATING. Import is the
+     * only writer of `watches/<slug>` that does not go through `slugify`, and
+     * `uniqueSlug` detects collisions case-insensitively precisely because two
+     * folders differing only in case are the same folder on a case-insensitive
+     * filesystem. A one-character case change used to defeat skip-existing.
+     */
+    @Test
+    fun `an existing slug is skipped whatever case the archive spells it in`() {
+        existing("seiko-skx007")
+
+        val summary = import(
+            archive("watches/Seiko-SKX007/watch.toml" to validToml.toByteArray()),
+        )
+
+        assertEquals(listOf("Seiko-SKX007"), summary.skipped)
+        assertTrue(summary.added.isEmpty())
+        assertEquals(
+            "a second folder differing only in case was created",
+            1,
+            paths.watchesDir.listFiles().orEmpty().size,
+        )
+    }
+
+    @Test
+    fun `an archive cannot collide with itself by case either`() {
+        val summary = import(
+            archive(
+                "watches/Seiko/watch.toml" to validToml.toByteArray(),
+                "watches/seiko/watch.toml" to validToml.toByteArray(),
+            ),
+        )
+
+        assertEquals(1, summary.added.size)
+        assertEquals(1, summary.skipped.size)
+    }
+
+    /**
+     * A slug longer than the filesystem accepts used to be discovered by the
+     * write throwing — after earlier watches had already landed, leaving a
+     * partial import reported as a total failure.
+     */
+    @Test
+    fun `an over-long slug is ignored rather than failing mid-import`() {
+        val summary = import(
+            archive(
+                "watches/good/watch.toml" to validToml.toByteArray(),
+                "watches/${"s".repeat(300)}/watch.toml" to validToml.toByteArray(),
+            ),
+        )
+
+        assertEquals(listOf("good"), summary.added)
+        assertEquals(1, summary.ignored.size)
+        assertTrue(paths.watchToml("good").isFile)
+    }
+
+    @Test
+    fun `a slug carrying a NUL is ignored`() {
+        val summary = import(
+            archive(
+                "watches/good/watch.toml" to validToml.toByteArray(),
+                "watches/a\u0000b/watch.toml" to validToml.toByteArray(),
+            ),
+        )
+
+        assertEquals(listOf("good"), summary.added)
+        assertEquals(1, summary.ignored.size)
+    }
+
+    /**
+     * A plain FILE sitting at `watches/<slug>` counts as existing. Filtering on
+     * isDirectory meant the slug was accepted and then failed at mkdirs, again
+     * after other watches had been written.
+     */
+    @Test
+    fun `a plain file where a watch folder would go counts as existing`() {
+        paths.watchesDir.mkdirs()
+        File(paths.watchesDir, "a").writeText("not a folder")
+
+        val summary = import(archive("watches/a/watch.toml" to validToml.toByteArray()))
+
+        assertEquals(listOf("a"), summary.skipped)
+        assertTrue(summary.added.isEmpty())
+    }
+
+    // --- resource limits --------------------------------------------------------
+
+    /**
+     * An entry claiming to be a watch.toml can claim any size, and every
+     * accepted one is held in memory until the write loop — so the peak is
+     * their sum. A real watch.toml is a couple of kilobytes.
+     */
+    @Test
+    fun `an absurdly large watch toml is rejected rather than read into memory`() {
+        val huge = ByteArray(5 * 1024 * 1024) { '#'.code.toByte() }
+
+        val summary = import(
+            archive(
+                "watches/good/watch.toml" to validToml.toByteArray(),
+                "watches/bomb/watch.toml" to huge,
+            ),
+        )
+
+        assertEquals(listOf("good"), summary.added)
+        assertEquals(listOf("bomb"), summary.malformed)
+    }
+
+    // --- duplicates within one archive -----------------------------------------
+
+    /**
+     * Both roots are accepted, so one archive can carry the same slug twice.
+     * First wins and the second is NAMED — last-wins in silence would let a
+     * decoy entry replace the real one with nothing said.
+     */
+    @Test
+    fun `the same slug twice in one archive keeps the first and reports the second`() {
+        val first = "brand = \"First\"\nmodel = \"One\"\n"
+        val second = "brand = \"Second\"\nmodel = \"Two\"\n"
+
+        val summary = import(
+            archive(
+                "watches/a/watch.toml" to first.toByteArray(),
+                "a/watch.toml" to second.toByteArray(),
+            ),
+        )
+
+        assertEquals(listOf("a"), summary.added)
+        assertEquals(listOf("a/watch.toml"), summary.ignored)
+        assertEquals(first, paths.watchToml("a").readText())
+    }
+
     // --- entry mapping ---------------------------------------------------------
 
     @Test
@@ -320,5 +489,16 @@ class ZipImportTest {
     @Test
     fun `a watch slugged watches is not mistaken for the archive root`() {
         assertEquals(EntryTarget.Toml("watches"), targetOf("watches/watches/watch.toml"))
+    }
+
+    /**
+     * The documented limit of the above. In a SLUG-ROOTED archive a watch
+     * slugged `watches` is indistinguishable from an archive root with a stray
+     * file in it, and is ignored. Asserted so the limitation is a decision
+     * rather than a surprise.
+     */
+    @Test
+    fun `a slug-rooted archive cannot express a watch slugged watches`() {
+        assertEquals(null, targetOf("watches/watch.toml"))
     }
 }

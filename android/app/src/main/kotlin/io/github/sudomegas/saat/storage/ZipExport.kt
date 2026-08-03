@@ -45,10 +45,16 @@ fun exportFilename(today: LocalDate): String =
  * phone's internal layout is an implementation detail; the archive is the
  * contract.
  *
- * That re-root works only because a watch's `images` key holds BARE FILENAMES
- * rather than paths — SPEC-ANDROID 3 says it "must continue to", and
- * [assertImagesAreBareFilenames] is where that assumption is checked rather than
- * assumed.
+ * The export itself does NOT depend on the bare-filename invariant, and saying
+ * otherwise here would be misleading: entry names are built from
+ * `listFiles()` on the media directory, whose results are single components by
+ * definition, so a hand-edited `images` key cannot reach this code at all.
+ *
+ * What DOES depend on it is everything that reads a photograph back — the grid,
+ * the detail page, compare, the widget — each of which applies `File(it).name`
+ * to stay inside the watch's own folder. SPEC-ANDROID 3 says the key "must
+ * continue to" hold bare filenames, and [assertImagesAreBareFilenames] is where
+ * the round-trip test checks that rather than assuming it.
  *
  * BYTES ARE COPIED, NEVER RE-SERIALISED. Every `watch.toml` goes into the
  * archive exactly as it sits on disk, so a hand-written comment survives an

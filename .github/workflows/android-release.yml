@@ -53,6 +53,35 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # BEFORE the four-minute build, and UNGATED so the dry run exercises it —
+      # which is the whole point of having a dry run. A missing release-notes
+      # file or a tag that disagrees with versionName must surface here, not
+      # after the tests, the build and the signing have all run. The desktop's
+      # release.yml does exactly this and says so.
+      - name: Check the release preconditions
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts)
+          echo "versionName is ${VERSION}"
+
+          NOTES="docs/release-notes/android-${VERSION}.md"
+          if [ ! -f "${NOTES}" ]; then
+            echo "::error::${NOTES} is missing — a release ships with notes or not at all"
+            exit 1
+          fi
+          echo "release notes present: ${NOTES}"
+
+          # Only a real tag has a tag to disagree with.
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#android-v}"
+            if [ "${TAG_VERSION}" != "${VERSION}" ]; then
+              echo "::error::tag ${GITHUB_REF_NAME} does not match versionName ${VERSION}"
+              exit 1
+            fi
+            echo "tag and versionName agree"
+          fi
+
       # The same two Python steps android-ci.yml runs, and for the same reason:
       # AM10's round-trip test is the release gate, and half of it is answered by
       # the desktop's own loader rather than by anything Gradle can run.
@@ -90,6 +119,13 @@ jobs:
       - name: Restore the keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          # Through the environment, NOT interpolated into the command line.
+          # `${{ }}` is substituted into the script text before bash parses it,
+          # so a password containing a quote or a backtick would either corrupt
+          # the value — producing a keytool error that says nothing about the
+          # real cause — or execute as shell. The keystore already went through
+          # `env:` for this reason; the password had been left behind.
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
           if [ -z "${KEYSTORE_BASE64}" ]; then
@@ -101,7 +137,7 @@ jobs:
           # present and useless, and the failure that follows talks about a
           # keystore format rather than about the secret. Fail here instead.
           keytool -list -keystore "${HOME}/saat-release.jks" \
-                  -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > /dev/null
+                  -storepass "${KEYSTORE_PASSWORD}" > /dev/null
           echo "keystore restored and readable"
 
       - name: Build the signed release APK
@@ -130,8 +166,9 @@ jobs:
           set -euo pipefail
           APK=$(ls app/build/outputs/apk/release/*.apk)
           APKSIGNER=$(ls "${ANDROID_HOME}"/build-tools/*/apksigner | sort -V | tail -1)
-          "${APKSIGNER}" verify --verbose --print-certs "${APK}"
-          "${APKSIGNER}" verify "${APK}" || {
+          # One invocation, with the guard on it. Two meant `set -e` aborted on
+          # the first and the annotation on the second was unreachable.
+          "${APKSIGNER}" verify --verbose --print-certs "${APK}" || {
             echo "::error::the release APK is not signed"
             exit 1
           }
@@ -155,9 +192,15 @@ jobs:
           # Not the merged manifest this time: the thing that ships. The build
           # already fails on a permission via verifyReleaseManifestPolicy, so
           # this is the same rule asserted one layer further out.
-          if "${ANALYZER}" manifest permissions "${APK}" | grep -q .; then
+          # Captured into a variable rather than piped into `grep -q` inside an
+          # `if`. In that position `set -e` is suspended, so a failing analyzer
+          # would print nothing, the condition would be false, and this gate
+          # would report "no permissions" having checked nothing. A failed
+          # command substitution in an assignment DOES trip `set -e`.
+          PERMISSIONS="$("${ANALYZER}" manifest permissions "${APK}")"
+          if [ -n "${PERMISSIONS}" ]; then
             echo "::error::the release APK declares a permission — SPEC-ANDROID hard rule 2"
-            "${ANALYZER}" manifest permissions "${APK}"
+            echo "${PERMISSIONS}"
             exit 1
           fi
           echo "no permissions declared"
@@ -192,12 +235,24 @@ jobs:
 
       # Only on a tag. A workflow_dispatch run reaches this step and skips it,
       # which is exactly what makes the dry run safe to use freely.
+      # BOTH conditions, and the event one is load-bearing. workflow_dispatch
+      # accepts a TAG as its ref — the Run-workflow dropdown lists tags — so
+      # gating on the ref alone would let a "dry run" against android-v1.0
+      # publish a real release, which is the exact opposite of what this
+      # workflow's own header promises. The desktop's release.yml gates on the
+      # event for this reason and checks again inside the step.
       - name: Create the GitHub Release
-        if: startsWith(github.ref, 'refs/tags/android-v')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/android-v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Belt and braces. Publishing is the one irreversible thing this
+          # workflow does, so the guard is asserted here as well as in the `if`.
+          if [ "${GITHUB_EVENT_NAME}" != "push" ]; then
+            echo "::error::refusing to publish from a ${GITHUB_EVENT_NAME} run"
+            exit 1
+          fi
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#android-v}"
           NOTES="docs/release-notes/android-${VERSION}.md"

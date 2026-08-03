@@ -1,5 +1,9 @@
 package io.github.sudomegas.saat.ui.screens
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -23,10 +27,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.sudomegas.saat.BuildConfig
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.config.AppConfig
 import io.github.sudomegas.saat.config.ThemeMode
@@ -125,6 +131,12 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.outlineVariant,
         )
         DataSection(viewModel = transferViewModel)
+
+        HorizontalDivider(
+            Modifier.padding(vertical = 8.dp),
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
+        AboutSection()
 
         // Renders the demo-watch actions in debug builds and literally nothing
         // in release: there are two DeveloperSection composables, one per build
@@ -343,6 +355,65 @@ private const val ZIP_MIME = "application/zip"
  * what MIME type it claimed on the way through the picker.
  */
 private val ZIP_MIME_TYPES = arrayOf(ZIP_MIME, "application/octet-stream")
+
+/**
+ * About — SPEC-ANDROID 5.10: version, GPL-3.0, source link.
+ *
+ * THE SOURCE LINK IS THE APP'S ONLY OUTWARD-FACING ACTION, and it is the single
+ * exception hard rule 3 names: "handing a URL to the system browser on explicit
+ * user tap — a hand-off, not a request". Nothing is fetched, nothing is sent,
+ * and the app learns nothing about what happens next. It is here rather than
+ * anywhere else because the zero-permission claim is only checkable by somebody
+ * who can reach the source.
+ *
+ * The backup line repeats AM10's data paragraph in one sentence rather than
+ * linking to it. This is where somebody looks when they are asking "what
+ * happens to my collection if this phone dies", and an answer that is one
+ * screen away is an answer they will not find.
+ */
+@Composable
+private fun AboutSection() {
+    val context = LocalContext.current
+    val url = stringResource(R.string.settings_about_source_url)
+    val noBrowser = stringResource(R.string.error_no_browser)
+
+    SectionHeader(stringResource(R.string.settings_about))
+
+    Text(
+        text = stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME),
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    Text(
+        text = stringResource(R.string.settings_about_licence),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    Text(
+        text = stringResource(R.string.settings_about_backup),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+
+    TextButton(
+        onClick = {
+            // Hard rule 6: a phone with no browser at all is unusual but
+            // possible, and ActivityNotFoundException would otherwise take the
+            // app down for the sake of a link.
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            try {
+                context.startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(context, noBrowser, Toast.LENGTH_SHORT).show()
+            }
+        },
+        modifier = Modifier.padding(horizontal = 8.dp),
+    ) {
+        Text(text = stringResource(R.string.settings_about_source))
+    }
+}
 
 /** One named list, or nothing at all when that outcome did not happen. */
 @Composable
