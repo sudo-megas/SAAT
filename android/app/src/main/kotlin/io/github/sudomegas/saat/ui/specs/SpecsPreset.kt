@@ -9,6 +9,10 @@ import io.github.sudomegas.saat.ui.detail.SpecValue
 import io.github.sudomegas.saat.ui.detail.acquisitionRows
 import io.github.sudomegas.saat.ui.detail.caseRows
 import io.github.sudomegas.saat.ui.detail.dialRows
+import io.github.sudomegas.saat.ui.detail.enumValue
+import io.github.sudomegas.saat.ui.form.GROUPS
+import io.github.sudomegas.saat.ui.form.STATUSES
+import io.github.sudomegas.saat.ui.form.STYLES
 import io.github.sudomegas.saat.ui.detail.movementRows
 
 /**
@@ -143,14 +147,20 @@ private fun List<SpecRow>.select(preset: SpecsPreset): List<SpecRow> {
 /**
  * Identity has no row builder on the detail page — it is a header line there,
  * not a labelled group — so this is the one preset whose cells are built here.
- * The values are the owner's own words throughout, which is why every one of
- * them is [SpecValue.Plain].
+ *
+ * Reference is the owner's own words and stays [SpecValue.Plain]. Style, group
+ * and status are not: they are schema `enum*` fields with translations, and an
+ * earlier version of this comment claimed all four were the owner's, which is
+ * how a Turkish specs list came to print `Owned` in a column headed `Durum`
+ * while the compare screen said `Sahip Olunan`. They go through `enumValue`
+ * now, as `identityRows` in DetailPage always did — a value the schema does not
+ * know still comes back with a null label and reads exactly as it was typed.
  */
 private fun identityCells(watch: Watch): List<SpecRow> = listOf(
     SpecRow(R.string.field_reference, watch.reference.plainOrNull()),
-    SpecRow(R.string.field_style, watch.style.plainOrNull()),
-    SpecRow(R.string.field_group, watch.group.plainOrNull()),
-    SpecRow(R.string.field_status, watch.status.plainOrNull()),
+    SpecRow(R.string.field_style, enumValue(watch.style, STYLES)),
+    SpecRow(R.string.field_group, enumValue(watch.group, GROUPS)),
+    SpecRow(R.string.field_status, enumValue(watch.status, STATUSES)),
 )
 
 /**

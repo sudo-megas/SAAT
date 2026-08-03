@@ -380,9 +380,20 @@ internal fun metaParts(watch: Watch): List<SpecValue> = buildList {
     watch.reference.orNull()?.let {
         add(SpecValue.Resource(R.string.screen_detail_reference, listOf(it)))
     }
-    watch.style.orNull()?.let { add(SpecValue.Plain(it)) }
-    watch.group.orNull()?.let { add(SpecValue.Plain(it)) }
-    add(SpecValue.Plain(watch.status))
+    // Through `enumValue`, exactly as `identityRows` above does with the same
+    // three fields — they are schema values with translations, not the owner's
+    // own words, and `SpecValue.Plain` means the latter. Building them as Plain
+    // here put `Field · Owned` in the header of a Turkish detail page while the
+    // compare screen, reading `identityRows`, said `Saha · Sahip Olunan` for the
+    // very same watch. A value the owner typed still arrives with a null label
+    // and shows as typed, which is the whole point of the type.
+    //
+    // `enumValue` already returns null for a blank, which is the same skip the
+    // `orNull()` calls above perform; status keeps its own line because the
+    // model defaults it, so in practice it is never the one that is missing.
+    enumValue(watch.style, STYLES)?.let { add(it) }
+    enumValue(watch.group, GROUPS)?.let { add(it) }
+    enumValue(watch.status, STATUSES)?.let { add(it) }
     watch.storage.orNull()?.let {
         add(SpecValue.Resource(R.string.screen_detail_storage, listOf(it)))
     }
@@ -452,7 +463,7 @@ private fun plain(value: String?): SpecValue? = value.orNull()?.let(SpecValue::P
  * An enum* field: its canonical value, and the label for it when the schema
  * knows one. Free text passes through with a null label and is shown as typed.
  */
-private fun enumValue(value: String?, choices: List<EnumChoice>): SpecValue? =
+internal fun enumValue(value: String?, choices: List<EnumChoice>): SpecValue? =
     value.orNull()?.let { SpecValue.EnumValue(it, labelFor(it, choices)) }
 
 /** A list of enum* values — complications. Each part translated, then joined. */
