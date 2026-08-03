@@ -89,6 +89,61 @@ Built on Ubuntu 22.04, so it runs on anything with glibc 2.35 or newer: Ubuntu
 There is also an [`install.sh`](install.sh) for a system-wide install on
 distributions without `apt` — see [docs/BUILDING.md](docs/BUILDING.md).
 
+### Android 8.0 and newer
+
+**SAAT for Android is the same application, rebuilt natively for the device that is
+actually present when a watch goes on your wrist.** It has the same grid, spec list,
+wear calendar, detail page and two-up comparison, plus a home-screen widget and a
+launcher shortcut that record today's watch in two taps without opening the app.
+
+Download `saat-release.apk` from the
+[releases page](https://github.com/sudo-megas/SAAT/releases/latest) — the Android
+builds are tagged `android-v1.0` and versioned separately from the desktop app.
+
+**Android will warn you, and you have to tap past it.** Installing an APK your phone
+did not get from a store needs permission you grant once, per app:
+
+1. Tap the downloaded APK. Android says the browser (or your file manager) is not
+   allowed to install apps.
+2. Tap **Settings**, turn on **Allow from this source**, and come back.
+
+That is the same category of warning as the Windows one above — it means "this did
+not come through a store", not "this is known to be harmful".
+
+**It declares no permissions at all.** Not "only the ones it needs" — none. No
+internet, no camera, no storage. Photographs come in through the system photo
+picker, the camera through an intent the system fulfils, and the ZIP through the
+Storage Access Framework; none of those requires a permission, because in each case
+the system does the work and hands back the result. **You can verify this yourself
+without trusting the claim:** long-press the installed app → App info → Permissions.
+A build that ever declared one would fail its own CI, which parses the merged
+manifest and the built APK and refuses both.
+
+**Where your data lives.** In the app's private storage, which no other app can
+read: `watches/<slug>/watch.toml` for the records, a separate `media/` tree for the
+photographs, and `backups/` for timestamped copies. Uninstalling the app deletes all
+of it, so export first if you mean to keep it.
+
+**What the cloud backup covers.** Android's own backup carries the records and
+`config.toml` and **not** the photographs — its quota is roughly 25 MB and the
+photographs would exhaust it, taking the irreplaceable half down with the
+re-takeable half. Moving directly to a new phone carries everything, because a
+device-to-device transfer has no quota. The ZIP export is how photographs travel
+otherwise, and it is always available.
+
+**The ZIP bridge.** Settings → Export writes `saat-export-YYYY-MM-DD.zip` wherever
+you choose, holding exactly the `watches/` tree in the layout this desktop app uses
+— so **unzipping it into your desktop collection folder *is* the import on this
+side**. It works in both directions: zip your desktop `watches/` folder, hand it to
+Settings → Import on the phone, and watches you do not already have are added.
+Watches you do have are skipped rather than overwritten, so a re-import is never
+destructive. That round trip is asserted on every build by a test that imports a
+collection, exports it again, and requires every file to come back byte-identical.
+
+<!-- Screenshots: to be taken by the owner, from the real collection, per hard rule
+     1 — the grid, the detail page, the calendar and the compare screen, in dark
+     mode, at the phone's native resolution. Never generated, never fabricated. -->
+
 ## Where your data lives
 
 This is the part worth reading. SAAT never puts your collection anywhere you cannot
