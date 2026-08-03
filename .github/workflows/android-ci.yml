@@ -115,6 +115,16 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: python3 android/tools/parity_check.py verify android/app/build/reports/parity
 
+      # AM10's release gate, and the only step that can actually answer it.
+      # SPEC-ANDROID 3.2 promises that unzipping the export into the desktop
+      # app's folder IS the import on that side; the Android tests can prove the
+      # phone agrees with the phone, and no more than that. This opens the
+      # archive the tests just exported with saat.storage.load_collection and
+      # asserts every field arrives. A layout the desktop cannot read fails here.
+      - name: Open the exported ZIP with the desktop's loader
+        working-directory: ${{ github.workspace }}
+        run: python3 android/tools/parity_check.py zip android/app/build/reports/zip-bridge
+
       - name: Assemble debug APK
         run: ./gradlew --no-daemon assembleDebug
 
@@ -148,6 +158,7 @@ jobs:
           name: parity-${{ github.sha }}
           path: |
             android/app/build/reports/parity/
+            android/app/build/reports/zip-bridge/
             android/app/build/parity-in/
           if-no-files-found: warn
 

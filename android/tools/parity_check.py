@@ -20,6 +20,9 @@ Two subcommands, run either side of the Gradle build:
                     survived, then diffs the field maps
     enums [root]    diffs the enum* suggestion lists the two forms offer,
                     parsed from both sources -- see the note above `enums`
+    zip <dir>       opens the ZIP the Kotlin tests exported with
+                    saat.storage.load_collection -- AM10's release gate,
+                    answered by the desktop rather than by the phone
 
 The fixture below is the twin of `fullyPopulatedWatch()` in the Kotlin test
 sources. The duplication is the point: two independent constructions of the same
@@ -38,6 +41,7 @@ import dataclasses
 import datetime
 import json
 import pathlib
+import zipfile
 import re
 import sys
 import tempfile
@@ -212,7 +216,21 @@ def emit(out_dir: pathlib.Path) -> int:
         encoding="utf-8",
     )
 
+    # AM10: the same record, zipped in the desktop's own layout, for the Android
+    # import path to accept. Written from the tree save_watch just produced --
+    # not assembled entry by entry here -- so it is the desktop's real output
+    # being handed over rather than this script's idea of it.
+    (staging / "watches" / slug / "images").mkdir(parents=True, exist_ok=True)
+    (staging / "watches" / slug / "images" / "front.jpg").write_bytes(bytes(range(256)) * 4)
+
+    archive = out_dir / "desktop-export.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted((staging / "watches").rglob("*")):
+            if path.is_file():
+                zf.write(path, path.relative_to(staging).as_posix())
+
     print(f"wrote {out_dir / 'desktop-full.toml'} ({len(written)} bytes) with saat.storage.save_watch")
+    print(f"wrote {archive} in the desktop's watches/ layout")
     return 0
 
 
@@ -466,6 +484,74 @@ def enums(root: pathlib.Path) -> int:
     return 0
 
 
+def zip_bridge(reports: pathlib.Path) -> int:
+    """AM10's release gate, answered by the desktop.
+
+    The Android tests export a real collection to saat-export.zip. This unzips
+    it into a scratch directory and loads it with the DESKTOP'S OWN
+    load_collection -- which is the actual claim SPEC-ANDROID 3.2 makes about
+    the archive: "unzipping it into the desktop app's folder IS the import on
+    that side". A layout the desktop cannot read fails here, and nothing the
+    Android tests can assert about themselves would have caught it.
+    """
+    archive = reports / "saat-export.zip"
+    if not archive.exists():
+        print(f"ZIP BRIDGE FAILED\n  {archive} was not produced by the Kotlin tests", file=sys.stderr)
+        return 1
+
+    scratch = pathlib.Path(tempfile.mkdtemp())
+    with zipfile.ZipFile(archive) as zf:
+        names = zf.namelist()
+        zf.extractall(scratch)
+
+    watches_dir = scratch / "watches"
+    if not watches_dir.is_dir():
+        print(
+            "ZIP BRIDGE FAILED\n"
+            f"  the archive has no watches/ root -- entries were: {names[:5]}",
+            file=sys.stderr,
+        )
+        return 1
+
+    failures: list[str] = []
+    records = load_collection(watches_dir)
+    if not records:
+        failures.append("the desktop loader found no watches in the exported archive")
+
+    for record in records:
+        if record.load_error:
+            failures.append(f"{record.slug}: the desktop could not load it -- {record.load_error}")
+            continue
+
+        # The photographs must land where the desktop expects them, which is the
+        # whole reason the export re-roots media/ back into images/.
+        images = record.path / "images"
+        if not images.is_dir() or not any(images.iterdir()):
+            failures.append(f"{record.slug}: no images/ folder in the archive")
+
+        for field, mine, theirs in compare(fully_populated_watch(), record.watch):
+            failures.append(f"{record.slug}: {field} -- desktop read {theirs!r}, expected {mine!r}")
+
+    print()
+    if failures:
+        print("ZIP BRIDGE FAILED", file=sys.stderr)
+        for f in failures:
+            print(f"  - {f}", file=sys.stderr)
+        print(
+            "\nSPEC-ANDROID 3.2: unzipping the export into the desktop app's folder IS\n"
+            "the import on that side. If this fails, that promise is broken and v1.0\n"
+            "is not shippable -- AM10 is the release gate.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(
+        f"ZIP BRIDGE OK -- {len(records)} watch(es) exported by Android, "
+        "loaded by saat.storage.load_collection with every field intact"
+    )
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -479,11 +565,16 @@ def main() -> int:
     p_enums = sub.add_parser("enums", help="diff the enum* suggestion lists against the desktop")
     p_enums.add_argument("root", type=pathlib.Path, nargs="?", default=pathlib.Path("."))
 
+    p_zip = sub.add_parser("zip", help="open the Android export with the desktop's loader")
+    p_zip.add_argument("dir", type=pathlib.Path)
+
     args = parser.parse_args()
     if args.command == "emit":
         return emit(args.dir)
     if args.command == "enums":
         return enums(args.root)
+    if args.command == "zip":
+        return zip_bridge(args.dir)
     return verify(args.dir)
 
 

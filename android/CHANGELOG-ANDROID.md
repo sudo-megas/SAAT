@@ -3,6 +3,73 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [0.10] - 2026-08-03
+
+The release gate. The ZIP is not a backup feature — it is the contract that the
+phone and the desktop hold the same collection, and the proof that the owner's
+data is never trapped in either.
+
+**The re-root is the whole job.** On the phone photographs live in a sibling
+`media/<slug>/` tree, because Android's Auto Backup rules match `path` as a
+literal prefix with no wildcards at all and "back up the records, never the
+photographs" is not otherwise expressible. The archive puts them back at
+`watches/<slug>/images/`, which is the desktop's exact layout. The phone's
+internal split is an implementation detail; the archive is the contract.
+
+**Bytes are copied, never re-serialised — in both directions.** A `watch.toml`
+enters the archive exactly as it sits on disk, and an imported one lands exactly
+as it arrived: parsed only to decide whether to accept it, with the decoded
+value thrown away. Byte preservation would be pointless if the one operation
+that moves data between machines rewrote every file on the way. A hand-written
+comment survives the whole journey, and a test asserts it by looking for the
+comment rather than by comparing fields.
+
+**Import validates in a separate pass, before touching disk.** `ZipInputStream`
+cannot seek, so the archive is opened twice: pass one surveys every entry name,
+refuses the whole file if any is unsafe, and reads the small `watch.toml`s so a
+malformed one is found before a byte is written; pass two streams the
+photographs. A per-entry check made while extracting could only promise to stop
+halfway — the test for this puts a traversal entry beside a perfectly good watch
+and asserts the good watch did not land either.
+
+**On symlinks, honestly.** The brief asks for them to be rejected and the
+platform's zip API gives no way to see one — the bit lives in the central
+directory's external attributes, which `java.util.zip.ZipEntry` does not expose,
+and a library that does would cost a dependency. What is done instead makes it
+moot: every entry is written through a path this code builds itself, so a
+symlink entry extracts as an ordinary file containing the text of its target and
+creates no link at all. That is asserted rather than claimed.
+
+**Both archive roots are accepted, decided per entry.** Desktop users zip from
+above `watches/` and from inside it. Deciding the shape once for the whole
+archive would need a tie-break for a mixed one; per entry needs none, and a
+watch legitimately slugged `watches` survives it.
+
+**An existing slug is skipped whole** — the owner's decision. Not merged, not
+overwritten, not renamed to `-2`: anything else puts the archive's opinion of a
+watch above the one being edited here. All four outcomes are named rather than
+counted, because "already here" and "would not parse" are not the same news.
+
+**The round-trip test is the release gate and says so at the top of the file.**
+A desktop-shaped fixture with full schema coverage — straps, log, worn, timing,
+a Turkish dotted İ, a non-ASCII brand and a hand-written comment — imports,
+exports, and comes back byte-identical file for file. Byte-identity of the
+FILES, not of the archive: entry order and timestamps are properties of the
+container rather than of the collection.
+
+**And it is checked against the desktop app itself, not only against us.** An
+export both written and read by this codebase would round-trip perfectly even if
+its layout were something the desktop had never heard of. So CI now opens the
+exported archive with `saat.storage.load_collection` — the desktop's real code —
+and the desktop's own writer produces an archive that the import path here has
+to accept. Both directions were run on a development machine before this landed.
+
+**The backup rules were already right; now they are guarded.** Nothing at
+runtime reads them, so nothing at runtime could notice them going wrong — and
+the failure only surfaces when an owner restores a phone. The include-only rule,
+the records-only cloud list and the photographs-included device transfer each
+have an assertion now.
+
 ## [0.9] - 2026-08-03
 
 Feature-completeness for v1: the screen for deciding what to wear, and the three
