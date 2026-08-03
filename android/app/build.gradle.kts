@@ -18,10 +18,14 @@ android {
         applicationId = "io.github.sudomegas.saat"
         minSdk = 26
         targetSdk = 37
-        // versionCode is bumped on every TAGGED release and AM8 is not one —
-        // SPEC-ANDROID 8. The name follows the milestone table.
-        versionCode = 1
-        versionName = "0.10"
+        // versionCode is bumped on every TAGGED release — SPEC-ANDROID 8 — and
+        // v1.0 is the first one. It stayed at 1 through AM1..AM10 because none
+        // of those milestones was tagged; every future release increments it,
+        // monotonically, because it is what Android compares to decide whether
+        // an APK is an update. VersionGuardTest holds versionName to the newest
+        // CHANGELOG-ANDROID.md heading.
+        versionCode = 2
+        versionName = "1.0"
     }
 
     /**
