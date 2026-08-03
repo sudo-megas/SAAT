@@ -346,13 +346,27 @@ class DetailPageTest {
     fun `status is always in the meta line and rating renders as stars`() {
         val watch = minimalWatch().copy(rating = 4, style = "Diver")
 
+        // Style and status are EnumValue, not Plain: both are schema values with
+        // translations, and the header used to be the one place on the detail
+        // page that printed them in English regardless of the interface
+        // language. The stars stay Plain — they are punctuation, not vocabulary.
         assertEquals(
             listOf(
-                SpecValue.Plain("Diver"),
-                SpecValue.Plain(Watch.STATUS_OWNED),
+                SpecValue.EnumValue("Diver", R.string.enum_style_diver),
+                SpecValue.EnumValue(Watch.STATUS_OWNED, R.string.enum_status_owned),
                 SpecValue.Plain("★★★★☆"),
             ),
             page(watch)!!.meta,
+        )
+    }
+
+    @Test
+    fun `a style the schema does not know keeps the owner's own spelling`() {
+        // The other half of the same rule: a null label is what makes a word the
+        // owner invented survive the trip to the screen unchanged.
+        assertEquals(
+            SpecValue.EnumValue("Skin diver", null),
+            page(minimalWatch().copy(style = "Skin diver"))!!.meta.first(),
         )
     }
 

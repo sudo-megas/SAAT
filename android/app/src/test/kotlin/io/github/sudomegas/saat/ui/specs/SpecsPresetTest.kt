@@ -122,7 +122,16 @@ class SpecsPresetTest {
 
         assertNull(row.getValue(R.string.field_reference).value)
         // The model defaults status to Owned, so this cell is never an em-dash.
-        assertEquals(SpecValue.Plain(Watch.STATUS_OWNED), row.getValue(R.string.field_status).value)
+        //
+        // EnumValue rather than Plain: the column is headed `Durum` in Turkish
+        // and used to print `Owned` underneath it, while the compare screen —
+        // reading identityRows, which always resolved the label — said `Sahip
+        // Olunan` for the same watch. Reference stays Plain above; it is the
+        // owner's own words and has no translation to look up.
+        assertEquals(
+            SpecValue.EnumValue(Watch.STATUS_OWNED, R.string.enum_status_owned),
+            row.getValue(R.string.field_status).value,
+        )
     }
 
     @Test

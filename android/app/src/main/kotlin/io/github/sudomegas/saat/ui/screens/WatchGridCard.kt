@@ -40,6 +40,11 @@ import coil3.compose.rememberAsyncImagePainter
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.ui.WatchCard
 import io.github.sudomegas.saat.ui.formatMeasurement
+import io.github.sudomegas.saat.ui.detail.SpecValue
+import io.github.sudomegas.saat.ui.form.EnumChoice
+import io.github.sudomegas.saat.ui.form.MOVEMENT_KINDS
+import io.github.sudomegas.saat.ui.form.STYLES
+import io.github.sudomegas.saat.ui.form.labelFor
 
 /**
  * One watch in the grid.
@@ -262,8 +267,8 @@ private val SELECTED_BORDER = 2.dp
  */
 @Composable
 private fun metadataLine(card: WatchCard): String {
-    val style = card.style?.takeIf { it.isNotBlank() }
-    val kind = card.movementKind?.takeIf { it.isNotBlank() }
+    val style = enumLabel(card.style, STYLES)
+    val kind = enumLabel(card.movementKind, MOVEMENT_KINDS)
     return when {
         style != null && kind != null ->
             stringResource(R.string.screen_grid_card_metadata, style, kind)
@@ -271,4 +276,22 @@ private fun metadataLine(card: WatchCard): String {
         kind != null -> kind
         else -> ""
     }
+}
+
+/**
+ * A schema `enum*` value as the owner reads it, or as they typed it.
+ *
+ * The card carries these two as bare strings — it never had a [SpecValue] to
+ * hand — so the label is looked up here instead. Without it the grid was the
+ * one screen still saying `Field · Automatic` under a Turkish interface, while
+ * the detail page above it said `Saha` and `Otomatik`.
+ *
+ * Null label means the schema does not know this value, and a word the owner
+ * invented is shown exactly as they wrote it — the same rule
+ * [SpecValue.EnumValue] follows everywhere else.
+ */
+@Composable
+private fun enumLabel(value: String?, choices: List<EnumChoice>): String? {
+    val trimmed = value?.takeIf { it.isNotBlank() } ?: return null
+    return labelFor(trimmed, choices)?.let { stringResource(it) } ?: trimmed
 }
