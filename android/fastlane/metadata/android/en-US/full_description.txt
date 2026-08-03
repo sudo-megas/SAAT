@@ -1,0 +1,33 @@
+SAAT catalogues a wristwatch collection on your own phone: a photo-forward grid, a dense spec list, a wear calendar, a detail page per watch, and two-up comparison. Every watch is a plain TOML file in storage you own — no database, no network, no account, nothing that expires.
+
+It ships empty on purpose. Entering the collection is the hobby; the app is the framework, not the contents.
+
+<b>It declares no permissions at all.</b>
+
+Not "only the ones it needs" — none. No internet, no camera, no storage. Photographs come in through the system photo picker, the camera through an intent the system fulfils, and the ZIP through the Storage Access Framework; none of those requires a permission, because in each case the system does the work and hands back the result.
+
+You can verify this without trusting the claim: long-press the installed app, then App info, then Permissions. A build that ever declared one would fail its own CI, which parses the merged manifest and refuses it.
+
+<b>Logging what you wore</b>
+
+The phone is the device that is present when a watch goes on the wrist, so wear logging is a first-class citizen. A home-screen widget shows today's watch and a launcher shortcut records it in two taps without opening the app. The calendar keeps the history, and the detail page counts it.
+
+<b>Where your data lives</b>
+
+In the app's private storage, which no other app can read: watches/&lt;slug&gt;/watch.toml for the records, a separate media/ tree for the photographs, and backups/ for timestamped copies. Uninstalling the app deletes all of it, so export first if you mean to keep it.
+
+Android's own cloud backup carries the records and the configuration, and deliberately not the photographs — its quota would be exhausted by them, taking the irreplaceable half down with the re-takeable half.
+
+<b>The ZIP bridge</b>
+
+Settings, then Export, writes a ZIP holding exactly the watches/ tree in the layout the desktop app uses — so unzipping it into a desktop collection folder is the import on that side. It works in both directions: zip a desktop watches/ folder, hand it to Settings, then Import, and watches you do not already have are added. Watches you do have are skipped rather than overwritten, so a re-import is never destructive.
+
+That round trip is asserted on every build by a test that imports a collection, exports it again, and requires every file to come back byte-identical.
+
+<b>Languages</b>
+
+English and Turkish. The interface follows the app's own setting rather than the phone's, and the files on disk stay in one canonical vocabulary either way — so a collection written on a Turkish phone reads correctly on an English desktop.
+
+<b>Free software</b>
+
+GPL-3.0-or-later. The desktop application for Linux and Windows is in the same repository.

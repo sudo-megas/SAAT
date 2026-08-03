@@ -1,0 +1,8 @@
+The first public release.
+
+The grid, spec list, wear calendar, detail page and two-up compare, plus a
+home-screen widget and a launcher shortcut that record today's watch without
+opening the app. Turkish alongside English. ZIP export and import that exchange
+a collection with the desktop application in both directions.
+
+No permissions, no network, no account.
