@@ -46,7 +46,12 @@ import io.github.sudomegas.saat.ui.screens.SettingsScreen
 import io.github.sudomegas.saat.ui.screens.SpecsScreen
 
 @Composable
-fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
+fun SaatApp(
+    app: SaatApplication,
+    viewModel: SettingsViewModel,
+    /** A watch to open straight away — AM8's widget tap. */
+    openSlug: String? = null,
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val config by viewModel.config.collectAsStateWithLifecycle()
@@ -104,6 +109,13 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
         ?.any { node ->
             node.hasRoute(DetailRoute::class) || node.hasRoute(FormRoute::class)
         } == true
+
+    // Once per launch, not on every recomposition: the key is the intent's own
+    // content, so returning to the grid by pressing back does not bounce
+    // straight back to the destination it asked for.
+    LaunchedEffect(openSlug) {
+        openSlug?.let { navController.navigate(DetailRoute(it)) }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },

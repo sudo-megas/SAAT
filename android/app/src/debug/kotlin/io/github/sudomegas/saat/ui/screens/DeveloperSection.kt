@@ -11,10 +11,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.sudomegas.saat.R
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import io.github.sudomegas.saat.devtools.DemoWatches
+import io.github.sudomegas.saat.widget.TodayWidgetProvider
 import io.github.sudomegas.saat.storage.WatchRepository
 import kotlinx.coroutines.launch
 
@@ -61,6 +65,25 @@ fun DeveloperSection(repository: WatchRepository) {
             TextButton(onClick = { scope.launch { DemoWatches.clear(repository) } }) {
                 Text(text = stringResource(R.string.action_clear_demo_watches))
             }
+        }
+
+        // AM8. Placing a widget otherwise means driving the launcher's own
+        // long-press menu, which is launcher-specific and not scriptable — and
+        // the widget is the one part of this app whose runtime behaviour cannot
+        // be checked from a unit test at all, because it draws in another
+        // process. Debug-only, like everything else in this file.
+        val context = LocalContext.current
+        TextButton(
+            onClick = {
+                val manager = context.getSystemService(AppWidgetManager::class.java)
+                val provider = ComponentName(context, TodayWidgetProvider::class.java)
+                if (manager?.isRequestPinAppWidgetSupported == true) {
+                    manager.requestPinAppWidget(provider, null, null)
+                }
+            },
+            modifier = Modifier.padding(horizontal = 8.dp),
+        ) {
+            Text(text = stringResource(R.string.action_demo_pin_widget))
         }
     }
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ dynamic colour — SPEC-ANDROID 5.9's "the widget respects dynamic
+  colour and dark mode", and 6's "Material 3 with dynamic colour".
+
+  These are the platform's own wallpaper-derived palette, which is the only way
+  a RemoteViews layout can reach it: there is no theme to resolve against in
+  another process. @android:color/system_* are the same roles Material 3 builds
+  its scheme from, so the widget lands on the same hues the app does.
+-->
+<resources>
+    <color name="widget_background">@android:color/system_accent2_50</color>
+    <color name="widget_on_background">@android:color/system_neutral1_700</color>
+</resources>

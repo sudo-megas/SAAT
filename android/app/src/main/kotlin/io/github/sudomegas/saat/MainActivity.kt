@@ -38,8 +38,20 @@ class MainActivity : AppCompatActivity() {
             val config by viewModel.config.collectAsStateWithLifecycle()
 
             SaatTheme(mode = config.themeMode, dynamicColor = config.dynamicColor) {
-                SaatApp(app, viewModel)
+                SaatApp(
+                    app = app,
+                    viewModel = viewModel,
+                    // AM8: the filled widget opens the app already pointed at
+                    // a watch. Read from the intent rather than held in a
+                    // ViewModel so a cold start and a warm one behave the same.
+                    openSlug = intent?.getStringExtra(EXTRA_WATCH_SLUG),
+                )
             }
         }
+    }
+
+    companion object {
+        /** A watch to open on launch — the widget's filled tap. */
+        const val EXTRA_WATCH_SLUG = "io.github.sudomegas.saat.WATCH_SLUG"
     }
 }

@@ -239,6 +239,23 @@ class CalendarViewModel(
         }
     }
 
+    /**
+     * Record today, from the widget or the launcher shortcut.
+     *
+     * The same `assignWorn` the detail button and the calendar call — the
+     * brief's item 6 asks that all three entry points share one implementation,
+     * and this is the third of them arriving at the same method rather than at
+     * a copy of it.
+     */
+    fun assignToday(slug: String) {
+        viewModelScope.launch { repository.assignWorn(slug, listOf(today())) }
+    }
+
+    /** Empty today, from the same places. */
+    fun clearToday() {
+        viewModelScope.launch { repository.clearWorn(listOf(today())) }
+    }
+
     fun toggleYearView() {
         _isYearView.value = !_isYearView.value
     }

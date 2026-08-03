@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The widget's own colours, light. values-night/ holds the dark set and
+  values-v31/ the dynamic one — a RemoteViews layout cannot read a Compose
+  theme, so this is how it follows the system instead.
+-->
+<resources>
+    <color name="widget_background">#FFF3EFE7</color>
+    <color name="widget_on_background">#FF4A4640</color>
+    <!-- Over a photograph, so it has to hold its own against any of them. -->
+    <color name="widget_scrim">#99000000</color>
+    <color name="widget_caption">#FFFFFFFF</color>
+    <color name="widget_caption_muted">#CCFFFFFF</color>
+</resources>

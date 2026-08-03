@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  NO updatePeriodMillis, deliberately.
+
+  The platform's own periodic update is a poll, and this milestone's brief
+  forbids one: "no battery-hungry periodic polling — midnight is one scheduled
+  tick, not a heartbeat". The widget is redrawn when the day turns over
+  (MidnightRefresh) and when today's assignment changes (SaatApplication), and
+  at no other time. Its minimum is half an hour anyway, which is both too often
+  to be free and too rare to be correct.
+
+  One size, resizable — the brief's "one size done well beats four done badly".
+  The minimum is a 2x2 cell, which is enough for a photograph and two lines.
+
+  No configuration activity: the widget has nothing to configure. It shows
+  today.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/screen_widget_description"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:widgetCategory="home_screen" />
