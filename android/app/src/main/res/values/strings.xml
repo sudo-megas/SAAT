@@ -37,8 +37,19 @@
     <string name="nav_calendar">Calendar</string>
     <string name="nav_settings">Settings</string>
 
-    <string name="screen_specs_placeholder">Specs</string>
     <string name="screen_calendar_placeholder">Calendar</string>
+
+    <!-- Specs (AM6). The preset labels are their own keys rather than the
+         detail page's group titles: a chip is a filter control and a heading is
+         a heading, and Turkish need not use one word for both. -->
+    <string name="screen_specs_preset_identity">Identity</string>
+    <string name="screen_specs_preset_movement">Movement</string>
+    <string name="screen_specs_preset_case">Case</string>
+    <string name="screen_specs_preset_dial">Dial</string>
+    <string name="screen_specs_preset_straps">Straps</string>
+    <string name="screen_specs_preset_acquisition">Acquisition</string>
+    <string name="screen_specs_empty">Your collection is empty.</string>
+    <string name="field_strap_count">Straps</string>
 
     <string name="screen_grid_empty_title">Your collection is empty.</string>
     <string name="screen_grid_empty_body">Watches are stored as plain TOML files you can export at any time.</string>

@@ -2,6 +2,7 @@ package io.github.sudomegas.saat.config
 
 import dev.eav.tomlkt.Toml
 import io.github.sudomegas.saat.storage.WatchSort
+import io.github.sudomegas.saat.ui.specs.SpecsPreset
 import io.github.sudomegas.saat.storage.writeAtomically
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -60,10 +61,14 @@ class ConfigStore(root: File) {
     private data class GridSection(val sort: String? = null)
 
     @Serializable
+    private data class SpecsSection(val preset: String? = null)
+
+    @Serializable
     private data class ConfigDto(
         val theme: ThemeSection? = null,
         val language: LanguageSection? = null,
         val grid: GridSection? = null,
+        val specs: SpecsSection? = null,
     )
 
     fun load(): ConfigLoad {
@@ -89,6 +94,7 @@ class ConfigStore(root: File) {
             ),
             language = LanguageSection(code = config.language),
             grid = GridSection(sort = config.sort.token),
+            specs = SpecsSection(preset = config.specsPreset.token),
         )
         writeAtomically(file, toml.encodeToString(dto))
     }
@@ -110,6 +116,7 @@ class ConfigStore(root: File) {
             // throwing, the same leniency the theme mode above already gets: a
             // config written by a later version must not stop this one starting.
             sort = WatchSort.fromToken(dto.grid?.sort),
+            specsPreset = SpecsPreset.fromToken(dto.specs?.preset),
         )
     }
 
