@@ -80,6 +80,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+              The two static shortcuts of SPEC-ANDROID 5.9. Static rather than
+              dynamic so they work on a cold start: the launcher reads them from
+              this file and no app code has to have run first.
+            -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!--

@@ -51,6 +51,8 @@ fun SaatApp(
     viewModel: SettingsViewModel,
     /** A watch to open straight away — AM8's widget tap. */
     openSlug: String? = null,
+    /** Open the add form straight away — AM8's launcher shortcut. */
+    openAddWatch: Boolean = false,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -113,8 +115,11 @@ fun SaatApp(
     // Once per launch, not on every recomposition: the key is the intent's own
     // content, so returning to the grid by pressing back does not bounce
     // straight back to the destination it asked for.
-    LaunchedEffect(openSlug) {
-        openSlug?.let { navController.navigate(DetailRoute(it)) }
+    LaunchedEffect(openSlug, openAddWatch) {
+        when {
+            openSlug != null -> navController.navigate(DetailRoute(openSlug))
+            openAddWatch -> navController.navigate(FormRoute())
+        }
     }
 
     Scaffold(
