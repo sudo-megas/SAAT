@@ -201,6 +201,18 @@
     <string name="screen_detail_group_strap_compat">Straps that fit</string>
     <string name="screen_detail_strap_compat_owner">On %1$s %2$s</string>
 
+    <!-- Export and import (AM10). The ZIP is the bridge to the desktop app, not
+         a backup format, and the summary says so by naming what it holds rather
+         than calling itself a backup. -->
+    <string name="settings_data">Data</string>
+    <string name="action_export_zip">Export ZIP</string>
+    <string name="action_import_zip">Import ZIP</string>
+    <string name="settings_export_summary">A ZIP of every watch and its photographs, in the same layout the desktop app uses.</string>
+    <string name="settings_transfer_working">Working… %1$d of %2$d</string>
+    <string name="settings_export_done">Exported %1$d watches and %2$d photographs to %3$s.</string>
+    <string name="settings_export_skipped">Skipped, no watch.toml inside: %1$s</string>
+    <string name="settings_transfer_failed">That did not work: %1$s</string>
+
     <!-- Month abbreviations for the twelve-month strip, and for AM7's calendar.
          Resources rather than Month.getDisplayName, which would need a Locale:
          the default one is the system locale hard rule 7 forbids reading, and
