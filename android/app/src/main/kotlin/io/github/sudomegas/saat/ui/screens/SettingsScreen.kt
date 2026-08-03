@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -297,8 +298,16 @@ private fun TransferOutcome(result: TransferResult?) {
             Text(
                 text = stringResource(
                     R.string.settings_export_done,
-                    result.summary.watches,
-                    result.summary.images,
+                    pluralStringResource(
+                        R.plurals.settings_transfer_watches,
+                        result.summary.watches,
+                        result.summary.watches,
+                    ),
+                    pluralStringResource(
+                        R.plurals.settings_transfer_photographs,
+                        result.summary.images,
+                        result.summary.images,
+                    ),
                     result.destination,
                 ),
                 style = MaterialTheme.typography.bodyMedium,
@@ -323,8 +332,16 @@ private fun TransferOutcome(result: TransferResult?) {
             Text(
                 text = stringResource(
                     R.string.settings_import_done,
-                    result.summary.added.size,
-                    result.summary.skipped.size,
+                    pluralStringResource(
+                        R.plurals.settings_transfer_watches,
+                        result.summary.added.size,
+                        result.summary.added.size,
+                    ),
+                    pluralStringResource(
+                        R.plurals.settings_transfer_watches,
+                        result.summary.skipped.size,
+                        result.summary.skipped.size,
+                    ),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
