@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
 /**
  * The whole collection, as the rest of the app sees it.
@@ -42,6 +43,31 @@ data class CollectionState(
      */
     internal fun unsaved(slug: String): WatchRecord? =
         records.firstOrNull { it.slug == slug && it.isDirty }
+}
+
+/**
+ * What a call to [WatchRepository.assignWorn] actually did.
+ *
+ * Three outcomes rather than a Boolean, because the UI has three things to say
+ * and only this layer knows which is true. A second tap on the same day is a
+ * VISIBLE no-op — SPEC-ANDROID 5.6 asks for exactly that — and telling it apart
+ * from a first tap needs the list as it was before the write.
+ *
+ * [takenFrom] is silent by design: the one-watch-per-day rule moves a day with
+ * no prompt, matching the desktop, and this is here so a caller that wants to
+ * mention it can. AM7's calendar will.
+ */
+data class WearAssignment(
+    val slug: String,
+    /** Days newly written to this watch. */
+    val recorded: List<LocalDate> = emptyList(),
+    /** Days this watch already held. A second tap the same day lands here. */
+    val alreadyRecorded: List<LocalDate> = emptyList(),
+    /** Days taken away from other watches, by slug. */
+    val takenFrom: Map<String, List<LocalDate>> = emptyMap(),
+) {
+    /** True when nothing was written anywhere — every day was already this watch's. */
+    val changedNothing: Boolean get() = recorded.isEmpty() && takenFrom.isEmpty()
 }
 
 /**
@@ -151,7 +177,23 @@ class WatchRepository(
         slug: String,
         backup: Boolean = true,
         transform: (Watch) -> Watch,
-    ): WatchRecord? = writeLock.withLock {
+    ): WatchRecord? = writeLock.withLock { updateLocked(slug, backup, transform) }
+
+    /**
+     * [update]'s body, with the lock already held.
+     *
+     * Split out because [Mutex] IS NOT REENTRANT and [assignWorn] has to edit
+     * more than one watch inside a single critical section — one calendar day
+     * moving from one watch to another is two writes that must not be
+     * interleaved with anything else. A locked method calling [update] would
+     * deadlock the coroutine outright: no exception, no timeout, just a wear
+     * button that never returns.
+     */
+    private suspend fun updateLocked(
+        slug: String,
+        backup: Boolean,
+        transform: (Watch) -> Watch,
+    ): WatchRecord? {
         val current = record(slug) ?: return null
         val watch = current.watch ?: return null
 
@@ -160,7 +202,7 @@ class WatchRepository(
 
         replace(edited)
 
-        try {
+        return try {
             val saved = withContext(io) { store.save(edited, backup) }
             replace(saved)
             saved
@@ -169,6 +211,85 @@ class WatchRepository(
             edited
         }
     }
+
+    /**
+     * THE WEAR-LOGGING PATH. Every caller that records a day goes through here.
+     *
+     * AM4's detail button, AM7's calendar (single day and drag-selected range),
+     * AM8's home-screen widget and AM8's app shortcut are all this one method,
+     * which is why its shape is what it is:
+     *
+     *  - [dates] is a collection rather than one day, so a calendar range is one
+     *    critical section and one pass over the collection instead of N of each.
+     *  - The day is a PARAMETER. Nothing here reads the clock, which is the
+     *    convention `Derived` already set and is what makes "idempotent within a
+     *    local calendar date" and "correct across a year boundary" writable as
+     *    plain JVM tests rather than as tests that are true only on the day they
+     *    were written.
+     *  - It returns [WearAssignment] rather than a Boolean, because the three
+     *    outcomes are genuinely different things to say: recorded, already
+     *    recorded, and taken from another watch.
+     *
+     * ONE WATCH PER DAY, ACROSS THE WHOLE COLLECTION — SPEC-ANDROID 5.5, and
+     * enforced here rather than in any screen. A day already belonging to
+     * another watch MOVES, silently and with no prompt, exactly as the desktop's
+     * `assign_worn` does. Stripping happens BEFORE the target is written, so
+     * there is no instant on disk at which two watches both claim the same day.
+     *
+     * Status is deliberately not consulted. The desktop's `_strip_dates` takes a
+     * day away from any watch holding it while `build_worn_index` only counts
+     * Owned ones — so a Sold watch's stale day is still released rather than
+     * left behind to shadow the new assignment.
+     *
+     * `backup = false` throughout: `backups/` is pruned to twenty shared slots
+     * and one calendar gesture can touch many watches, so wear toggles must not
+     * crowd out a real edit. That is safe only because `WatchStore.save` takes
+     * the snapshot anyway when regenerating the file would lose bytes it cannot
+     * reproduce — see `regenerationWouldLoseBytes`.
+     */
+    suspend fun assignWorn(slug: String, dates: Collection<LocalDate>): WearAssignment? =
+        writeLock.withLock {
+            val target = record(slug) ?: return@withLock null
+            val worn = target.watch?.worn ?: return@withLock null
+
+            val wanted = dates.toSortedSet()
+            if (wanted.isEmpty()) return@withLock WearAssignment(slug)
+
+            val held = worn.toSet()
+            val alreadyRecorded = wanted.filter { it in held }
+            val recorded = wanted.filterNot { it in held }
+
+            val takenFrom = mutableMapOf<String, List<LocalDate>>()
+            // A snapshot of the list, because updateLocked replaces entries in
+            // the state as it goes and iterating the live one would be reading a
+            // list that is being rewritten underneath the loop.
+            _state.value.records
+                .filter { it.slug != slug }
+                .forEach { holder ->
+                    val overlap = holder.watch?.worn.orEmpty()
+                        .filter { it in wanted }
+                        .distinct()
+                        .sorted()
+                    if (overlap.isEmpty()) return@forEach
+
+                    updateLocked(holder.slug, backup = false) { watch ->
+                        watch.copy(worn = watch.worn.filterNot { it in wanted })
+                    }
+                    takenFrom[holder.slug] = overlap
+                }
+
+            // Called even when `recorded` is empty. The transform then produces
+            // an equal Watch, updateLocked sees it is not dirty and writes
+            // nothing — which is the idempotence, taken at the one place that
+            // can see both the old list and the new. It also collapses the
+            // duplicate days a hand-edited file can carry, exactly as the
+            // desktop's `sorted(set(worn) | wanted)` does.
+            updateLocked(slug, backup = false) { watch ->
+                watch.copy(worn = (watch.worn + wanted).distinct().sorted())
+            }
+
+            WearAssignment(slug, recorded, alreadyRecorded, takenFrom)
+        }
 
     /** Move a watch into `backups/deleted/`. See [WatchStore.delete]. */
     suspend fun delete(slug: String): Boolean = writeLock.withLock {

@@ -73,6 +73,48 @@
     <string name="screen_detail_serial">Serial %1$s</string>
     <string name="screen_detail_strap_fitted">Fitted</string>
     <string name="screen_detail_missing">That watch is no longer in the collection.</string>
+
+    <!-- Wear (AM4b). "Worn today" is a deliberate divergence from the desktop,
+         which says "0 days ago" for a watch worn today: it is the reply to the
+         button the owner has just pressed, and a zero is not what anyone means
+         by it. A day recorded ahead of today — the calendar allows planning —
+         drops the interval entirely rather than counting backwards. -->
+    <string name="screen_detail_wear_last">Last worn %1$s</string>
+    <string name="screen_detail_wear_today">Worn today</string>
+    <plurals name="screen_detail_wear_days_ago">
+        <item quantity="one">1 day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+    <plurals name="screen_detail_wear_this_year">
+        <item quantity="one">Worn 1 time this year</item>
+        <item quantity="other">Worn %1$d times this year</item>
+    </plurals>
+    <plurals name="screen_detail_wear_streak">
+        <item quantity="one">Longest streak 1 day</item>
+        <item quantity="other">Longest streak %1$d days</item>
+    </plurals>
+
+    <string name="action_wore_this_today">Wore this today</string>
+    <string name="screen_detail_wear_recorded">Recorded for today.</string>
+    <string name="screen_detail_wear_already">Already recorded for today.</string>
+    <string name="screen_detail_wear_moved">Recorded for today, moved from %1$s.</string>
+
+    <!-- Month abbreviations for the twelve-month strip, and for AM7's calendar.
+         Resources rather than Month.getDisplayName, which would need a Locale:
+         the default one is the system locale hard rule 7 forbids reading, and
+         Locale.ENGLISH would survive AM11's Turkish sweep untranslated. -->
+    <string name="screen_month_short_jan">Jan</string>
+    <string name="screen_month_short_feb">Feb</string>
+    <string name="screen_month_short_mar">Mar</string>
+    <string name="screen_month_short_apr">Apr</string>
+    <string name="screen_month_short_may">May</string>
+    <string name="screen_month_short_jun">Jun</string>
+    <string name="screen_month_short_jul">Jul</string>
+    <string name="screen_month_short_aug">Aug</string>
+    <string name="screen_month_short_sep">Sep</string>
+    <string name="screen_month_short_oct">Oct</string>
+    <string name="screen_month_short_nov">Nov</string>
+    <string name="screen_month_short_dec">Dec</string>
     <string name="screen_detail_unreadable">%1$s could not be read: %2$s</string>
 
     <string name="action_add_watch">Add watch</string>
