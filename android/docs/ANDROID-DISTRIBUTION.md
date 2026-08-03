@@ -61,6 +61,21 @@ Everything up to and including the GitHub release is done:
 4. ~~Merge to `master` and tag `android-v1.0`.~~ Done, in that order.
 5. ~~The release workflow produces the signed APK.~~ Done — and it is published.
 
+### `versionCode 2` is spent, and nothing enforces the next one
+
+Android decides whether an APK is an update by comparing `versionCode` as an
+integer, and nothing else — `versionName` is a label it never reads for this.
+v1.0 shipped as `versionCode 2`, so **the next release must set 3 or higher or
+it will not install over v1.0 for anybody.**
+
+`VersionGuardTest` does not catch this. It asserts that `versionCode` is a
+positive integer and that `versionName` matches the newest
+`CHANGELOG-ANDROID.md` heading — both of which stay true when the integer is
+never touched. A release that bumps `versionName` to 1.1, writes the changelog
+entry and forgets the code therefore passes every gate in this project and then
+fails silently on the phone, which is the same shape of failure the guard was
+written to prevent. Bump both.
+
 ## What was actually verified
 
 Measured against the release build at this commit, not recalled:
