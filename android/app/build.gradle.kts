@@ -24,6 +24,35 @@ android {
         versionName = "0.10"
     }
 
+    /**
+     * Release signing — AM11b, SPEC-ANDROID 8.
+     *
+     * NOTHING SECRET IS IN THIS REPOSITORY, and nothing ever may be. The
+     * keystore reaches a build through the environment or through Gradle
+     * properties, both of which live outside the tree; `.gitignore` has carried
+     * `*.keystore`, `*.jks` and `keystore.properties` since AM1, before any
+     * keystore existed to be careless with.
+     *
+     * CONFIGURED ONLY WHEN THE MATERIAL IS ACTUALLY THERE. `assembleDebug`, the
+     * unit tests and `check` must all keep working on a machine that has never
+     * seen the keystore — which is every contributor's machine and every CI run
+     * that is not a release. An always-present signing config would fail
+     * configuration for all of them, so the block below is conditional and its
+     * absence produces an unsigned release APK rather than an error. The release
+     * WORKFLOW asserts the config exists; the build does not.
+     */
+    val keystore = releaseKeystore(project)
+    if (keystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = keystore.file
+                storePassword = keystore.storePassword
+                keyAlias = keystore.keyAlias
+                keyPassword = keystore.keyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -31,6 +60,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Null when no keystore was supplied, which AGP reads as "do not
+            // sign" rather than as an error — see above.
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
@@ -222,4 +254,54 @@ dependencies {
     // which needs no dependency at all. See the note in TodayWidgetProvider.
 
     testImplementation(libs.junit)
+}
+
+/**
+ * Where the release signing material comes from — AM11b.
+ *
+ * Two sources, checked in order, and NEITHER is the repository:
+ *
+ *  1. Environment variables, which is how CI supplies them. The workflow
+ *     decodes the base64 keystore secret to a file outside the tree and exports
+ *     the three passwords.
+ *  2. Gradle properties, which is how the owner signs a build by hand without
+ *     exporting anything into their shell — `~/.gradle/gradle.properties` is
+ *     outside the repository and is not backed up into it.
+ *
+ * Returns null when the material is absent or the file it names does not exist,
+ * so an ordinary build on an ordinary machine simply produces an unsigned
+ * release APK. A missing keystore is not an error here; shipping one that is
+ * not signed is, and that is the release workflow's job to catch.
+ *
+ * See docs/ANDROID-RELEASING.md for how the keystore is generated and which
+ * GitHub secrets hold it.
+ */
+data class ReleaseKeystore(
+    val file: File,
+    val storePassword: String,
+    val keyAlias: String,
+    val keyPassword: String,
+)
+
+fun releaseKeystore(project: Project): ReleaseKeystore? {
+    fun value(name: String): String? =
+        (System.getenv(name) ?: project.findProperty(name)?.toString())
+            ?.takeIf { it.isNotBlank() }
+
+    val path = value("SAAT_KEYSTORE_FILE") ?: return null
+    val file = File(path)
+    if (!file.isFile) {
+        project.logger.lifecycle(
+            "SAAT_KEYSTORE_FILE is set to $path but no file is there — " +
+                "building the release variant UNSIGNED."
+        )
+        return null
+    }
+
+    return ReleaseKeystore(
+        file = file,
+        storePassword = value("SAAT_KEYSTORE_PASSWORD") ?: return null,
+        keyAlias = value("SAAT_KEY_ALIAS") ?: return null,
+        keyPassword = value("SAAT_KEY_PASSWORD") ?: return null,
+    )
 }
