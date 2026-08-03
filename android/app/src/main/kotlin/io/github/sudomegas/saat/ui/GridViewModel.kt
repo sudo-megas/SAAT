@@ -11,6 +11,8 @@ import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.storage.WatchFilter
 import io.github.sudomegas.saat.storage.WatchSort
 import io.github.sudomegas.saat.storage.filtered
+import io.github.sudomegas.saat.ui.compare.COMPARE_WATCHES
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +64,8 @@ data class GridUiState(
     val failures: List<LoadFailure> = emptyList(),
     val query: String = "",
     val sort: WatchSort = WatchSort.DEFAULT,
+    /** Slugs picked in selection mode — AM9's route into Compare. */
+    val selection: Set<String> = emptySet(),
 ) {
     /**
      * The collection has watches, but none of them match what was typed.
@@ -73,6 +77,20 @@ data class GridUiState(
     val hasNoMatches: Boolean
         get() = isLoaded && !isCollectionEmpty && cards.isEmpty() &&
             (query.isNotBlank() || !filter.isEmpty)
+
+    /**
+     * Selection mode is simply "something is selected".
+     *
+     * No separate flag to keep in step with the set: a mode bit and a set can
+     * disagree, and the one thing every caller actually wants to know is
+     * whether the contextual bar is showing.
+     */
+    val isSelecting: Boolean
+        get() = selection.isNotEmpty()
+
+    /** Compare needs exactly two — SPEC-ANDROID 5.4, not two or more. */
+    val canCompare: Boolean
+        get() = selection.size == COMPARE_WATCHES
 }
 
 class GridViewModel(
@@ -103,7 +121,17 @@ class GridViewModel(
      */
     private val _query = MutableStateFlow("")
 
-    val state: StateFlow<GridUiState> =
+    /**
+     * Slugs long-pressed into selection mode.
+     *
+     * Not persisted and not in `config.toml`: a selection is a gesture in
+     * progress, not a preference. It survives rotation because it lives in the
+     * ViewModel, and dies with the process, which is right — nobody returns to
+     * a cold-started app expecting two watches still to be ticked.
+     */
+    private val _selection = MutableStateFlow<Set<String>>(emptySet())
+
+    private val base: Flow<GridUiState> =
         combine(
             repository.state,
             configState.config,
@@ -133,7 +161,48 @@ class GridViewModel(
                 sort = config.sort,
                 filter = filter,
             )
+        }
+
+    /**
+     * The grid, with the selection folded in and PRUNED to what is on screen.
+     *
+     * A second `combine` rather than a sixth flow in the first one, because the
+     * typed `combine` overloads stop at five and the vararg form would cost an
+     * array cast and five casts back — for a value that genuinely depends on
+     * the result of the other five rather than sitting beside them.
+     *
+     * The pruning is what stops Compare from opening a watch that is not there.
+     * Deleting a selected watch, or a reload that drops it, silently narrows the
+     * selection and disables the action. Pruning to the VISIBLE cards rather
+     * than to the whole collection is safe because the search field and the
+     * filter button live in the top bar that selection mode replaces: while a
+     * selection exists, the visible set cannot change under it.
+     */
+    val state: StateFlow<GridUiState> =
+        combine(base, _selection) { grid, selection ->
+            val visible = grid.cards.mapTo(HashSet()) { it.slug }
+            grid.copy(selection = selection.filterTo(LinkedHashSet()) { it in visible })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GridUiState())
+
+    /**
+     * Long-press, then tap. Selecting a third watch is not silently ignored —
+     * SPEC-ANDROID 5.4 allows exactly two, so the OLDEST goes to make room and
+     * the tap always does something visible. A dead tap on a card that looks
+     * selectable is the worse of the two answers.
+     */
+    fun toggleSelection(slug: String) {
+        val current = _selection.value
+        _selection.value = when {
+            slug in current -> current - slug
+            current.size < COMPARE_WATCHES -> current + slug
+            else -> current.drop(current.size - COMPARE_WATCHES + 1).toSet() + slug
+        }
+    }
+
+    /** Leaves selection mode: the contextual bar is gone once nothing is set. */
+    fun clearSelection() {
+        _selection.value = emptySet()
+    }
 
     fun dismissFailures() {
         _dismissed.value = _dismissed.value + state.value.failures.map { it.key }

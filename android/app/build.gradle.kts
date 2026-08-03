@@ -21,7 +21,7 @@ android {
         // versionCode is bumped on every TAGGED release and AM8 is not one —
         // SPEC-ANDROID 8. The name follows the milestone table.
         versionCode = 1
-        versionName = "0.8"
+        versionName = "0.9"
     }
 
     buildTypes {

@@ -245,6 +245,57 @@ internal fun maintenanceRows(watch: Watch): List<SpecRow> {
     )
 }
 
+/**
+ * Identity as labelled rows, for AM9's compare screen.
+ *
+ * The detail page renders identity as [metaParts] — one joined header line above
+ * the photograph — and compare cannot: a header line has nothing to align two
+ * watches against. So identity exists twice in this file, as two PRESENTATIONS
+ * of the same fields, and both go through the same `plain()`/`list()` helpers
+ * every other row uses. What must never be duplicated is the field-to-value
+ * mapping, and it is not.
+ *
+ * Ported column for column from the desktop's `columns.py` Identity group, minus
+ * its `thumbnail` (whose getter always returns None) and its `name` (which
+ * deliberately mirrors `model` for the table's sort and would produce a second
+ * identical row here). `serial` is not among them on the desktop either — it
+ * identifies one physical object, so two watches never share it and the row
+ * would be permanently at full contrast saying nothing.
+ */
+internal fun identityRows(watch: Watch): List<SpecRow> = listOf(
+    SpecRow(R.string.field_brand, plain(watch.brand)),
+    SpecRow(R.string.field_model, plain(watch.model)),
+    SpecRow(R.string.field_reference, plain(watch.reference)),
+    SpecRow(R.string.field_nickname, plain(watch.nickname)),
+    SpecRow(R.string.field_group, plain(watch.group)),
+    SpecRow(R.string.field_style, plain(watch.style)),
+    SpecRow(R.string.field_status, plain(watch.status)),
+    SpecRow(R.string.field_storage, plain(watch.storage)),
+    SpecRow(R.string.field_rating, count(watch.rating)),
+    SpecRow(R.string.field_tags, list(watch.tags)),
+)
+
+/**
+ * The FITTED strap's own fields, for compare — the desktop's Straps columns.
+ *
+ * One strap, not the list. Comparing "3 straps" against "1 strap" tells the
+ * owner nothing they want to know; comparing what is actually on the two
+ * wrists does. A watch with no fitted strap contributes no values here and the
+ * rows drop out by the ordinary all-absent rule.
+ *
+ * Width falls back to the watch's own lug width via [effectiveWidthMm], the
+ * same rule the detail page's strap cards use — SPEC.md §4.
+ */
+internal fun strapRows(watch: Watch): List<SpecRow> {
+    val fitted = watch.straps.firstOrNull { it.fitted }
+    return listOf(
+        SpecRow(R.string.field_strap_material, plain(fitted?.material)),
+        SpecRow(R.string.field_strap_colour, plain(fitted?.colour)),
+        SpecRow(R.string.field_strap_width, millimetres(fitted?.effectiveWidthMm(watch)?.toDouble())),
+        SpecRow(R.string.field_strap_clasp, plain(fitted?.clasp)),
+    )
+}
+
 /** The group, or null when not one row in it carries a value. */
 internal fun specGroup(@StringRes titleRes: Int, rows: List<SpecRow>): SpecGroup? =
     if (rows.none { it.value != null }) null else SpecGroup(titleRes, rows)
