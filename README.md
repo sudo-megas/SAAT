@@ -73,7 +73,7 @@ release build, not merely intended.
 Download the `.tar.gz`, extract it, and run it:
 
 ```sh
-tar -xzf SAAT-v2.1-linux-x86_64.tar.gz
+tar -xzf SAAT-v2.1.1-linux-x86_64.tar.gz
 ./SAAT/SAAT
 ```
 
