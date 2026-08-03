@@ -72,7 +72,7 @@ object DemoWatches {
             lugToLugMm = 46.5,
             thicknessMm = 11.2,
             lugWidthMm = 20,
-            material = "Stainless steel",
+            material = "Stainless Steel",
             crystal = "Sapphire",
             waterResistanceM = 100,
             weightG = 78.0,
@@ -85,8 +85,8 @@ object DemoWatches {
         ),
         // Exactly one fitted, which is the invariant AM5's form will enforce.
         straps = listOf(
-            Strap(material = "Steel", colour = "Brushed", widthMm = 20, fitted = true),
-            Strap(material = "Leather", colour = "Brown", widthMm = 20, clasp = "Pin buckle"),
+            Strap(material = "Steel Bracelet", colour = "Brushed", widthMm = 20, fitted = true),
+            Strap(material = "Leather", colour = "Brown", widthMm = 20, clasp = "Pin Buckle"),
         ),
         acquisition = Acquisition(
             date = today.minusDays(420),

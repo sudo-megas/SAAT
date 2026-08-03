@@ -4,6 +4,17 @@ import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.Watch
 import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.storage.WatchStore
+import io.github.sudomegas.saat.ui.form.CASE_MATERIALS
+import io.github.sudomegas.saat.ui.form.CLASPS
+import io.github.sudomegas.saat.ui.form.CONDITIONS
+import io.github.sudomegas.saat.ui.form.CRYSTALS
+import io.github.sudomegas.saat.ui.form.INDICES
+import io.github.sudomegas.saat.ui.form.LOG_KINDS
+import io.github.sudomegas.saat.ui.form.MOVEMENT_KINDS
+import io.github.sudomegas.saat.ui.form.STATUSES
+import io.github.sudomegas.saat.ui.form.STRAP_MATERIALS
+import io.github.sudomegas.saat.ui.form.STYLES
+import io.github.sudomegas.saat.ui.form.TIMING_POSITIONS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -132,5 +143,55 @@ class DemoWatchesTest {
         // debug convenience has no business inventing a harder-deleting path.
         assertTrue(paths.deletedDir.exists())
         assertEquals(2, paths.deletedDir.listFiles()!!.size)
+    }
+
+    /**
+     * Every `enum*` value the fixture writes is one the schema actually lists.
+     *
+     * It wrote three that were not: `Stainless steel` for the case (the schema
+     * says `Stainless Steel`), `Steel` for a strap (`Steel Bracelet`) and `Pin
+     * buckle` for its clasp (`Pin Buckle`). Nothing broke — an unrecognised
+     * value is legal, because SPEC.md §4 promises the owner can type a word
+     * nobody anticipated, and it is shown exactly as written.
+     *
+     * Which is precisely why this needed a test. The fixture is not the owner:
+     * it is the app demonstrating its own schema, and a value off by one letter
+     * of case is indistinguishable from a deliberate free-text entry. It simply
+     * never acquires a Turkish label, never matches the form's dropdown, and
+     * never lines up with the desktop's — all silently, in the two watches every
+     * new owner is told to generate first.
+     */
+    @Test
+    fun `the fixture writes only enum values the schema knows`() {
+        val watches = listOf(DemoWatches.mechanical(today), DemoWatches.quartz())
+
+        val offenders = watches.flatMap { watch ->
+            buildList {
+                add(Triple("style", watch.style, STYLES))
+                add(Triple("movement.kind", watch.movement.kind, MOVEMENT_KINDS))
+                add(Triple("case.material", watch.case.material, CASE_MATERIALS))
+                add(Triple("case.crystal", watch.case.crystal, CRYSTALS))
+                add(Triple("dial.indices", watch.dial.indices, INDICES))
+                add(Triple("acquisition.condition", watch.acquisition.condition, CONDITIONS))
+                add(Triple("status", watch.status, STATUSES))
+                watch.straps.forEach {
+                    add(Triple("strap.material", it.material, STRAP_MATERIALS))
+                    add(Triple("strap.clasp", it.clasp, CLASPS))
+                }
+                watch.log.forEach { add(Triple("log.kind", it.kind, LOG_KINDS)) }
+                watch.timing.forEach {
+                    add(Triple("timing.position", it.position, TIMING_POSITIONS))
+                }
+            }
+        }.filter { (_, value, choices) ->
+            !value.isNullOrBlank() && choices.none { it.value == value }
+        }.map { (field, value, _) -> "$field = \"$value\"" }
+
+        assertEquals(
+            "the demo fixture writes values the schema does not list:\n" +
+                offenders.joinToString("\n"),
+            emptyList<String>(),
+            offenders,
+        )
     }
 }
