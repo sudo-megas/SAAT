@@ -1,0 +1,33 @@
+SAAT, kol saati koleksiyonunuzu kendi telefonunuzda tutar: fotoğrafı öne çıkaran bir ızgara, yoğun bir özellik listesi, bir kullanım takvimi, her saat için bir ayrıntı sayfası ve ikili karşılaştırma. Her saat, sizin sahip olduğunuz depolama alanında düz bir TOML dosyasıdır — veritabanı yok, ağ yok, hesap yok, süresi dolan hiçbir şey yok.
+
+Bilerek boş gelir. Koleksiyonu girmek işin kendisidir; uygulama içeriğin değil, çerçevenin ta kendisidir.
+
+<b>Hiçbir izin talep etmez.</b>
+
+"Yalnızca ihtiyacı olanlar" değil — hiçbiri. İnternet yok, kamera yok, depolama yok. Fotoğraflar sistemin fotoğraf seçicisinden, kamera sistemin karşıladığı bir intent üzerinden, ZIP ise Depolama Erişim Çerçevesi üzerinden gelir; bunların hiçbiri izin gerektirmez, çünkü her durumda işi sistem yapar ve sonucu geri verir.
+
+Buna inanmak zorunda değilsiniz, kendiniz doğrulayabilirsiniz: kurulu uygulamaya uzun basın, ardından Uygulama bilgisi, ardından İzinler. Bir izin tanımlayan bir yapı, birleştirilmiş manifest dosyasını okuyup reddeden kendi sürekli tümleştirmesinden geçemezdi.
+
+<b>Ne taktığınızı kaydetmek</b>
+
+Bir saat bileğe takıldığında yanınızda olan cihaz telefondur; bu yüzden kullanım kaydı burada birinci sınıf bir konudur. Ana ekran araç takımı bugünün saatini gösterir, başlatıcı kısayolu ise uygulamayı açmadan iki dokunuşta kaydeder. Takvim geçmişi tutar, ayrıntı sayfası da sayar.
+
+<b>Verileriniz nerede duruyor</b>
+
+Uygulamanın başka hiçbir uygulamanın okuyamayacağı özel depolama alanında: kayıtlar için watches/&lt;slug&gt;/watch.toml, fotoğraflar için ayrı bir media/ ağacı ve zaman damgalı kopyalar için backups/. Uygulamayı kaldırmak bunların tümünü siler; saklamak istiyorsanız önce dışa aktarın.
+
+Android'in kendi bulut yedeklemesi kayıtları ve yapılandırmayı taşır, fotoğrafları ise bilerek taşımaz — kotayı fotoğraflar tüketir ve yeri doldurulamaz olan yarıyı, yeniden çekilebilir olanla birlikte aşağı çekerdi.
+
+<b>ZIP köprüsü</b>
+
+Ayarlar, ardından Dışa aktar, tam olarak watches/ ağacını masaüstü uygulamasının kullandığı düzende tutan bir ZIP yazar — yani onu bir masaüstü koleksiyon klasörüne açmak, o taraftaki içe aktarmanın ta kendisidir. İki yönde de çalışır: bir masaüstü watches/ klasörünü sıkıştırın, Ayarlar, ardından İçe aktar'a verin; sizde olmayan saatler eklenir. Zaten sizde olanların üzerine yazılmaz, atlanır; bu yüzden yeniden içe aktarmak hiçbir zaman yıkıcı değildir.
+
+Bu gidiş dönüş her yapıda bir testle doğrulanır: test bir koleksiyonu içe aktarır, yeniden dışa aktarır ve her dosyanın bayt bayt aynı geri gelmesini şart koşar.
+
+<b>Diller</b>
+
+İngilizce ve Türkçe. Arayüz telefonun değil, uygulamanın kendi ayarını izler; diskteki dosyalar ise her iki durumda da tek bir kanonik sözlükte kalır — böylece Türkçe bir telefonda yazılan koleksiyon, İngilizce bir masaüstünde doğru okunur.
+
+<b>Özgür yazılım</b>
+
+GPL-3.0-or-later. Linux ve Windows için masaüstü uygulaması aynı depodadır.

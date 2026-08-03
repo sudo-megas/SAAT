@@ -1,0 +1,8 @@
+İlk genel sürüm.
+
+Izgara, özellik listesi, kullanım takvimi, ayrıntı sayfası ve ikili
+karşılaştırma; ayrıca uygulamayı açmadan bugünün saatini kaydeden bir ana ekran
+araç takımı ile bir başlatıcı kısayolu. İngilizcenin yanında Türkçe. Koleksiyonu
+masaüstü uygulamasıyla iki yönde de değiştokuş eden ZIP dışa/içe aktarma.
+
+İzin yok, ağ yok, hesap yok.
