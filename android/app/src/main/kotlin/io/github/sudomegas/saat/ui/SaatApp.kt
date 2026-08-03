@@ -149,6 +149,9 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                     snackbarHostState = snackbarHostState,
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate(FormRoute(slug)) },
+                    // Straight back to wherever the page was opened from. The
+                    // watch is gone, so there is nothing here to return to.
+                    onDeleted = { navController.popBackStack() },
                 )
             }
             composable<FormRoute> { entry ->

@@ -72,6 +72,11 @@
     <string name="screen_detail_serial">Serial %1$s</string>
     <string name="screen_detail_strap_fitted">Fitted</string>
     <string name="screen_detail_missing">That watch is no longer in the collection.</string>
+    <string name="screen_detail_delete_title">Delete watch</string>
+    <!-- Says where the watch goes rather than warning that it cannot be undone,
+         because it can: the folder MOVES to backups/deleted/, photographs and
+         wear history with it. The truth is more reassuring than the scare. -->
+    <string name="screen_detail_delete_body">This moves the watch, its photographs and its wear history to backups/deleted/. Type the model name (“%1$s”) to confirm.</string>
 
     <!-- Wear (AM4b). "Worn today" is a deliberate divergence from the desktop,
          which says "0 days ago" for a watch worn today: it is the reply to the
@@ -160,6 +165,7 @@
     <string name="action_add">Add</string>
     <string name="action_remove">Remove</string>
     <string name="action_edit_watch">Edit</string>
+    <string name="action_delete_watch">Delete</string>
     <string name="action_choose_photos">Choose photos</string>
     <string name="action_take_photo">Take photo</string>
     <string name="action_set_primary">Set primary</string>

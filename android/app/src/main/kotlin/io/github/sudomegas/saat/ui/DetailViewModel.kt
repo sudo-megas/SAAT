@@ -123,6 +123,25 @@ class DetailViewModel(
         _message.value = null
     }
 
+    /**
+     * Move this watch to `backups/deleted/` — SPEC-ANDROID 5.7 item 10.
+     *
+     * ITS WEAR HISTORY GOES WITH IT, and that needs no code at all: `worn` lives
+     * in the watch's own file and nowhere else, so a watch folder is already a
+     * complete record. That is the desktop rule the brief cites, and it is the
+     * payoff for never having centralised a date-to-watch index anywhere.
+     *
+     * [onDeleted] runs only on success. A failed delete puts the watch back in
+     * the collection and its reason on the state, where the shell's snackbar
+     * shows it — so the page must not navigate away from a delete that did not
+     * happen.
+     */
+    fun delete(onDeleted: () -> Unit) {
+        viewModelScope.launch {
+            if (repository.delete(slug)) onDeleted()
+        }
+    }
+
     /** `Seiko SARB033` for a slug, falling back to the slug when it is unreadable. */
     private fun displayName(slug: String): String {
         val watch = repository.record(slug)?.watch ?: return slug

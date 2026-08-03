@@ -85,6 +85,7 @@ fun DetailScreen(
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onEdit: () -> Unit,
+    onDeleted: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -125,6 +126,7 @@ fun DetailScreen(
                 page = page,
                 wear = state.wear,
                 onWoreToday = viewModel::woreToday,
+                onDelete = { viewModel.delete(onDeleted) },
                 contentPadding = innerPadding,
             )
 
@@ -258,6 +260,7 @@ private fun DetailBody(
     page: DetailPage,
     wear: WearStats?,
     onWoreToday: () -> Unit,
+    onDelete: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     LazyColumn(
@@ -274,6 +277,12 @@ private fun DetailBody(
         item(key = "wear") { WearSection(stats = wear, onWoreToday = onWoreToday) }
 
         detailSections(page)
+
+        // Delete at the BOTTOM, which SPEC-ANDROID 5.6 asks for and which is
+        // its own small safeguard: the most destructive action in the app is the
+        // one you have to travel furthest to reach, past everything you would be
+        // throwing away.
+        item(key = "delete") { DeleteSection(model = page.model, onDelete = onDelete) }
 
         // The page ends where the content does. A trailing spacer keeps the
         // last line clear of the gesture bar on a phone that draws one.
