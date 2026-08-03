@@ -5,7 +5,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.storage.Watch
+import io.github.sudomegas.saat.storage.WatchImages
 import io.github.sudomegas.saat.storage.WatchRepository
+import io.github.sudomegas.saat.storage.safeImageFilename
+import io.github.sudomegas.saat.ui.form.FormImage
 import io.github.sudomegas.saat.ui.form.WatchFormState
 import io.github.sudomegas.saat.ui.form.toWatch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +19,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.UUID
 
 /**
  * The add/edit form's state holder — SPEC-ANDROID 5.7.
@@ -33,6 +40,9 @@ import kotlinx.coroutines.launch
  */
 class FormViewModel(
     private val repository: WatchRepository,
+    private val images: WatchImages,
+    /** Where a picked or captured photograph waits until the watch is saved. */
+    private val stagingDir: File,
     private val slug: String?,
 ) : ViewModel() {
 
@@ -97,7 +107,55 @@ class FormViewModel(
     }
 
     /**
-     * Write the watch. Returns its slug, or null when the write failed.
+     * A file for the camera to write into, inside the staging directory.
+     *
+     * Each capture gets its own subdirectory so two photographs taken before a
+     * save cannot collide on a name. Nothing here is part of the collection
+     * until [save] copies it into `media/<slug>/`.
+     */
+    fun stagedFile(name: String = DEFAULT_CAPTURE_NAME): File {
+        val directory = File(stagingDir, UUID.randomUUID().toString())
+        directory.mkdirs()
+        return File(directory, safeImageFilename(name))
+    }
+
+    /**
+     * Stage a picked photograph: copy its bytes into `cacheDir` and add it to
+     * the form.
+     *
+     * The copy runs on the I/O dispatcher, not where the picker's callback left
+     * us. A photograph off a modern phone is several megabytes, and reading one
+     * through a ContentResolver on the main thread is a visible stall on the
+     * frame that follows.
+     */
+    fun stagePicked(name: String, write: (java.io.OutputStream) -> Unit) {
+        viewModelScope.launch {
+            val staged = withContext(Dispatchers.IO) {
+                val file = stagedFile(name)
+                file.outputStream().use(write)
+                file
+            }
+            addStaged(staged)
+        }
+    }
+
+    /** A photograph the camera has just written into its staged file. */
+    fun addStaged(file: File) {
+        _state.update { it.copy(images = it.images + FormImage(file.name, file)) }
+    }
+
+    /**
+     * Write the watch, and its photographs with it. Returns its slug, or null
+     * when the write failed.
+     *
+     * The order is forced by the slug: an import needs somewhere to put a file
+     * and a NEW watch has no folder until it has been written once. So a new
+     * watch is created first with no photographs, the staged files are then
+     * copied in, and the record is written again carrying their names. The
+     * second write is a no-op when there are no photographs — the transform
+     * produces an equal watch and the repository skips it — so an ordinary
+     * add still touches the disk once. It is also the order the desktop uses,
+     * for the same reason.
      *
      * `worn` is taken from the record being edited rather than from the form,
      * which does not carry it: wear is the calendar's field and the detail
@@ -108,24 +166,81 @@ class FormViewModel(
         val form = _state.value
         if (!form.canSave) return null
 
-        val saved = if (slug == null) {
-            repository.create(form.toWatch())
-        } else {
-            repository.update(slug) { existing -> form.toWatch(preservedWorn = existing.worn) }
+        val target = slug
+            ?: repository.create(form.toWatch().copy(images = emptyList()))?.slug
+            ?: return null
+
+        val committed = withContext(Dispatchers.IO) {
+            // Removals first, then imports — the desktop's order, and the one
+            // that lets a photograph be removed and another of the same name
+            // added in a single edit.
+            form.removedImages.forEach { images.delete(target, it) }
+            commitImages(target, form)
+        }
+
+        val saved = repository.update(target, backup = slug != null) { existing ->
+            form.toWatch(preservedWorn = existing.worn).copy(images = committed)
         } ?: return null
 
         // What is on disk is now what is on screen, so backing out is not a
         // discard. Anything typed after this point is dirty again.
-        initial = form
+        initial = form.copy(
+            images = committed.map(::FormImage),
+            removedImages = emptyList(),
+        )
+        _state.value = initial
         return saved.slug
     }
 
+    /**
+     * Copy every staged photograph into `media/<slug>/`, in the owner's order.
+     *
+     * Names are re-uniquified against what is actually on disk AND against what
+     * this same save has already written, so two photographs picked in one
+     * gesture — both called `IMG_0001.jpg`, which is exactly what a camera roll
+     * produces — cannot land on each other.
+     */
+    private fun commitImages(target: String, form: WatchFormState): List<String> {
+        val taken = mutableSetOf<String>()
+        return form.images.map { image ->
+            val staged = image.staged
+            if (staged == null) {
+                taken += image.filename
+                return@map image.filename
+            }
+            val name = staged.inputStream().use {
+                images.import(target, it, image.filename, taken)
+            }
+            taken += name
+            // The staged copy has served its purpose. Its parent directory goes
+            // with it so the staging area does not fill up with empty folders.
+            staged.delete()
+            staged.parentFile?.delete()
+            name
+        }
+    }
+
     companion object {
+        /**
+         * Must match the `path` in `res/xml/file_paths.xml`, which is what the
+         * FileProvider will hand the camera a URI into. A mismatch is not a
+         * compile error — it is an IllegalArgumentException at capture time.
+         */
+        const val STAGED_IMAGES = "staged-images"
+
+        /** What a camera capture is called before it has a name of its own. */
+        const val DEFAULT_CAPTURE_NAME = "photo.jpg"
+
         fun factory(app: SaatApplication, slug: String?): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    FormViewModel(repository = app.watchRepository, slug = slug) as T
+                    FormViewModel(
+                        repository = app.watchRepository,
+                        images = WatchImages(app.paths),
+                        stagingDir = File(app.cacheDir, STAGED_IMAGES),
+                        slug = slug,
+                    ) as T
             }
     }
 }
