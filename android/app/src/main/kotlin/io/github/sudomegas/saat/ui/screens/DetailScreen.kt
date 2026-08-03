@@ -23,9 +23,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -52,8 +54,10 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.ui.DetailViewModel
+import io.github.sudomegas.saat.ui.WearMessage
 import io.github.sudomegas.saat.ui.detail.DetailPage
 import io.github.sudomegas.saat.ui.detail.SpecValue
+import io.github.sudomegas.saat.ui.detail.WearStats
 import io.github.sudomegas.saat.ui.formatMeasurement
 import java.io.File
 
@@ -77,11 +81,33 @@ import java.io.File
 @Composable
 fun DetailScreen(
     viewModel: DetailViewModel,
+    snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
     val page = state.page
+
+    // Resolved in composition, not inside the effect: `stringResource` needs a
+    // composable scope, and reaching for a Context from the coroutine instead is
+    // the habit that leaves an untranslatable literal behind — which
+    // StringsConventionTest's regex cannot see, because it only inspects
+    // Text/Button/Label call sites.
+    val text = when (val current = message) {
+        null -> null
+        WearMessage.Recorded -> stringResource(R.string.screen_detail_wear_recorded)
+        WearMessage.AlreadyRecorded -> stringResource(R.string.screen_detail_wear_already)
+        is WearMessage.Moved ->
+            stringResource(R.string.screen_detail_wear_moved, current.from)
+    }
+
+    LaunchedEffect(text) {
+        text?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessage()
+        }
+    }
 
     DetailScaffold(
         title = page?.let { "${it.brand} ${it.model}" }.orEmpty(),
@@ -90,7 +116,12 @@ fun DetailScreen(
     ) { innerPadding ->
         val error = state.loadError
         when {
-            page != null -> DetailBody(page = page, contentPadding = innerPadding)
+            page != null -> DetailBody(
+                page = page,
+                wear = state.wear,
+                onWoreToday = viewModel::woreToday,
+                contentPadding = innerPadding,
+            )
 
             // Hard rule 6: the parse error reaches the screen with its message
             // intact, rather than this page going blank for a watch whose folder
@@ -201,13 +232,24 @@ private fun DetailNotice(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DetailBody(page: DetailPage, contentPadding: PaddingValues) {
+private fun DetailBody(
+    page: DetailPage,
+    wear: WearStats?,
+    onWoreToday: () -> Unit,
+    contentPadding: PaddingValues,
+) {
     LazyColumn(
         contentPadding = contentPadding,
         modifier = Modifier.fillMaxSize(),
     ) {
         item(key = "gallery") { Gallery(page) }
         item(key = "header") { DetailHeader(page) }
+
+        // Before the spec groups, which is the order SPEC-ANDROID 5.6 lists:
+        // the wear line and the button come first, and the specs follow. A
+        // watch's daily use is what the owner opens this page for; its lug
+        // width is what they come back to check.
+        item(key = "wear") { WearSection(stats = wear, onWoreToday = onWoreToday) }
 
         detailSections(page)
 

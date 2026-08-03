@@ -142,6 +142,7 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                         key = slug,
                         factory = DetailViewModel.factory(app, slug),
                     ),
+                    snackbarHostState = snackbarHostState,
                     onBack = { navController.popBackStack() },
                 )
             }

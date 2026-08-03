@@ -3,6 +3,80 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [0.4] - 2026-08-03
+
+Where the owner actually spends time, and the first thing in the app that
+writes.
+
+**The detail page is a pure function before it is a screen.** `detailPage()`
+turns a record and its media directory into a `DetailPage` — no Context, no
+Compose, no clock — so SPEC-ANDROID 5.6's rules are assertions rather than
+something to eyeball. "An absent field renders as a muted em-dash inside a shown
+group, a wholly empty group is hidden" is a claim about which groups exist and
+which rows carry null. A watch with only brand and model produces no spec groups
+at all, and that is a test, not a hope.
+
+**Values the owner typed never pass through the resource table.** A string that
+needs translating travels as a resource id plus its arguments; a brand, a dial
+colour or a note travels as itself. That split is the UI half of hard rule 7 —
+storage stays canonical English, and AM11 translates at display time without
+touching a single byte on disk.
+
+**Four formatters, every one naming `Locale.ROOT`.** Hard rule 7 is written
+about the UI language, but a number formatter that inherits the default locale
+breaks the same promise sideways: this owner's Turkish phone would show `41,5
+mm` and `1.234,50 TRY` while `watch.toml` still said `41.5`. Every formatting
+assertion runs twice, once with the default locale flipped to tr-TR.
+
+**One wear-logging path, and it is in the repository.** `assignWorn(slug,
+dates)` is what AM4's button, AM7's calendar, AM8's widget and AM8's shortcut
+will all call. It takes a *collection* of dates so a drag-selected range is one
+critical section rather than N, and it takes the day as a parameter so nothing
+reads a clock where a test cannot see it.
+
+**One watch per day, enforced there and nowhere else.** A day already belonging
+to another watch moves, silently, no prompt — the desktop's rule, ported with
+its shape intact: days are stripped from their previous owner *before* the
+target is written, so no instant on disk has two watches claiming one day. A
+non-Owned watch gives up a day it holds too, matching `_strip_dates`, so a sold
+watch's stale entry cannot shadow the new one.
+
+**The mutex is not reentrant, and that shaped the code.** A single wear
+assignment can touch two watches, so `update()` was split into a locking wrapper
+over an unlocked core. A locked method calling the public `update()` would
+deadlock the coroutine outright — no exception, no timeout, just a button that
+never returns.
+
+**A second tap the same day is a *visible* no-op.** The repository returns what
+it did — recorded, already recorded, or moved from a named watch — rather than a
+boolean, because those are three different things to tell someone. The file is
+not rewritten on a repeat tap, so an idle thumb cannot churn the disk or spend a
+backup slot.
+
+**"Worn today", not "0 days ago".** A deliberate divergence from the desktop:
+it is the reply to a button the owner has just pressed, and a zero is not what
+anyone means by it. A day recorded ahead of today drops the interval from the
+line rather than counting backwards.
+
+**Month names are twelve string resources, not `Month.getDisplayName`.** That
+call needs a `Locale`, and both available answers are wrong — the default is the
+system locale hard rule 7 forbids reading, and `Locale.ENGLISH` would survive
+AM11's Turkish sweep untranslated because no entry would exist to translate.
+
+**The back chevron is drawn, not imported.** Material 3 1.4 no longer brings the
+icon artifacts in transitively and they are not on the approved dependency list,
+so an arrow would have cost a new dependency under hard rule 5 for one glyph.
+Six lines of `Canvas`, mirrored under RTL.
+
+**A photo-less watch gets a short tile, not the full 4:5 crop.** Measured on the
+phone: a 4:5 box holding two lines of text took three fifths of the first screen
+and pushed the brand, the model and every spec below the fold. The grid keeps
+4:5 because a mosaic has to stay even; a page does not.
+
+Deferred by the milestone brief, each to AM9: the timing sparkline, the
+maintenance-due line, strap compatibility. Timing renders as a plain list and
+maintenance shows its raw fields.
+
 ## [0.3] - 2026-08-02
 
 The first screen worth looking at. AM2 finished the storage layer and nothing
