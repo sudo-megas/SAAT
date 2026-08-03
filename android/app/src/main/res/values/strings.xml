@@ -209,10 +209,28 @@
     <string name="action_import_zip">Import ZIP</string>
     <string name="settings_export_summary">A ZIP of every watch and its photographs, in the same layout the desktop app uses.</string>
     <string name="settings_transfer_working">Working… %1$d of %2$d</string>
-    <string name="settings_export_done">Exported %1$d watches and %2$d photographs to %3$s.</string>
+    <!-- The counts are plurals rather than %d inside the sentence, and the
+         sentence takes them as %s. A single watch and a single photograph are
+         ordinary outcomes — the first export anyone runs is likely to be one of
+         each — and "Exported 1 watches and 1 photographs" was what they got.
+
+         Two counts cannot live in one plurals resource, so the noun phrases are
+         quantified separately and the sentence assembles them. The sentence
+         stays one translatable unit for exactly the reason it has to: Turkish
+         puts the destination before the verb, and a sentence glued together
+         from fragments in English order could not say that. -->
+    <plurals name="settings_transfer_watches">
+        <item quantity="one">%1$d watch</item>
+        <item quantity="other">%1$d watches</item>
+    </plurals>
+    <plurals name="settings_transfer_photographs">
+        <item quantity="one">%1$d photograph</item>
+        <item quantity="other">%1$d photographs</item>
+    </plurals>
+    <string name="settings_export_done">Exported %1$s and %2$s to %3$s.</string>
     <string name="settings_export_skipped">Skipped, no watch.toml inside: %1$s</string>
     <string name="settings_transfer_failed">That did not work: %1$s</string>
-    <string name="settings_import_done">Imported %1$d watches, skipped %2$d already here.</string>
+    <string name="settings_import_done">Imported %1$s, skipped %2$s already here.</string>
     <string name="settings_import_added">Added: %1$s</string>
     <string name="settings_import_skipped">Already here: %1$s</string>
     <string name="settings_import_malformed">Would not parse: %1$s</string>

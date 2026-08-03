@@ -122,10 +122,22 @@
     <string name="action_import_zip">ZIP içe aktar</string>
     <string name="settings_export_summary">Her saatin ve fotoğraflarının, masaüstü uygulamasının kullandığı düzende bir ZIP dosyası.</string>
     <string name="settings_transfer_working">Çalışıyor… %1$d / %2$d</string>
-    <string name="settings_export_done">%1$d saat ve %2$d fotoğraf %3$s konumuna aktarıldı.</string>
+    <!-- Both quantities read alike: Turkish takes no plural suffix after a
+         numeral, so "1 saat" and "3 saat" differ only in the number. CLDR gives
+         Turkish `one` as well as `other` and lint requires both, which is why
+         the two lines are identical rather than absent. -->
+    <plurals name="settings_transfer_watches">
+        <item quantity="one">%1$d saat</item>
+        <item quantity="other">%1$d saat</item>
+    </plurals>
+    <plurals name="settings_transfer_photographs">
+        <item quantity="one">%1$d fotoğraf</item>
+        <item quantity="other">%1$d fotoğraf</item>
+    </plurals>
+    <string name="settings_export_done">%1$s ve %2$s %3$s konumuna aktarıldı.</string>
     <string name="settings_export_skipped">Atlandı, içinde watch.toml yok: %1$s</string>
     <string name="settings_transfer_failed">Bu işlem başarısız oldu: %1$s</string>
-    <string name="settings_import_done">%1$d saat içe aktarıldı, zaten burada olan %2$d saat atlandı.</string>
+    <string name="settings_import_done">%1$s içe aktarıldı, zaten burada olan %2$s atlandı.</string>
     <string name="settings_import_added">Eklendi: %1$s</string>
     <string name="settings_import_skipped">Zaten burada: %1$s</string>
     <string name="settings_import_malformed">Çözümlenemedi: %1$s</string>
