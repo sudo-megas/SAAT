@@ -45,7 +45,6 @@
     <string name="screen_grid_placeholder_diameter">%1$s mm</string>
     <string name="screen_grid_placeholder_lugs">%1$s mm lugs</string>
     <string name="screen_grid_card_metadata">%1$s · %2$s</string>
-    <string name="screen_add_watch_stub">Adding watches arrives in a later milestone.</string>
 
     <string name="screen_grid_no_matches">No watches match that search.</string>
 
@@ -117,6 +116,25 @@
     <string name="screen_month_short_dec">Dec</string>
     <string name="screen_detail_unreadable">%1$s could not be read: %2$s</string>
 
+    <!-- The add/edit form (AM5). Group titles are the form's own keys rather
+         than the detail page's: the same nine words label a read-only heading
+         there and a collapsible section here, and a language that inflects
+         need not spell them the same way. -->
+    <string name="screen_form_title_add">Add watch</string>
+    <string name="screen_form_title_edit">Edit watch</string>
+    <string name="screen_form_group_identity">Identity</string>
+    <string name="screen_form_group_movement">Movement</string>
+    <string name="screen_form_group_case">Case</string>
+    <string name="screen_form_group_dial">Dial</string>
+    <string name="screen_form_group_straps">Straps</string>
+    <string name="screen_form_group_acquisition">Acquisition</string>
+    <string name="screen_form_group_maintenance">Maintenance</string>
+    <string name="screen_form_group_log">Log</string>
+    <string name="screen_form_group_timing">Timing</string>
+    <string name="screen_form_group_notes">Notes</string>
+    <string name="screen_form_discard_title">Discard changes?</string>
+    <string name="screen_form_discard_body">You have unsaved changes.</string>
+
     <string name="action_add_watch">Add watch</string>
     <string name="action_dismiss">Dismiss</string>
     <string name="action_search">Search</string>
@@ -129,6 +147,22 @@
 
     <string name="action_back">Back</string>
 
+    <!-- Form (AM5). -->
+    <string name="action_expand">Show</string>
+    <string name="action_collapse">Hide</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_confirm">OK</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_add">Add</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_edit_watch">Edit</string>
+    <string name="action_add_strap">Add strap</string>
+    <string name="action_add_log_entry">Add log entry</string>
+    <string name="action_add_timing_reading">Add timing reading</string>
+    <string name="action_discard">Discard</string>
+    <string name="action_keep_editing">Keep editing</string>
+
     <!-- The muted em-dash that stands for a value the owner has not recorded. -->
     <string name="field_absent">—</string>
 
@@ -138,6 +172,26 @@
          the metal a case is made of and the finish on a dial. Same rule that
          keeps field_power_reserve apart from enum_complication_power_reserve —
          see android/docs/ANDROID-STRINGS.md. -->
+    <!-- Identity, which the detail page renders as a header rather than as
+         labelled rows, so these labels are the form's alone. -->
+    <string name="field_brand">Brand</string>
+    <string name="field_model">Model</string>
+    <string name="field_reference">Reference</string>
+    <string name="field_nickname">Nickname</string>
+    <string name="field_serial">Serial</string>
+    <string name="field_group">Group</string>
+    <string name="field_style">Style</string>
+    <string name="field_status">Status</string>
+    <string name="field_storage">Storage</string>
+    <string name="field_rating">Rating</string>
+    <string name="field_notes">Notes</string>
+
+    <!-- Accuracy is one row on the detail page and two fields plus a unit in
+         the form, so the form needs its own three labels. -->
+    <string name="field_accuracy_min">Accuracy from</string>
+    <string name="field_accuracy_max">Accuracy to</string>
+    <string name="field_accuracy_unit">Accuracy unit</string>
+
     <string name="field_caliber">Caliber</string>
     <string name="field_kind">Kind</string>
     <string name="field_power_reserve">Power Reserve</string>
@@ -171,6 +225,30 @@
     <string name="field_strap_colour">Colour</string>
     <string name="field_strap_width">Width</string>
     <string name="field_strap_clasp">Clasp</string>
+    <string name="field_strap_fitted">Fitted</string>
+    <string name="field_strap_image">Photo</string>
+
+    <!-- Form-only labels: the list fields, whose rows the detail page renders
+         without labelling each part. -->
+    <string name="field_tags">Tags</string>
+    <string name="field_log_date">Date</string>
+    <string name="field_log_kind">Kind</string>
+    <string name="field_log_note">Note</string>
+    <string name="field_timing_date">Date</string>
+    <string name="field_timing_deviation">Deviation</string>
+    <string name="field_timing_position">Position</string>
+    <string name="field_currency">Currency</string>
+    <string name="field_water_resistance_unit">Unit</string>
+
+    <!-- Unit suffixes shown INSIDE a numeric field — SPEC-ANDROID 5.7, "units
+         as suffixes inside the field". Separate keys from field_value_*, which
+         wrap a whole rendered value on a read-only screen. -->
+    <string name="field_suffix_mm">mm</string>
+    <string name="field_suffix_grams">g</string>
+    <string name="field_suffix_hours">h</string>
+    <string name="field_suffix_years">y</string>
+    <string name="field_suffix_sec">sec</string>
+    <string name="field_suffix_bph">bph</string>
 
     <string name="field_acquired">Acquired</string>
     <string name="field_price">Price</string>
@@ -199,6 +277,10 @@
     <string name="field_value_accuracy">%1$s/%2$s %3$s</string>
     <string name="field_value_yes">Yes</string>
     <string name="field_value_no">No</string>
+    <!-- The third state of a form checkbox: nobody has said either way. Absence
+         is a value, and a two-state box would make every unfilled boolean claim
+         "No" and write that claim into watch.toml. -->
+    <string name="field_value_unset">Not recorded</string>
 
     <string name="error_watch_unreadable">%1$s: %2$s</string>
     <string name="error_watches_dir_unreadable">The collection folder could not be read.</string>
@@ -218,4 +300,148 @@
 
     <string name="error_config_unreadable">Could not read settings: %1$s</string>
     <string name="error_config_unwritable">Could not save settings: %1$s</string>
+
+    <!-- ================= enum* suggestion values (AM5) =================
+         These strings are DISPLAY LABELS ONLY. The canonical English value is
+         what reaches watch.toml, and it lives in EnumChoices.kt beside the
+         resource id — hard rule 7: storage is canonical English regardless of
+         UI language. AM11 translates this block and changes nothing on disk.
+
+         Generated from one table so the Kotlin lists and these keys cannot
+         drift; the same word appearing in two lists gets two keys on purpose
+         (GMT is a bezel, a complication and a style), because Turkish need not
+         render them the same way. See android/docs/ANDROID-STRINGS.md.
+    -->
+    <!-- group -->
+    <string name="enum_group_seiko_group">Seiko Group</string>
+    <string name="enum_group_casio">Casio</string>
+    <string name="enum_group_swatch_group">Swatch Group</string>
+    <string name="enum_group_citizen_group">Citizen Group</string>
+    <string name="enum_group_micro_brand">Micro Brand</string>
+    <string name="enum_group_independent">Independent</string>
+    <string name="enum_group_other">Other</string>
+
+    <!-- style -->
+    <string name="enum_style_field">Field</string>
+    <string name="enum_style_pilot">Pilot</string>
+    <string name="enum_style_diver">Diver</string>
+    <string name="enum_style_dress">Dress</string>
+    <string name="enum_style_sport">Sport</string>
+    <string name="enum_style_chronograph">Chronograph</string>
+    <string name="enum_style_gmt">GMT</string>
+    <string name="enum_style_racing">Racing</string>
+    <string name="enum_style_skeleton">Skeleton</string>
+    <string name="enum_style_digital">Digital</string>
+    <string name="enum_style_other">Other</string>
+
+    <!-- status -->
+    <string name="enum_status_owned">Owned</string>
+    <string name="enum_status_incoming">Incoming</string>
+    <string name="enum_status_wishlist">Wishlist</string>
+    <string name="enum_status_sold">Sold</string>
+    <string name="enum_status_gifted">Gifted</string>
+
+    <!-- kind -->
+    <string name="enum_kind_automatic">Automatic</string>
+    <string name="enum_kind_manual">Manual</string>
+    <string name="enum_kind_automatic_handwinding">Automatic + Handwinding</string>
+    <string name="enum_kind_quartz">Quartz</string>
+    <string name="enum_kind_solar">Solar</string>
+    <string name="enum_kind_mecha_quartz">Mecha-quartz</string>
+    <string name="enum_kind_kinetic">Kinetic</string>
+
+    <!-- accuracy -->
+    <string name="enum_accuracy_sec_day">sec/day</string>
+    <string name="enum_accuracy_sec_month">sec/month</string>
+
+    <!-- material -->
+    <string name="enum_material_stainless_steel">Stainless Steel</string>
+    <string name="enum_material_titanium">Titanium</string>
+    <string name="enum_material_bronze">Bronze</string>
+    <string name="enum_material_ceramic">Ceramic</string>
+    <string name="enum_material_resin">Resin</string>
+    <string name="enum_material_silicone">Silicone</string>
+    <string name="enum_material_gold_plated">Gold-plated</string>
+
+    <!-- crystal -->
+    <string name="enum_crystal_sapphire">Sapphire</string>
+    <string name="enum_crystal_mineral">Mineral</string>
+    <string name="enum_crystal_hardlex">Hardlex</string>
+    <string name="enum_crystal_acrylic">Acrylic</string>
+    <string name="enum_crystal_sapphire_coated">Sapphire-coated</string>
+
+    <!-- crown -->
+    <string name="enum_crown_screw_down">Screw-down</string>
+    <string name="enum_crown_push_pull">Push-pull</string>
+    <string name="enum_crown_screw_down_guards">Screw-down + guards</string>
+
+    <!-- bezel -->
+    <string name="enum_bezel_fixed">Fixed</string>
+    <string name="enum_bezel_unidirectional">Unidirectional</string>
+    <string name="enum_bezel_bidirectional">Bidirectional</string>
+    <string name="enum_bezel_tachymeter">Tachymeter</string>
+    <string name="enum_bezel_gmt">GMT</string>
+    <string name="enum_bezel_none">None</string>
+
+    <!-- caseback -->
+    <string name="enum_caseback_solid">Solid</string>
+    <string name="enum_caseback_exhibition">Exhibition</string>
+    <string name="enum_caseback_engraved">Engraved</string>
+
+    <!-- indices -->
+    <string name="enum_indices_applied">Applied</string>
+    <string name="enum_indices_printed">Printed</string>
+    <string name="enum_indices_arabic">Arabic</string>
+    <string name="enum_indices_roman">Roman</string>
+    <string name="enum_indices_mixed">Mixed</string>
+    <string name="enum_indices_inverted">Inverted</string>
+    <string name="enum_indices_none">None</string>
+
+    <!-- complication -->
+    <string name="enum_complication_date">Date</string>
+    <string name="enum_complication_day_date">Day-Date</string>
+    <string name="enum_complication_gmt">GMT</string>
+    <string name="enum_complication_chronograph">Chronograph</string>
+    <string name="enum_complication_power_reserve">Power Reserve</string>
+    <string name="enum_complication_moonphase">Moonphase</string>
+    <string name="enum_complication_open_heart">Open-Heart</string>
+    <string name="enum_complication_small_seconds">Small Seconds</string>
+    <string name="enum_complication_alarm">Alarm</string>
+
+    <!-- strapmaterial -->
+    <string name="enum_strapmaterial_leather">Leather</string>
+    <string name="enum_strapmaterial_calf_leather">Calf Leather</string>
+    <string name="enum_strapmaterial_nylon">Nylon</string>
+    <string name="enum_strapmaterial_nato">NATO</string>
+    <string name="enum_strapmaterial_silicone">Silicone</string>
+    <string name="enum_strapmaterial_rubber">Rubber</string>
+    <string name="enum_strapmaterial_fkm">FKM</string>
+    <string name="enum_strapmaterial_canvas">Canvas</string>
+    <string name="enum_strapmaterial_steel_bracelet">Steel Bracelet</string>
+    <string name="enum_strapmaterial_mesh">Mesh</string>
+
+    <!-- clasp -->
+    <string name="enum_clasp_pin_buckle">Pin Buckle</string>
+    <string name="enum_clasp_deployant">Deployant</string>
+    <string name="enum_clasp_butterfly">Butterfly</string>
+    <string name="enum_clasp_ratcheting">Ratcheting</string>
+
+    <!-- condition -->
+    <string name="enum_condition_new">New</string>
+    <string name="enum_condition_pre_owned">Pre-owned</string>
+
+    <!-- logkind -->
+    <string name="enum_logkind_service">Service</string>
+    <string name="enum_logkind_battery">Battery</string>
+    <string name="enum_logkind_regulation">Regulation</string>
+    <string name="enum_logkind_strap_swap">Strap Swap</string>
+    <string name="enum_logkind_note">Note</string>
+
+    <!-- position -->
+    <string name="enum_position_dial_up">Dial Up</string>
+    <string name="enum_position_dial_down">Dial Down</string>
+    <string name="enum_position_crown_up">Crown Up</string>
+    <string name="enum_position_crown_down">Crown Down</string>
+    <string name="enum_position_crown_left">Crown Left</string>
+    <string name="enum_position_worn">Worn</string>
 </resources>

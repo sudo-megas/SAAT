@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -83,6 +84,7 @@ fun DetailScreen(
     viewModel: DetailViewModel,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -112,6 +114,9 @@ fun DetailScreen(
     DetailScaffold(
         title = page?.let { "${it.brand} ${it.model}" }.orEmpty(),
         onBack = onBack,
+        // No Edit action on a watch that did not load: the form would open
+        // blank and saving it would overwrite a file nobody could read.
+        onEdit = onEdit.takeIf { page != null },
         modifier = modifier,
     ) { innerPadding ->
         val error = state.loadError
@@ -149,6 +154,7 @@ fun DetailScreen(
 private fun DetailScaffold(
     title: String,
     onBack: () -> Unit,
+    onEdit: (() -> Unit)?,
     modifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit,
 ) {
@@ -171,6 +177,18 @@ private fun DetailScaffold(
                         BackChevron(tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
+                actions = {
+                    // SPEC-ANDROID 5.6 puts Edit and Delete at the bottom of
+                    // the page. On a phone the bottom of a long scroll is a
+                    // place you have to travel to, and the top bar is where
+                    // every other screen's actions already are; Delete stays
+                    // at the bottom in AM5c, where its distance is a feature.
+                    onEdit?.let {
+                        TextButton(onClick = it) {
+                            Text(text = stringResource(R.string.action_edit_watch))
+                        }
+                    }
+                },
             )
         },
         modifier = modifier,
@@ -190,9 +208,13 @@ private fun DetailScaffold(
  * Mirrored under RTL, because a back arrow pointing the wrong way is not a
  * decoration, it is a wrong instruction. Turkish reads left to right, so this
  * costs nothing today and is right on the day it does not.
+ *
+ * Internal rather than private since AM5: the form is the second full screen
+ * pushed above the tabs and carries the same affordance, and two hand-drawn
+ * chevrons would eventually differ by a pixel.
  */
 @Composable
-private fun BackChevron(tint: Color, modifier: Modifier = Modifier) {
+internal fun BackChevron(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier.size(24.dp)) {
         val mirrored = layoutDirection == LayoutDirection.Rtl
         fun x(fraction: Float) = size.width * (if (mirrored) 1f - fraction else fraction)
