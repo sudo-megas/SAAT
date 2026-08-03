@@ -194,6 +194,13 @@
     <string name="screen_detail_maintenance_dot">Service or battery due</string>
     <string name="screen_detail_timing_chart">Deviation over time, oldest first</string>
 
+    <!-- Strap compatibility (AM9c). The heading says what the list IS rather
+         than naming the feature: "Compatible straps" is a database word, and
+         what the owner is actually asking is which other straps they own that
+         would go on this watch. -->
+    <string name="screen_detail_group_strap_compat">Straps that fit</string>
+    <string name="screen_detail_strap_compat_owner">On %1$s %2$s</string>
+
     <!-- Month abbreviations for the twelve-month strip, and for AM7's calendar.
          Resources rather than Month.getDisplayName, which would need a Locale:
          the default one is the system locale hard rule 7 forbids reading, and

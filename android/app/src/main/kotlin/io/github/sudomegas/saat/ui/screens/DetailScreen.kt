@@ -57,6 +57,7 @@ import coil3.compose.rememberAsyncImagePainter
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.ui.DetailViewModel
 import io.github.sudomegas.saat.ui.WearMessage
+import io.github.sudomegas.saat.ui.detail.CompatibleStrapCard
 import io.github.sudomegas.saat.ui.detail.DetailPage
 import io.github.sudomegas.saat.ui.detail.MaintenanceNotice
 import io.github.sudomegas.saat.ui.detail.SpecValue
@@ -88,6 +89,8 @@ fun DetailScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDeleted: () -> Unit,
+    /** AM9c: a compatible strap's row opens the watch it belongs to. */
+    onOpenWatch: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -128,6 +131,8 @@ fun DetailScreen(
                 page = page,
                 wear = state.wear,
                 maintenance = state.maintenance,
+                compatibleStraps = state.compatibleStraps,
+                onOpenWatch = onOpenWatch,
                 onWoreToday = viewModel::woreToday,
                 onDelete = { viewModel.delete(onDeleted) },
                 contentPadding = innerPadding,
@@ -263,6 +268,8 @@ private fun DetailBody(
     page: DetailPage,
     wear: WearStats?,
     maintenance: List<MaintenanceNotice>,
+    compatibleStraps: List<CompatibleStrapCard>,
+    onOpenWatch: (String) -> Unit,
     onWoreToday: () -> Unit,
     onDelete: () -> Unit,
     contentPadding: PaddingValues,
@@ -292,7 +299,11 @@ private fun DetailBody(
         // width is what they come back to check.
         item(key = "wear") { WearSection(stats = wear, onWoreToday = onWoreToday) }
 
-        detailSections(page)
+        detailSections(
+            page = page,
+            compatibleStraps = compatibleStraps,
+            onOpenWatch = onOpenWatch,
+        )
 
         // Delete at the BOTTOM, which SPEC-ANDROID 5.6 asks for and which is
         // its own small safeguard: the most destructive action in the app is the

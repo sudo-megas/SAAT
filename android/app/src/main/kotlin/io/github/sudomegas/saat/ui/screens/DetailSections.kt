@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +31,9 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -38,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import io.github.sudomegas.saat.R
+import io.github.sudomegas.saat.ui.detail.CompatibleStrapCard
 import io.github.sudomegas.saat.ui.detail.DetailPage
 import io.github.sudomegas.saat.ui.detail.LogLine
 import io.github.sudomegas.saat.ui.detail.Sparkline
@@ -58,7 +62,12 @@ import io.github.sudomegas.saat.ui.detail.TimingLine
  * list-shaped sections simply skip an empty list. Nothing renders a heading over
  * a column of dashes.
  */
-internal fun LazyListScope.detailSections(page: DetailPage) {
+internal fun LazyListScope.detailSections(
+    page: DetailPage,
+    /** AM9c. Empty for most watches, and the section vanishes with it. */
+    compatibleStraps: List<CompatibleStrapCard>,
+    onOpenWatch: (String) -> Unit,
+) {
     page.specGroups.forEach { group ->
         item(key = "group-${group.titleRes}") { SpecGroupBlock(group) }
     }
@@ -70,6 +79,23 @@ internal fun LazyListScope.detailSections(page: DetailPage) {
         // collide and crash the list.
         itemsIndexed(page.straps, key = { index, _ -> "strap-$index" }) { _, strap ->
             StrapBlock(strap)
+        }
+    }
+
+    // Straight after the watch's own straps, which is where the question comes
+    // up: having just read what is on it, "what else would fit" is the next
+    // thought. Hidden entirely when nothing matches — SPEC-ANDROID 5.6.
+    if (compatibleStraps.isNotEmpty()) {
+        item(key = "strap-compat-header") {
+            SectionHeader(R.string.screen_detail_group_strap_compat)
+        }
+        itemsIndexed(
+            compatibleStraps,
+            // Owner slug AND position: one watch can legitimately contribute two
+            // straps of the same width, and a slug-only key would collide.
+            key = { index, card -> "compat-${card.ownerSlug}-$index" },
+        ) { _, card ->
+            CompatibleStrapBlock(card = card, onOpenWatch = onOpenWatch)
         }
     }
 
@@ -228,6 +254,55 @@ private fun StrapBlock(strap: StrapCard) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.End,
+            )
+        }
+    }
+}
+
+/**
+ * A strap belonging to another watch — AM9c.
+ *
+ * The same layout as the watch's own straps, plus the line naming whose it is
+ * and a tap that goes there. Tappable BECAUSE it names another watch: the row
+ * is about a thing that lives somewhere else, and being able to go and look at
+ * that watch is the only action it could sensibly offer.
+ *
+ * The fitted mark is not drawn here even when the strap is fitted on its own
+ * watch. On this page "fitted" means "on the watch you are looking at", and
+ * repeating the flag from a different watch's context would be the one piece of
+ * genuinely misleading information the section could carry.
+ */
+@Composable
+private fun CompatibleStrapBlock(card: CompatibleStrapCard, onOpenWatch: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenWatch(card.ownerSlug) }
+            .semantics { role = Role.Button }
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (card.strap.image != null) {
+            StrapPhoto(card.strap)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            val description = listOfNotNull(card.strap.material, card.strap.colour)
+            Text(
+                text = description.takeIf { it.isNotEmpty() }
+                    ?.joinToString(stringResource(R.string.screen_detail_separator))
+                    ?: stringResource(R.string.field_absent),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(
+                    R.string.screen_detail_strap_compat_owner,
+                    card.ownerBrand,
+                    card.ownerModel,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

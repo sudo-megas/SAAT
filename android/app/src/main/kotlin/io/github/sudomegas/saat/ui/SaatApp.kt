@@ -202,6 +202,11 @@ fun SaatApp(
                     snackbarHostState = snackbarHostState,
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate(FormRoute(slug)) },
+                    // AM9c: a compatible strap's row opens its owner. `navigate`
+                    // rather than a pop-then-push, so back returns to the watch
+                    // the owner came from — the strap list is a cross-reference
+                    // and following one should be undoable.
+                    onOpenWatch = { other -> navController.navigate(DetailRoute(other)) },
                     // Straight back to wherever the page was opened from. The
                     // watch is gone, so there is nothing here to return to.
                     onDeleted = { navController.popBackStack() },
