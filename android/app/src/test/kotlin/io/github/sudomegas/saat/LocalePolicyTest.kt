@@ -109,10 +109,67 @@ class LocalePolicyTest {
         )
     }
 
+    /**
+     * The half of hard rule 7 that the assertions above could not see, and that
+     * consequently shipped broken all the way to the release candidate.
+     *
+     * `AppCompatDelegate.setApplicationLocales` looks like it asserts the
+     * language from `Application.onCreate`, and on API 26-32 it does. On 33+ it
+     * locates the framework's LocaleManager by walking its live AppCompat
+     * delegates; during `onCreate` there are none, so it returns having done
+     * nothing at all, and the app follows the system locale for the rest of the
+     * process. Nothing throws and nothing is logged.
+     *
+     * Every test in this file passed while that was true — they read the
+     * sources, and the sources said `setApplicationLocales`. Verified on a
+     * Turkish HONOR ELP-NX9 (Android 16, API 36): before the fix `cmd locale
+     * get-app-locales` reported `[]` and the UI was Turkish with `config.toml`
+     * saying `en`; after it, `[en]` and English.
+     *
+     * A source scan still cannot prove the branch RUNS — only a device can, and
+     * androidcheck.md item 12 is where that is recorded. What it can prove is
+     * that nobody deletes the branch and quietly restores the silent no-op,
+     * which is exactly how this got here.
+     */
+    @Test
+    fun `the locale is asserted through the framework on API 33 and above`() {
+        val text = source("src/main/kotlin/io/github/sudomegas/saat/SaatApplication.kt")
+
+        val body = Regex("""fun\s+applyLanguage\([\s\S]*?\n    \}""")
+            .find(text)?.value
+            ?: error("applyLanguage not found in SaatApplication.kt")
+
+        assertTrue(
+            "applyLanguage must branch on the SDK level: AppCompatDelegate alone is a " +
+                "silent no-op from Application.onCreate on API 33+",
+            body.contains("Build.VERSION.SDK_INT") &&
+                body.contains("Build.VERSION_CODES.TIRAMISU"),
+        )
+        assertTrue(
+            "the API 33+ branch must set applicationLocales on the framework's LocaleManager, " +
+                "which is the only mechanism that works before any Activity exists",
+            body.contains("LocaleManager") && body.contains("applicationLocales"),
+        )
+        assertTrue(
+            "the API 26-32 branch must keep AppCompatDelegate.setApplicationLocales — the " +
+                "framework's LocaleManager does not exist there",
+            body.contains("AppCompatDelegate.setApplicationLocales"),
+        )
+    }
+
     @Test
     fun `no source file reads the system locale`() {
         // The point of the rule. Anything here would hand language selection
         // back to the device.
+        //
+        // `LocaleManager` used to be on this list as a bare word, which was too
+        // blunt to be right: the class is BOTH the way to read the device's
+        // languages and the only supported way to assert the app's own on API
+        // 33+. Banning the name outright banned the fix along with the defect,
+        // and the defect is the one that actually shipped — see
+        // `SaatApplication.applyLanguage`. What the rule always meant is the
+        // reading half, so that is what is named here. `applicationLocales` is
+        // this app's own setting and is deliberately not listed.
         val forbidden = listOf(
             "Locale.getDefault(",
             "LocaleList.getDefault(",
@@ -120,7 +177,8 @@ class LocalePolicyTest {
             "Resources.getSystem(",
             "getConfiguration().locale",
             "configuration.locales",
-            "LocaleManager",
+            "getSystemLocales",
+            ".systemLocales",
         )
 
         val offenders = SourceScan.offenders("src/main/kotlin") { line ->

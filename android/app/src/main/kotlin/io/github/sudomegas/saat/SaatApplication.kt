@@ -1,8 +1,10 @@
 package io.github.sudomegas.saat
 
 import android.app.Application
+import android.app.LocaleManager
 import android.app.UiModeManager
 import android.os.Build
+import android.os.LocaleList
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import coil3.ImageLoader
@@ -152,11 +154,46 @@ class SaatApplication : Application(), SingletonImageLoader.Factory {
      * `values-tr/` directory exists, so the English default has to be ASSERTED
      * — explicitly, on every process start, before the first composition.
      * Doing it from AM1 means AM11 adds a picker rather than a behaviour.
+     *
+     * It takes TWO calls, for the same reason `applyNightMode` below takes two:
+     * from `Application.onCreate` there is no Activity yet, and one of the two
+     * mechanisms cannot work without one.
+     *
+     * `AppCompatDelegate.setApplicationLocales` is the only per-app locale API
+     * that reaches back to API 26, and on 26-32 it stores the request in a
+     * static that later delegates read — which works from here. On API 33+ it
+     * does something else entirely: it hands the call to the framework's
+     * LocaleManager, and it finds that service by walking its set of LIVE
+     * AppCompat delegates. In `onCreate` that set is empty, so it resolves no
+     * service and, finding none, RETURNS WITHOUT DOING ANYTHING — no throw, no
+     * log. The stored preference is silently dropped and resource resolution
+     * falls back to the system locale, which is precisely the behaviour hard
+     * rule 7 exists to forbid. It was doing exactly that on a Turkish phone:
+     * `config.toml` said `en` and every screen came up Turkish.
+     *
+     * So on 33+ the framework is told directly, the same way the launch window
+     * is. Note this SETS the app's own locale; it never reads the device's.
+     * That distinction is the whole rule, and LocalePolicyTest holds the line
+     * on the reading half of it.
      */
     fun applyLanguage(code: String) {
-        AppCompatDelegate.setApplicationLocales(
-            LocaleListCompat.forLanguageTags(code.ifBlank { AppConfig.DEFAULT_LANGUAGE })
-        )
+        val tag = code.ifBlank { AppConfig.DEFAULT_LANGUAGE }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val manager = getSystemService(LocaleManager::class.java)
+            val desired = LocaleList.forLanguageTags(tag)
+
+            // Compared before setting because assigning triggers a
+            // configuration change, and MainActivity carries no
+            // android:configChanges — so an unconditional write would recreate
+            // every Activity on each cold start to arrive at the value it
+            // already had.
+            if (manager != null && manager.applicationLocales != desired) {
+                manager.applicationLocales = desired
+            }
+        } else {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
+        }
     }
 
     /**
