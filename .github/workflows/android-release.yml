@@ -167,11 +167,27 @@ jobs:
           echo "--- size"
           "${ANALYZER}" apk summary "${APK}"
 
+      # AGP names its output app-release.apk, which says nothing about what it
+      # is once downloaded into somebody's Downloads folder beside four other
+      # app-release.apk files. Renamed to match the desktop's convention, where
+      # the asset carries the project and the version.
+      - name: Name the APK after the project and version
+        id: apk
+        run: |
+          set -euo pipefail
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          SOURCE=$(ls app/build/outputs/apk/release/*.apk)
+          TARGET="app/build/outputs/apk/release/saat-android-${VERSION}.apk"
+          [ "${SOURCE}" = "${TARGET}" ] || mv "${SOURCE}" "${TARGET}"
+          echo "path=android/${TARGET}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          ls -la "${TARGET}"
+
       - name: Upload the APK as a workflow artifact
         uses: actions/upload-artifact@v7
         with:
           name: saat-release-apk-${{ github.sha }}
-          path: android/app/build/outputs/apk/release/*.apk
+          path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
 
       # Only on a tag. A workflow_dispatch run reaches this step and skips it,
@@ -185,6 +201,15 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#android-v}"
           NOTES="docs/release-notes/android-${VERSION}.md"
+          APK="${{ steps.apk.outputs.path }}"
+
+          # The tag and the build must agree. A tag cut against the wrong commit
+          # would otherwise publish an APK whose version is not the one on the
+          # release page, and nobody would notice until an update did not apply.
+          if [ "${VERSION}" != "${{ steps.apk.outputs.version }}" ]; then
+            echo "::error::tag ${TAG} does not match versionName ${{ steps.apk.outputs.version }}"
+            exit 1
+          fi
 
           cd "${GITHUB_WORKSPACE}"
           if [ ! -f "${NOTES}" ]; then
@@ -197,6 +222,5 @@ jobs:
           gh release create "${TAG}" \
             --title "SAAT for Android ${VERSION}" \
             --notes-file "${NOTES}" \
-            android/app/build/outputs/apk/release/*.apk \
-            || gh release upload "${TAG}" \
-               android/app/build/outputs/apk/release/*.apk --clobber
+            "${APK}" \
+            || gh release upload "${TAG}" "${APK}" --clobber
