@@ -1,0 +1,211 @@
+# Android verification — AM9, AM10, AM11
+
+The things CI cannot check, because they need a phone in a hand. Nobody has
+done any of these yet.
+
+**When you have the phone: paste this whole file back to me with the results
+block at the bottom filled in.** `PASS`, `FAIL` or `SKIP` on each line, plus
+whatever you saw. One word is fine; a screenshot of anything odd is better.
+
+The APK is the `saat-debug-apk-<sha>` artifact on the latest **Android CI** run
+for this branch:
+<https://github.com/sudo-megas/SAAT/actions?query=branch%3Aworktree-am9-am11>
+
+Download it, unzip, sideload the `.apk` inside. Takes about twenty minutes to
+work through, and the demo fixture does most of the setup for you.
+
+**Set-up, once:** Settings → scroll to the bottom → **Add demo watches**. That
+generates the mechanical one (straps, log, worn days, timing readings) and the
+quartz one (almost nothing) in code. Nothing is written to the repository and
+nothing is bundled; it is the sanctioned fixture from hard rule 1.
+
+---
+
+## AM9 — compare, timing, maintenance, strap fit
+
+### 1. Selection mode and the contextual bar
+
+Long-press a grid card.
+
+- Pass: the card takes an accent border, the top bar is replaced by one reading
+  **1 selected** with **Clear selection** and a greyed-out **Compare**.
+- Pass: tapping a second card enables Compare; tapping a third drops the first
+  rather than doing nothing.
+- Pass: the system back gesture leaves selection mode instead of leaving the
+  screen.
+- Fail: a tap during selection opens the watch instead of toggling it.
+
+### 2. Compare reads at a glance — **the one I most want checked**
+
+Select the two demo watches, tap Compare.
+
+- Pass: two columns under a header that **does not scroll away**, so you can
+  always tell which watch is which.
+- Pass: rows where the two agree are visibly dimmer than rows where they differ.
+  The point is that you can find the differences by scanning down without
+  reading anything.
+- Pass: **Power Reserve and Battery Life are two separate rows**, adjacent, each
+  filled on one side and em-dashed on the other. This is the thing most likely
+  to be subtly wrong; if the two figures share a row, that is a FAIL and an
+  important one.
+- Pass: rows neither watch has are absent entirely, not shown as two dashes.
+
+Check it in **both light and dark** — the dimming has to survive both.
+
+### 3. Timing sparkline
+
+Open the mechanical demo watch, scroll to Timing.
+
+- Pass: a small chart above the readings, with a horizontal rule (zero) and a
+  line crossing or sitting above/below it.
+- Pass: the quartz watch shows **no chart at all** (it has fewer than three
+  readings) — the section is either absent or shows readings only.
+- Fail: the chart is a flat line pinned to an edge, or clipped.
+
+### 4. Maintenance line and the accent dot
+
+The demo mechanical watch may or may not be due, depending on the dates it
+generates.
+
+- Pass: **if** a service or battery is due within 90 days, one line at the top
+  of the detail page says so with a date, and the grid card carries a small
+  accent dot.
+- Pass: **if nothing is due, there is no line and no dot at all.** Silence is
+  the specified behaviour and is the thing worth confirming — a watch with no
+  service interval must never nag.
+
+### 5. Strap compatibility
+
+Both demo watches need the same lug width for this to show anything; if it does
+not appear, edit one watch's `lug_width_mm` to match the other and add a strap.
+
+- Pass: a **Straps that fit** section listing the other watch's strap, naming
+  which watch it is on.
+- Pass: tapping it opens that watch, and back returns to where you were.
+
+---
+
+## AM10 — the ZIP bridge
+
+**This is the release gate. If anything here fails, v1.0 does not ship.**
+
+### 6. Export
+
+Settings → Data → **Export ZIP**. Save it somewhere you can find (Downloads).
+
+- Pass: it completes and names the file and the counts — how many watches, how
+  many photographs.
+- Pass: the filename is `saat-export-<today's date>.zip`.
+
+### 7. The archive opens on the desktop — the actual contract
+
+Copy the ZIP to the computer and unzip it into a **scratch copy** of your
+desktop collection folder (not the real one, first time).
+
+- Pass: the tree is `watches/<slug>/watch.toml` and `watches/<slug>/images/…`.
+- Pass: **the desktop app opens that folder and shows the watches**, with fields
+  and photographs intact.
+
+CI already proves this against the desktop's own loader on every build. What
+CI cannot prove is that it works with the real app on your machine.
+
+### 8. Import, from the desktop
+
+Zip your desktop `watches/` folder and put it on the phone.
+
+- Pass: Settings → Import → pick it → it reports **n added, n skipped**, both
+  named.
+- Pass: watches already on the phone are listed as skipped and are **not**
+  changed — open one you had edited on the phone and confirm your edit survived.
+- Pass: importing the **same file twice** adds nothing the second time.
+
+### 9. A photograph survives the whole trip
+
+- Pass: a watch with a photo, exported and unzipped on the desktop, still has
+  its photo there and it opens.
+
+---
+
+## AM11 — Turkish, and the release build
+
+### 10. Turkish, every screen
+
+Settings → Dil/Language → **Türkçe**.
+
+- Pass: the interface changes immediately, without restarting the app.
+- Pass: walk **every** screen — grid, specs, calendar, detail, compare, the
+  add/edit form, settings, the filter sheet — and nothing is left in English.
+- **Report any string that overflows or gets cut off with "…".** Turkish runs
+  longer than English and the buttons and top-bar titles are where it will show
+  first. This is the check the milestone specifically asks for.
+- Pass: enum values read Turkish too — a movement kind should say **Otomatik**,
+  not Automatic, on the detail page as well as in the form dropdown.
+
+### 11. Turkish does not change what is stored
+
+With the app in Turkish, edit a watch and set its movement kind from the
+dropdown, then save. Export, and open the `watch.toml` in a text editor.
+
+- Pass: the file says `kind = "Automatic"` **in English**, even though the
+  dropdown showed Turkish.
+- Fail: anything Turkish in the file. That would mean the desktop and the phone
+  no longer agree about what a collection says, and it is the most serious
+  possible failure in this milestone.
+
+### 12. The language does not follow the phone
+
+- Pass: set the phone's own system language to Turkish while the app is set to
+  English. The app **stays English**. That is hard rule 7 and it is deliberate.
+
+### 13. Widget and shortcut still work
+
+These are AM8's and should be unaffected, but the wear path was touched.
+
+- Pass: the widget shows today's watch or "Nothing recorded today".
+- Pass: the launcher long-press shortcut **Wore this today** records, and the
+  calendar shows it.
+
+---
+
+## Results
+
+Fill in and paste back.
+
+```
+ 1. selection mode                    :
+ 2. compare, both themes              :
+    power reserve / battery separate  :
+ 3. timing sparkline                  :
+ 4. maintenance line + dot (or silent):
+ 5. strap compatibility               :
+ 6. export completes                  :
+ 7. archive opens on the desktop      :
+ 8. import, skip-existing             :
+ 9. photograph survives the trip      :
+10. Turkish, every screen             :
+    strings that overflow             :
+11. storage still English             :
+12. app ignores the phone's language  :
+13. widget and shortcut               :
+
+phone model / Android version         :
+anything that looked wrong            :
+```
+
+---
+
+## Still needed from you, separately from the phone
+
+1. **Generate the release keystore.** The exact `keytool` command is in
+   `docs/ANDROID-RELEASING.md`. I have deliberately not generated one — it is
+   yours to make and to keep, and losing it means never being able to update the
+   app for anyone who installed it.
+2. **Add the three GitHub secrets** once the keystore exists:
+   `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`.
+3. **Screenshots**, from your real collection — grid, detail, calendar, compare,
+   dark mode, native resolution. Hard rule 1 reserves these for you; the README
+   has a comment marking where they go.
+4. **The tag itself.** `android-v1.0` is not cut and no release exists. AM11's
+   own rule forbids tagging before AM10 is green on `master`, and this work is
+   on a branch. Merge first, then dry-run the release workflow manually, then
+   tag.
