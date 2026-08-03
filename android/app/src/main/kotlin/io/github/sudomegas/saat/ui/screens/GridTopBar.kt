@@ -41,6 +41,10 @@ fun GridTopBar(
     sort: WatchSort,
     onQueryChange: (String) -> Unit,
     onSortChange: (WatchSort) -> Unit,
+    /** AM6b: the sheet is reachable from the top bar on Grid AND Specs. */
+    onOpenFilters: () -> Unit,
+    /** Tinted while anything is filtered, so a closed sheet is never silent. */
+    hasActiveFilters: Boolean,
 ) {
     TopAppBar(
         title = {
@@ -74,7 +78,22 @@ fun GridTopBar(
                 modifier = Modifier.fillMaxWidth(),
             )
         },
-        actions = { SortMenu(sort = sort, onSortChange = onSortChange) },
+        actions = {
+            TextButton(onClick = onOpenFilters) {
+                Text(
+                    text = stringResource(R.string.action_filter),
+                    // The one accent the palette has, which SaatRoles already
+                    // names for active filters. The chips below the bar say
+                    // WHAT is filtered; this says THAT something is.
+                    color = if (hasActiveFilters) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+            SortMenu(sort = sort, onSortChange = onSortChange)
+        },
     )
 }
 

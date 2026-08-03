@@ -16,6 +16,7 @@ import io.github.sudomegas.saat.config.ThemeMode
 import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.storage.WatchStore
+import io.github.sudomegas.saat.ui.FilterState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,6 +50,13 @@ class SaatApplication : Application(), SingletonImageLoader.Factory {
      */
     lateinit var paths: SaatPaths
         private set
+
+    /**
+     * The one filter, shared by the Grid, the Specs list and — from AM7 — the
+     * calendar's picker. Held here for the same reason the collection is: it
+     * belongs to the app, not to whichever screen happens to be on top.
+     */
+    val filterState: FilterState = FilterState()
 
     /**
      * The collection, read once here and shared by every screen from AM3 onward.

@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sudomegas.saat.R
+import io.github.sudomegas.saat.storage.FacetKind
 import io.github.sudomegas.saat.ui.GridViewModel
 import io.github.sudomegas.saat.ui.WatchCard
 
@@ -43,6 +44,8 @@ fun GridScreen(
     viewModel: GridViewModel,
     onOpenWatch: (String) -> Unit,
     onAddWatch: () -> Unit,
+    onOpenFilters: () -> Unit,
+    onRemoveFilter: (FacetKind, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -60,6 +63,8 @@ fun GridScreen(
                     sort = state.sort,
                     onQueryChange = viewModel::setQuery,
                     onSortChange = viewModel::setSort,
+                    onOpenFilters = onOpenFilters,
+                    hasActiveFilters = !state.filter.isEmpty,
                 )
             }
         },
@@ -81,6 +86,8 @@ fun GridScreen(
                 failures = state.failures,
                 onDismiss = viewModel::dismissFailures,
             )
+
+            ActiveFilterChips(filter = state.filter, onRemove = onRemoveFilter)
 
             when {
                 // Not read yet. Deliberately blank rather than the empty state:

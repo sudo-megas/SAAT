@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import io.github.sudomegas.saat.R
+import io.github.sudomegas.saat.storage.FacetKind
 import io.github.sudomegas.saat.ui.SpecsRow
 import io.github.sudomegas.saat.ui.SpecsViewModel
 import io.github.sudomegas.saat.ui.specs.SpecsPreset
@@ -60,6 +61,8 @@ import java.io.File
 fun SpecsScreen(
     viewModel: SpecsViewModel,
     onOpenWatch: (String) -> Unit,
+    onOpenFilters: () -> Unit,
+    onRemoveFilter: (FacetKind, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -74,6 +77,8 @@ fun SpecsScreen(
                     sort = state.sort,
                     onQueryChange = viewModel::setQuery,
                     onSortChange = viewModel::setSort,
+                    onOpenFilters = onOpenFilters,
+                    hasActiveFilters = !state.filter.isEmpty,
                 )
             }
         },
@@ -86,6 +91,7 @@ fun SpecsScreen(
                 state.isCollectionEmpty -> SpecsNotice(R.string.screen_specs_empty)
 
                 else -> {
+                    ActiveFilterChips(filter = state.filter, onRemove = onRemoveFilter)
                     PresetChips(active = state.preset, onSelect = viewModel::setPreset)
                     if (state.hasNoMatches) {
                         SpecsNotice(R.string.screen_grid_no_matches)
