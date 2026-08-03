@@ -51,18 +51,57 @@ Measured against the release build at this commit, not recalled:
 | APK size within IzzyOnDroid's limit | `app-release-unsigned.apk` on disk | **9.9 MiB** (10,337,215 bytes) against a 30 MB rule of thumb |
 | No permissions requested | `verifyReleaseManifestPolicy` on the merged manifest, plus an independent scan of the APK's own binary manifest | No `uses-permission` element; no `INTERNET` |
 | Not debuggable, not testOnly | String-pool scan of the APK's `AndroidManifest.xml` | Both absent |
-| No proprietary dependencies | Every POM in the resolved tree | All Apache-2.0 (below) |
+| No proprietary dependencies | The POM of every one of the 160 libraries AGP records as packaged | All Apache-2.0 (below) |
 | No proprietary blobs | `unzip -l` over the APK | One native library, `libandroidx.graphics.path.so`, from AndroidX — Apache-2.0 |
 | License is `GPL-3.0-or-later` | Source headers say "either version 3 … or (at your option) any later version" | Not `GPL-3.0-only`; the SPDX field must carry the suffix |
 
-The whole shipped dependency set, and it is short on purpose:
+### The dependency set, enumerated rather than summarised
 
-| Dependency | License |
-|---|---|
-| `androidx.*` — core, appcompat, activity, lifecycle, navigation, compose, profileinstaller, graphics-path | Apache-2.0 |
-| `dev.eav.tomlkt:tomlkt` | Apache-2.0 — source at `github.com/eav-eav-eav/tomlkt` |
-| `io.coil-kt.coil3:coil-compose` | Apache-2.0 — source at `github.com/coil-kt/coil` |
-| `junit` | EPL-1.0, **test only** — never packaged |
+The declared dependencies in `libs.versions.toml` are eight lines long, and that
+number is worth ignoring: what ships is the **transitive closure**, which is
+**160 libraries across 59 group IDs**. Auditing the eight would have checked
+about five percent of what a reviewer downloads.
+
+The list comes from `app/build/outputs/sdk-dependencies/release/sdkDependencies.txt`,
+which is AGP's own record of what it packaged — not a resolution done separately
+and hoped to match. Every one of the 160 had its POM read from the local Maven
+cache; all 160 were found, so nothing is unaccounted for.
+
+| Namespace | Libraries | License |
+|---|---|---|
+| `androidx.*` (42 groups) | 100 | Apache-2.0 |
+| `org.jetbrains.*` — kotlin stdlib, kotlinx coroutines and serialization, Compose Multiplatform, JetBrains lifecycle/savedstate | 44 | Apache-2.0 |
+| `io.coil-kt.coil3:*` | 8 | Apache-2.0 |
+| `dev.eav.tomlkt:*` | 2 | Apache-2.0 |
+| `com.squareup.okio:okio`, `okio-jvm` | 2 | Apache-2.0 |
+| `com.google.accompanist:accompanist-drawablepainter` | 1 | Apache-2.0 |
+| `org.jspecify:jspecify` | 1 | Apache-2.0 |
+| `com.google.guava:listenablefuture:1.0` | 1 | Apache-2.0, inherited — see below |
+
+`junit` is EPL-1.0 and does not appear above because it is a test dependency and
+is not packaged. The list confirms that: it is not in the 160.
+
+**The one artifact with no licence of its own.** `com.google.guava:listenablefuture:1.0`
+declares no `<licenses>` block. It is not an oversight and not a risk: the POM
+inherits from `com.google.guava:guava-parent:26.0-android`, which is Apache-2.0,
+and the artifact contains exactly one 358-byte interface —
+`com.google.common.util.concurrent.ListenableFuture` — carved out of Guava so
+that a project needing only that type does not pull all of Guava. Named here
+because a reviewer running a licence scanner will get a hit on it and deserves
+the answer without having to ask.
+
+**Two absences worth stating, since both were once present.** `androidx.glance`
+and everything AM8 rejected it for — `androidx.work`, `androidx.sqlite` — are
+not in the packaged set, nor are `room`, `datastore`, Firebase, Google Mobile
+Services or Crashlytics. Hard rule 4 forbids sqlite by name and F-Droid's
+inclusion policy forbids Firebase and GMS by name, so both were checked against
+the packaged list rather than against the dependency block, which is where a
+transitive one would hide.
+
+And `okio` ships while `okhttp` does not. Coil pulls Okio for its file I/O; the
+`coil-network-*` modules that would bring an HTTP client are deliberately not
+depended on, which is what keeps `INTERNET` out of the manifest. Square's name
+appearing in the list is not the network library arriving.
 
 ### The one thing that looks like a permission and is not
 
