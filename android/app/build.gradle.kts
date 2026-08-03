@@ -77,6 +77,10 @@ android {
 
     buildFeatures {
         compose = true
+        // For the About section's version line (SPEC-ANDROID 5.10). AGP 9
+        // defaults this off, and generating one constant is cheaper than
+        // reading the version back through PackageManager at runtime.
+        buildConfig = true
     }
 
     testOptions {
@@ -117,6 +121,30 @@ tasks.withType<Test>().configureEach {
         .withPropertyName("desktopWrittenFixture")
         .withPathSensitivity(PathSensitivity.RELATIVE)
         .optional()
+
+    // VersionGuardTest reads these two files off disk at execution time, and
+    // neither reaches the test classpath by any other route. Undeclared, they
+    // are invisible to Gradle: bump versionName, forget the changelog, and the
+    // task is UP-TO-DATE or FROM-CACHE, so the guard never runs and passes by
+    // not executing — which is precisely the failure it exists to prevent. CI
+    // is not immune either, because setup-gradle restores the build cache.
+    //
+    // The same reasoning as the parity artefacts above; it simply had not been
+    // extended to the guard.
+    inputs.file(project.file("build.gradle.kts"))
+        .withPropertyName("appBuildScript")
+        .withPathSensitivity(PathSensitivity.NONE)
+
+    inputs.file(rootProject.file("CHANGELOG-ANDROID.md"))
+        .withPropertyName("androidChangelog")
+        .withPathSensitivity(PathSensitivity.NONE)
+
+    // The release workflow refuses to publish without the notes file, and
+    // VersionGuardTest asserts it exists — so `check` catches a missing one
+    // rather than a spent tag doing it.
+    inputs.dir(rootProject.file("../docs/release-notes"))
+        .withPropertyName("releaseNotes")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 /**
@@ -302,10 +330,28 @@ fun releaseKeystore(project: Project): ReleaseKeystore? {
         return null
     }
 
+    // Named rather than chained through `?: return null` in the constructor
+    // call, so a half-configured signing setup SAYS which piece is missing. A
+    // secret that was never added would otherwise produce an unsigned APK in
+    // silence, and the diagnosis would start at the apksigner step with no clue
+    // pointing back here.
+    val missing = listOf(
+        "SAAT_KEYSTORE_PASSWORD", "SAAT_KEY_ALIAS", "SAAT_KEY_PASSWORD",
+    ).filter { value(it) == null }
+
+    if (missing.isNotEmpty()) {
+        project.logger.lifecycle(
+            "SAAT_KEYSTORE_FILE is set but $missing " +
+                "${if (missing.size == 1) "is" else "are"} not — " +
+                "building the release variant UNSIGNED."
+        )
+        return null
+    }
+
     return ReleaseKeystore(
         file = file,
-        storePassword = value("SAAT_KEYSTORE_PASSWORD") ?: return null,
-        keyAlias = value("SAAT_KEY_ALIAS") ?: return null,
-        keyPassword = value("SAAT_KEY_PASSWORD") ?: return null,
+        storePassword = value("SAAT_KEYSTORE_PASSWORD")!!,
+        keyAlias = value("SAAT_KEY_ALIAS")!!,
+        keyPassword = value("SAAT_KEY_PASSWORD")!!,
     )
 }

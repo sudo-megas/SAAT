@@ -78,6 +78,24 @@ class VersionGuardTest {
     }
 
     /**
+     * The release workflow REFUSES TO PUBLISH without this file, so a missing
+     * one must fail in `check` rather than after a tag has been spent and the
+     * whole suite, build and signing have run.
+     */
+    @Test
+    fun `the release notes for this version exist`() {
+        val versionName = buildValue("versionName")!!
+        val notes = File("../../docs/release-notes/android-$versionName.md")
+
+        assertTrue(
+            "docs/release-notes/android-$versionName.md is missing — the release " +
+                "workflow will refuse to publish, and a release ships with notes " +
+                "or not at all",
+            notes.isFile,
+        )
+    }
+
+    /**
      * The release workflow triggers on `android-v*`, so the tag for this build
      * is `android-v` plus the version name. Asserted here so a version that
      * cannot be tagged — a space, a stray quote — fails before the tag is spent

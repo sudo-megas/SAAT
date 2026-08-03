@@ -43,6 +43,10 @@ class StringsTranslationTest {
         val stringNodes = doc.getElementsByTagName("string")
         for (i in 0 until stringNodes.length) {
             val element = stringNodes.item(i) as Element
+            // translatable="false" is a declaration that this string is NOT
+            // vocabulary — a URL, a brand, a format. Requiring a translation for
+            // one would be requiring a second copy of a constant.
+            if (element.getAttribute("translatable") == "false") continue
             strings[element.getAttribute("name")] = element.textContent
         }
 

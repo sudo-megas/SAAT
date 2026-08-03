@@ -67,7 +67,22 @@ const val MIN_SPARKLINE_READINGS = 3
  */
 fun sparkline(readings: List<TimingEntry>): Sparkline? {
     val values = readings
-        .filter { it.date != null && it.deviationSec != null }
+        // isFinite() as well as non-null, and it belongs HERE rather than in a
+        // guard further down. `deviation_sec = "NaN"` is reachable two ways —
+        // a hand-edited file (the TOML reader coerces a quoted number in
+        // silence) and a paste into the form, which filters no keystrokes — and
+        // NaN poisons `min`/`max`, so `low` and `high` both become NaN. The
+        // `span == 0.0` guard below does NOT catch that, because `NaN != 0.0`
+        // is true: span stays NaN, every coordinate becomes NaN, and the whole
+        // chart silently draws nothing rather than losing one reading.
+        //
+        // Filtering here also keeps the threshold honest: a NaN reading is not
+        // plottable, so it must not count towards the three.
+        //
+        // Deliberately NOT matching the desktop, which is differently broken —
+        // Python's `min` is position-dependent with NaN, so `_TimingSparkline`
+        // survives or fails depending on where the bad reading sits.
+        .filter { it.date != null && it.deviationSec?.isFinite() == true }
         .sortedBy { it.date }
         .map { it.deviationSec!! }
 

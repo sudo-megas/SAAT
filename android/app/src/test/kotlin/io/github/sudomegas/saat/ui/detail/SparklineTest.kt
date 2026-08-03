@@ -174,6 +174,57 @@ class SparklineTest {
         assertTrue(chart.zeroY in 0f..1f)
     }
 
+    /**
+     * A NaN deviation must cost its own reading and NOTHING ELSE.
+     *
+     * `deviation_sec = "NaN"` is reachable from a hand-edited file — the TOML
+     * reader coerces a quoted number in silence — and from a paste into the
+     * form, which filters no keystrokes. Before this was filtered, one such
+     * reading poisoned `min`/`max`, and because `NaN != 0.0` is true the
+     * `span == 0.0` guard did not catch it: every coordinate became NaN and the
+     * whole chart drew nothing at all.
+     */
+    @Test
+    fun `one NaN reading does not blank the entire chart`() {
+        val readings = listOf(
+            reading(1, Double.NaN),
+            reading(2, 1.0),
+            reading(3, 2.0),
+            reading(4, 3.0),
+        )
+
+        val chart = sparkline(readings)!!
+
+        assertEquals("the NaN reading is dropped, the other three plot", 3, chart.points.size)
+        assertTrue(chart.points.all { it.x.isFinite() && it.y.isFinite() })
+        assertTrue(chart.zeroY.isFinite())
+        assertTrue(chart.points.all { it.x in 0f..1f && it.y in 0f..1f })
+    }
+
+    @Test
+    fun `an infinite reading is dropped the same way`() {
+        val readings = listOf(
+            reading(1, Double.POSITIVE_INFINITY),
+            reading(2, -2.0),
+            reading(3, 4.0),
+            reading(4, 1.0),
+        )
+
+        val chart = sparkline(readings)!!
+
+        assertEquals(3, chart.points.size)
+        assertTrue(chart.points.all { it.y.isFinite() })
+    }
+
+    /**
+     * The threshold counts PLOTTABLE readings, so three entries of which one is
+     * NaN is not a chart — exactly as three of which one is undated is not.
+     */
+    @Test
+    fun `a NaN reading does not count towards the three`() {
+        assertNull(sparkline(listOf(reading(1, Double.NaN), reading(2, 1.0), reading(3, 2.0))))
+    }
+
     @Test
     fun `three is the threshold the spec names`() {
         assertEquals(3, MIN_SPARKLINE_READINGS)
