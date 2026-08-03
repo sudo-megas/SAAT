@@ -69,8 +69,8 @@ cache; all 160 were found, so nothing is unaccounted for.
 
 | Namespace | Libraries | License |
 |---|---|---|
-| `androidx.*` (42 groups) | 100 | Apache-2.0 |
-| `org.jetbrains.*` — kotlin stdlib, kotlinx coroutines and serialization, Compose Multiplatform, JetBrains lifecycle/savedstate | 44 | Apache-2.0 |
+| `androidx.*` (42 group IDs) | 116 | Apache-2.0 |
+| `org.jetbrains.*` (11 group IDs) — kotlin stdlib, kotlinx coroutines and serialization, Compose Multiplatform, JetBrains lifecycle/savedstate | 29 | Apache-2.0 |
 | `io.coil-kt.coil3:*` | 8 | Apache-2.0 |
 | `dev.eav.tomlkt:*` | 2 | Apache-2.0 |
 | `com.squareup.okio:okio`, `okio-jvm` | 2 | Apache-2.0 |
