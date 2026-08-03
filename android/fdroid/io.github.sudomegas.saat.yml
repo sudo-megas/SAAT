@@ -1,0 +1,64 @@
+# F-Droid build recipe — AM12, DRAFT.
+#
+# This file does not belong to this repository at runtime. It is the metadata
+# F-Droid keeps in ITS OWN repository, drafted here so it is reviewed alongside
+# the code it describes and so the submission is a copy rather than a fresh
+# authoring under time pressure. It goes to:
+#
+#     fdroiddata/metadata/io.github.sudomegas.saat.yml
+#
+# `android/docs/ANDROID-DISTRIBUTION.md` has the submission procedure and the
+# two fields that still need real values before it can be sent.
+
+Categories:
+  - Time
+
+# SPDX, and `-or-later` deliberately: every source header in this project reads
+# "either version 3 of the License, or (at your option) any later version",
+# which is GPL-3.0-or-later and not GPL-3.0-only. The About screen says plain
+# "GPL-3.0" because that is what a person says out loud; this field is the one
+# that has to be exact.
+License: GPL-3.0-or-later
+
+AuthorName: sudo-megas
+SourceCode: https://github.com/sudo-megas/SAAT
+IssueTracker: https://github.com/sudo-megas/SAAT/issues
+Changelog: https://github.com/sudo-megas/SAAT/blob/master/android/CHANGELOG-ANDROID.md
+
+RepoType: git
+Repo: https://github.com/sudo-megas/SAAT.git
+
+Builds:
+  - versionName: '1.0'
+    versionCode: 2
+
+    # REPLACE WITH THE FULL 40-CHARACTER HASH once `android-v1.0` is cut.
+    # F-Droid's reference asks for the hash rather than the tag name, because a
+    # tag can be moved and a hash cannot — which is the whole point of building
+    # someone else's source. The tag does not exist yet; see the distribution
+    # doc for the order the gates come in.
+    commit: android-v1.0
+
+    # The path the `build` directory is generated in, which is F-Droid's own
+    # definition of this field. THIS IS THE FIELD MOST LIKELY TO NEED CHANGING
+    # ON THE FIRST BUILD: the gradle root of this project is `android/`, not the
+    # repository root, because the desktop application owns the top level. The
+    # wrapper and `settings.gradle.kts` are therefore one directory above this
+    # path. If their builder cannot find them, `android` is the fallback to try.
+    subdir: android/app
+
+    # No product flavors exist, so this is plain `assembleRelease`.
+    gradle:
+      - yes
+
+# The tag namespace is SHARED WITH THE DESKTOP APPLICATION, which is the reason
+# this pattern is anchored rather than permissive. The same repository carries
+# `v1.0.0` through `v2.1.1` for the desktop; an unanchored pattern would offer
+# F-Droid a desktop release as an Android version, and it would fail to build
+# for reasons that look nothing like the real cause. Android tags, and only
+# Android tags, are `android-vX.Y`.
+AutoUpdateMode: Version android-v%v
+UpdateCheckMode: Tags ^android-v[\d.]+$
+
+CurrentVersion: '1.0'
+CurrentVersionCode: 2
