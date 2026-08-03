@@ -1,6 +1,7 @@
 package io.github.sudomegas.saat.ui.screens
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,8 +23,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -31,6 +40,7 @@ import coil3.compose.rememberAsyncImagePainter
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.ui.detail.DetailPage
 import io.github.sudomegas.saat.ui.detail.LogLine
+import io.github.sudomegas.saat.ui.detail.Sparkline
 import io.github.sudomegas.saat.ui.detail.SpecGroup
 import io.github.sudomegas.saat.ui.detail.StrapCard
 import io.github.sudomegas.saat.ui.detail.TimingLine
@@ -72,6 +82,12 @@ internal fun LazyListScope.detailSections(page: DetailPage) {
 
     if (page.timing.isNotEmpty()) {
         item(key = "timing-header") { SectionHeader(R.string.screen_detail_group_timing) }
+        // Above the readings, not below: the chart is the summary and the list
+        // is the evidence. Absent entirely under three plottable readings —
+        // `timingSparkline` is null then and this item is never emitted.
+        page.timingSparkline?.let { chart ->
+            item(key = "timing-sparkline") { TimingSparkline(chart) }
+        }
         itemsIndexed(page.timing, key = { index, _ -> "timing-$index" }) { _, reading ->
             TimingBlock(reading)
         }
@@ -265,11 +281,81 @@ private fun LogBlock(entry: LogLine) {
 }
 
 /**
+ * Deviation over time — AM9b, drawn with Compose primitives.
+ *
+ * NO CHARTING LIBRARY, which AM9's brief forbids and which would in any case be
+ * a dependency bought for one polyline and one straight rule. `Canvas` and a
+ * `Path` are the whole implementation.
+ *
+ * Every decision about WHAT to draw was taken in [sparkline] and tested there.
+ * This function knows only how to turn a unit square into pixels: the geometry
+ * arrives normalised, and the vertical padding keeps the line's peaks off the
+ * edge without changing the shape.
+ *
+ * The zero rule is drawn in the hairline colour that carries every other
+ * division on this page, and the trend in the accent — so the reading is "how
+ * far from the rule, and which side", in any palette dynamic colour produces.
+ */
+@Composable
+private fun TimingSparkline(chart: Sparkline) {
+    val rule = MaterialTheme.colorScheme.outlineVariant
+    val trend = MaterialTheme.colorScheme.primary
+    val label = stringResource(R.string.screen_detail_timing_chart)
+
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(SPARKLINE_HEIGHT)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            // The chart is not readable by a screen reader, so it says what it
+            // is rather than being an unlabelled rectangle. The readings
+            // themselves follow as text immediately beneath.
+            .semantics { contentDescription = label },
+    ) {
+        val usableHeight = size.height - 2 * SPARKLINE_PADDING_PX
+        fun y(normalised: Float) = SPARKLINE_PADDING_PX + normalised * usableHeight
+
+        drawLine(
+            color = rule,
+            start = Offset(0f, y(chart.zeroY)),
+            end = Offset(size.width, y(chart.zeroY)),
+            strokeWidth = 1f,
+        )
+
+        // One Path rather than a drawLine per segment, so the joins between
+        // segments are mitred instead of showing a notch at every reading.
+        val path = Path()
+        chart.points.forEachIndexed { index, point ->
+            val x = point.x * size.width
+            val py = y(point.y)
+            if (index == 0) path.moveTo(x, py) else path.lineTo(x, py)
+        }
+        drawPath(
+            path = path,
+            color = trend,
+            style = Stroke(
+                width = SPARKLINE_STROKE_PX,
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round,
+            ),
+        )
+    }
+}
+
+/** The desktop's `SPARKLINE_HEIGHT`, in dp rather than pixels. */
+private val SPARKLINE_HEIGHT = 48.dp
+
+/** The desktop's `pad = 4`, keeping the extremes off the top and bottom edges. */
+private const val SPARKLINE_PADDING_PX = 4f
+
+private const val SPARKLINE_STROKE_PX = 3f
+
+/**
  * One timing reading, as a plain line.
  *
- * The sparkline SPEC-ANDROID 5.6 describes is AM9's, and this milestone's brief
- * says so explicitly. A list of readings is still the data; the drawing is what
- * is deferred.
+ * The readings stay even once the sparkline is drawn: the chart shows the shape
+ * and this shows the positions and dates, which the chart deliberately does not
+ * encode.
  */
 @Composable
 private fun TimingBlock(reading: TimingLine) {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -57,6 +58,7 @@ import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.ui.DetailViewModel
 import io.github.sudomegas.saat.ui.WearMessage
 import io.github.sudomegas.saat.ui.detail.DetailPage
+import io.github.sudomegas.saat.ui.detail.MaintenanceNotice
 import io.github.sudomegas.saat.ui.detail.SpecValue
 import io.github.sudomegas.saat.ui.detail.WearStats
 import io.github.sudomegas.saat.ui.formatMeasurement
@@ -125,6 +127,7 @@ fun DetailScreen(
             page != null -> DetailBody(
                 page = page,
                 wear = state.wear,
+                maintenance = state.maintenance,
                 onWoreToday = viewModel::woreToday,
                 onDelete = { viewModel.delete(onDeleted) },
                 contentPadding = innerPadding,
@@ -259,6 +262,7 @@ private fun DetailNotice(text: String, modifier: Modifier = Modifier) {
 private fun DetailBody(
     page: DetailPage,
     wear: WearStats?,
+    maintenance: List<MaintenanceNotice>,
     onWoreToday: () -> Unit,
     onDelete: () -> Unit,
     contentPadding: PaddingValues,
@@ -269,6 +273,18 @@ private fun DetailBody(
     ) {
         item(key = "gallery") { Gallery(page) }
         item(key = "header") { DetailHeader(page) }
+
+        // Under the name, above everything else — SPEC-ANDROID 5.6's "a
+        // maintenance line appears at the top". Not above the photograph: this
+        // is a photo-forward app and a watch that needs a service in eleven
+        // weeks has not stopped being a watch. Emits nothing at all for the
+        // great majority of watches, which is the whole design.
+        items(
+            items = maintenance,
+            key = { "maintenance-${it.messageRes}" },
+        ) { notice ->
+            MaintenanceLine(notice)
+        }
 
         // Before the spec groups, which is the order SPEC-ANDROID 5.6 lists:
         // the wear line and the button come first, and the specs follow. A
@@ -288,6 +304,29 @@ private fun DetailBody(
         // last line clear of the gesture bar on a phone that draws one.
         item(key = "tail") { Box(Modifier.height(24.dp)) }
     }
+}
+
+/**
+ * One maintenance line — AM9b.
+ *
+ * A LINE, NOT A BANNER. No card, no icon, no dismiss button: the text in the
+ * accent colour is enough to notice and cheap to ignore, which is the balance
+ * "the UI must not nag" asks for. `error` only once the date has actually
+ * passed; a service due in eleven weeks is information, not a problem, and
+ * painting it red would teach the owner to stop reading this line.
+ */
+@Composable
+private fun MaintenanceLine(notice: MaintenanceNotice) {
+    Text(
+        text = stringResource(notice.messageRes, notice.date),
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (notice.isOverdue) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.primary
+        },
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
 }
 
 /**

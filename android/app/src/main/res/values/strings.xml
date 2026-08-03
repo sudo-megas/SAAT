@@ -182,6 +182,18 @@
     <string name="screen_compare_hint">Select two watches to compare.</string>
     <string name="screen_compare_missing">One of those watches is no longer in the collection.</string>
 
+    <!-- Maintenance and timing (AM9b). The wording is the desktop's, which
+         states the date rather than counting down: "due in 12 days" is a figure
+         that goes stale in the time it takes to put the phone down. Silent
+         entirely when nothing is due — there is no "nothing due" string here
+         on purpose, because that line is never drawn. -->
+    <string name="screen_detail_service_due">Service due %1$s</string>
+    <string name="screen_detail_service_overdue">Service overdue — was due %1$s</string>
+    <string name="screen_detail_battery_due">Battery due %1$s</string>
+    <string name="screen_detail_battery_overdue">Battery overdue — was due %1$s</string>
+    <string name="screen_detail_maintenance_dot">Service or battery due</string>
+    <string name="screen_detail_timing_chart">Deviation over time, oldest first</string>
+
     <!-- Month abbreviations for the twelve-month strip, and for AM7's calendar.
          Resources rather than Month.getDisplayName, which would need a Locale:
          the default one is the system locale hard rule 7 forbids reading, and

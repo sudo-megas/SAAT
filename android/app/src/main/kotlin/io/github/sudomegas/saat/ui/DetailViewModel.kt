@@ -7,8 +7,10 @@ import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.ui.detail.DetailPage
+import io.github.sudomegas.saat.ui.detail.MaintenanceNotice
 import io.github.sudomegas.saat.ui.detail.WearStats
 import io.github.sudomegas.saat.ui.detail.detailPage
+import io.github.sudomegas.saat.ui.detail.maintenanceNotices
 import io.github.sudomegas.saat.ui.detail.wearStats
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,6 +36,8 @@ data class DetailUiState(
     val page: DetailPage? = null,
     /** Null for a watch that has never been worn — the line and strip are hidden together. */
     val wear: WearStats? = null,
+    /** Empty for the great majority of watches — AM9b's silence is the default. */
+    val maintenance: List<MaintenanceNotice> = emptyList(),
     /** The parse error, when the folder exists but its `watch.toml` does not load. */
     val loadError: String? = null,
     /** True once the collection is read and no record carries this slug. */
@@ -88,10 +92,14 @@ class DetailViewModel(
         .map { collection ->
             val record = collection.records.firstOrNull { it.slug == slug }
             val watch = record?.watch
+            // One clock read for the whole emission, so the wear line and the
+            // maintenance line can never disagree about what day it is.
+            val now = today()
             DetailUiState(
                 slug = slug,
                 page = record?.let { detailPage(it, paths.watchMedia(slug)) },
-                wear = watch?.let { wearStats(it, today()) },
+                wear = watch?.let { wearStats(it, now) },
+                maintenance = watch?.let { maintenanceNotices(it, now) }.orEmpty(),
                 loadError = record?.loadError,
                 isMissing = collection.isLoaded && record == null,
             )
