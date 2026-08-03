@@ -10,6 +10,8 @@ import io.github.sudomegas.saat.storage.WatchSort
 import io.github.sudomegas.saat.storage.query
 import io.github.sudomegas.saat.storage.wornIndex
 import io.github.sudomegas.saat.ui.calendar.MonthLayout
+import io.github.sudomegas.saat.ui.calendar.MonthStats
+import io.github.sudomegas.saat.ui.calendar.monthStats
 import io.github.sudomegas.saat.ui.calendar.daysBetween
 import io.github.sudomegas.saat.ui.calendar.monthLayout
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +67,11 @@ data class CalendarUiState(
     val selection: DaySelection? = null,
     /** The days the picker is about to fill, or null when it is closed. */
     val picking: List<LocalDate>? = null,
+    val stats: MonthStats = MonthStats(0, 0, emptyList()),
+    /** True while the twelve-month view is showing instead of the grid. */
+    val isYearView: Boolean = false,
+    /** Twelve months of `date -> slug`, for the year view's chips. */
+    val year: List<Pair<YearMonth, Map<LocalDate, String>>> = emptyList(),
 )
 
 /**
@@ -87,6 +94,7 @@ class CalendarViewModel(
     private val _selection = MutableStateFlow<DaySelection?>(null)
     private val _picking = MutableStateFlow<List<LocalDate>?>(null)
     private val _pickerQuery = MutableStateFlow("")
+    private val _isYearView = MutableStateFlow(false)
 
     /** What is typed in the picker's search field. Cleared when it closes. */
     val pickerQuery: StateFlow<String> = _pickerQuery.asStateFlow()
@@ -121,7 +129,8 @@ class CalendarViewModel(
             _month,
             _selection,
             _picking,
-        ) { collection, month, selection, picking ->
+            _isYearView,
+        ) { collection, month, selection, picking, isYearView ->
             val index = collection.records.wornIndex()
             val now = today()
             val layout = monthLayout(month)
@@ -144,6 +153,16 @@ class CalendarViewModel(
                 isCollectionEmpty = collection.isLoaded && collection.records.isEmpty(),
                 selection = selection,
                 picking = picking,
+                stats = collection.records.monthStats(month),
+                isYearView = isYearView,
+                // Built only while the year view is showing: twelve months of
+                // index lookups is cheap, but doing it on every emission of a
+                // screen that is not on top would be work for nobody.
+                year = if (!isYearView) emptyList() else (1..MONTHS_IN_YEAR).map { number ->
+                    val each = YearMonth.of(month.year, number)
+                    each to index.filterKeys { YearMonth.from(it) == each }
+                        .mapValues { (_, record) -> record.slug }
+                },
             )
         }.stateIn(
             viewModelScope,
@@ -220,6 +239,10 @@ class CalendarViewModel(
         }
     }
 
+    fun toggleYearView() {
+        _isYearView.value = !_isYearView.value
+    }
+
     fun showMonth(month: YearMonth) {
         _month.value = month
     }
@@ -229,6 +252,8 @@ class CalendarViewModel(
     }
 
     companion object {
+        private const val MONTHS_IN_YEAR = 12
+
         fun factory(app: SaatApplication): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
