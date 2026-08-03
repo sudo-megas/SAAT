@@ -112,6 +112,9 @@
     <!-- Detail (AM4). Group titles are their own keys rather than reusing the
          field_* label of the same name: "Case" is a spec group here and a form
          section in AM5, and Turkish need not spell them the same way. -->
+    <!-- Identity is a compare group only (AM9). The detail page renders the
+         same fields as its header meta line, which needs no title. -->
+    <string name="screen_detail_group_identity">Identity</string>
     <string name="screen_detail_group_movement">Movement</string>
     <string name="screen_detail_group_case">Case</string>
     <string name="screen_detail_group_dial">Dial</string>
@@ -163,6 +166,21 @@
     <string name="screen_detail_wear_recorded">Recorded for today.</string>
     <string name="screen_detail_wear_already">Already recorded for today.</string>
     <string name="screen_detail_wear_moved">Recorded for today, moved from %1$s.</string>
+
+    <!-- Compare and grid selection (AM9a). The count is a plural because
+         Turkish has no plural -s and "1 selected"/"2 selected" must be free to
+         differ; the rest are labels. SPEC-ANDROID 5.4 fixes compare at exactly
+         two watches, so the hint names the number rather than saying "more". -->
+    <string name="screen_compare_title">Compare</string>
+    <string name="action_compare">Compare</string>
+    <string name="action_select_watches">Select</string>
+    <string name="action_clear_selection">Clear selection</string>
+    <plurals name="screen_grid_selected">
+        <item quantity="one">1 selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <string name="screen_compare_hint">Select two watches to compare.</string>
+    <string name="screen_compare_missing">One of those watches is no longer in the collection.</string>
 
     <!-- Month abbreviations for the twelve-month strip, and for AM7's calendar.
          Resources rather than Month.getDisplayName, which would need a Locale:

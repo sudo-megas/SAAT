@@ -1,6 +1,7 @@
 package io.github.sudomegas.saat.ui.screens
 
 import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,15 +12,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,19 +52,40 @@ fun GridScreen(
     onAddWatch: () -> Unit,
     onOpenFilters: () -> Unit,
     onRemoveFilter: (FacetKind, String) -> Unit,
+    onCompare: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Back leaves selection mode before it leaves the screen. SPEC-ANDROID 5.1:
+    // "the system back gesture always means back, never exit-with-lost-state",
+    // and an accidental long press should cost one gesture to undo.
+    BackHandler(enabled = state.isSelecting) { viewModel.clearSelection() }
 
     Scaffold(
         // The shell's Scaffold already consumed the system bars — MainActivity
         // calls enableEdgeToEdge — so a nested default would count them twice.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            // Nothing to search or sort in an empty collection, and the empty
-            // state is specified to be quiet.
-            if (!state.isCollectionEmpty) {
-                GridTopBar(
+            when {
+                // The contextual bar REPLACES the search field and sort menu
+                // rather than sitting beside them. That is also what keeps the
+                // ViewModel's selection pruning honest: with no way to search
+                // or filter while a selection exists, the visible set cannot
+                // change under it.
+                state.isSelecting -> SelectionTopBar(
+                    count = state.selection.size,
+                    canCompare = state.canCompare,
+                    onClear = viewModel::clearSelection,
+                    onCompare = {
+                        val picked = state.selection.toList()
+                        onCompare(picked[0], picked[1])
+                    },
+                )
+
+                // Nothing to search or sort in an empty collection, and the empty
+                // state is specified to be quiet.
+                !state.isCollectionEmpty -> GridTopBar(
                     query = state.query,
                     sort = state.sort,
                     onQueryChange = viewModel::setQuery,
@@ -72,8 +99,9 @@ fun GridScreen(
             // SPEC-ANDROID 5.1 calls the FAB "the one primary-weight control in
             // the app". While the collection is empty the empty state's own
             // button IS that control, so showing both would put two of them on
-            // the quietest screen in the app.
-            if (!state.isCollectionEmpty) {
+            // the quietest screen in the app. It also stands down during
+            // selection, where Compare is the primary action.
+            if (!state.isCollectionEmpty && !state.isSelecting) {
                 ExtendedFloatingActionButton(onClick = onAddWatch) {
                     Text(text = stringResource(R.string.action_add_watch))
                 }
@@ -116,14 +144,62 @@ fun GridScreen(
                     )
                 }
 
-                else -> WatchGrid(cards = state.cards, onOpenWatch = onOpenWatch)
+                else -> WatchGrid(
+                    cards = state.cards,
+                    onOpenWatch = onOpenWatch,
+                    selection = state.selection,
+                    selectionMode = state.isSelecting,
+                    onToggleSelect = viewModel::toggleSelection,
+                )
             }
         }
     }
 }
 
+/**
+ * The contextual bar that selection mode puts over the search field.
+ *
+ * Compare is enabled at exactly two — SPEC-ANDROID 5.4 — and DISABLED rather
+ * than hidden at one, so the count and the greyed action together explain what
+ * the second tap is for. A control that appears out of nowhere on the second
+ * selection would leave the first one looking like it did nothing.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WatchGrid(cards: List<WatchCard>, onOpenWatch: (String) -> Unit) {
+private fun SelectionTopBar(
+    count: Int,
+    canCompare: Boolean,
+    onClear: () -> Unit,
+    onCompare: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            Text(text = pluralStringResource(R.plurals.screen_grid_selected, count, count))
+        },
+        navigationIcon = {
+            TextButton(onClick = onClear) {
+                Text(text = stringResource(R.string.action_clear_selection))
+            }
+        },
+        actions = {
+            TextButton(onClick = onCompare, enabled = canCompare) {
+                Text(text = stringResource(R.string.action_compare))
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    )
+}
+
+@Composable
+private fun WatchGrid(
+    cards: List<WatchCard>,
+    onOpenWatch: (String) -> Unit,
+    selection: Set<String>,
+    selectionMode: Boolean,
+    onToggleSelect: (String) -> Unit,
+) {
     // Two portrait, three landscape (SPEC-ANDROID 5.2). Keyed off orientation
     // rather than a width breakpoint, and with no upper clamp, so a tablet in
     // landscape is never capped at two.
@@ -141,7 +217,13 @@ private fun WatchGrid(cards: List<WatchCard>, onOpenWatch: (String) -> Unit) {
         modifier = Modifier.fillMaxSize(),
     ) {
         items(items = cards, key = { it.slug }) { card ->
-            WatchGridCard(card = card, onOpen = onOpenWatch)
+            WatchGridCard(
+                card = card,
+                onOpen = onOpenWatch,
+                isSelected = card.slug in selection,
+                selectionMode = selectionMode,
+                onToggleSelect = onToggleSelect,
+            )
         }
     }
 }

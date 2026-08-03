@@ -45,6 +45,17 @@ data class DetailRoute(val slug: String)
 @Serializable
 data class FormRoute(val slug: String? = null)
 
+/**
+ * Two-up compare — SPEC-ANDROID 5.4, reached from the grid's selection mode.
+ *
+ * TWO NAMED ARGUMENTS RATHER THAN A LIST, and that is the spec's decision made
+ * unrepresentable-otherwise: "exactly two watches, side by side, portrait". A
+ * `List<String>` route would compile happily with three and push the check out
+ * to runtime.
+ */
+@Serializable
+data class CompareRoute(val leftSlug: String, val rightSlug: String)
+
 enum class TopLevelDestination(
     val route: Any,
     @param:StringRes val labelRes: Int,

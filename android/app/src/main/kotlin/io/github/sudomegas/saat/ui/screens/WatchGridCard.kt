@@ -1,9 +1,10 @@
 package io.github.sudomegas.saat.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,24 +56,51 @@ import io.github.sudomegas.saat.ui.formatMeasurement
  * hairline border carries the structure, which is the desktop's restraint
  * (SPEC-ANDROID 6: "hairline dividers, no decoration beyond Material defaults").
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WatchGridCard(
     card: WatchCard,
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** AM9: long-press enters selection mode, which Compare is reached from. */
+    isSelected: Boolean = false,
+    selectionMode: Boolean = false,
+    onToggleSelect: (String) -> Unit = {},
 ) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
-        border = BorderStroke(Dp.Hairline, MaterialTheme.colorScheme.outlineVariant),
-        // Modifier.clickable with an explicit Role rather than Card(onClick =),
-        // which is still an experimental overload; the semantics are the same and
-        // this needs no opt-in.
+        // The selected card is marked by its BORDER rather than by a tick
+        // floating over the photograph. SPEC-ANDROID 6 asks for "no decoration
+        // beyond Material defaults", and the hairline is already the thing that
+        // carries structure on this screen — making it thick and accent-coloured
+        // says "picked" without covering the watch, which is what the owner is
+        // looking at while deciding.
+        border = if (isSelected) {
+            BorderStroke(SELECTED_BORDER, MaterialTheme.colorScheme.primary)
+        } else {
+            BorderStroke(Dp.Hairline, MaterialTheme.colorScheme.outlineVariant)
+        },
+        // combinedClickable rather than clickable, for the long press. Once a
+        // selection exists a plain tap TOGGLES instead of opening: a tap that
+        // navigated away mid-selection would throw away the other pick, and
+        // every list on the platform behaves this way.
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onOpen(card.slug) }
-            .semantics { role = Role.Button },
+            .combinedClickable(
+                onClick = {
+                    if (selectionMode) onToggleSelect(card.slug) else onOpen(card.slug)
+                },
+                onLongClick = { onToggleSelect(card.slug) },
+            )
+            .semantics {
+                role = if (selectionMode) Role.Checkbox else Role.Button
+                // `isSelected`, not `selected`: inside this receiver scope the
+                // bare name would be ambiguous with the semantics property it
+                // is being assigned to.
+                selected = isSelected
+            },
     ) {
         Box(
             modifier = Modifier
@@ -183,6 +212,9 @@ private fun PlaceholderTile(card: WatchCard) {
         )
     }
 }
+
+/** Thick enough to read as a state at arm's length, not as a rendering artefact. */
+private val SELECTED_BORDER = 2.dp
 
 /**
  * `style · movement kind`, whichever of the two the owner recorded.

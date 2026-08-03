@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.ui.nav.CalendarRoute
+import io.github.sudomegas.saat.ui.nav.CompareRoute
 import io.github.sudomegas.saat.ui.nav.DetailRoute
 import io.github.sudomegas.saat.ui.nav.FormRoute
 import io.github.sudomegas.saat.ui.nav.GridRoute
@@ -38,6 +39,7 @@ import io.github.sudomegas.saat.ui.nav.SettingsRoute
 import io.github.sudomegas.saat.ui.nav.SpecsRoute
 import io.github.sudomegas.saat.ui.nav.TopLevelDestination
 import io.github.sudomegas.saat.ui.screens.CalendarScreen
+import io.github.sudomegas.saat.ui.screens.CompareScreen
 import io.github.sudomegas.saat.ui.screens.DetailScreen
 import io.github.sudomegas.saat.ui.screens.FilterSheet
 import io.github.sudomegas.saat.ui.screens.FormScreen
@@ -109,7 +111,9 @@ fun SaatApp(
     // routes AM4 and AM5 add join the list here rather than there.
     val onFullScreenRoute = backStackEntry?.destination?.hierarchy
         ?.any { node ->
-            node.hasRoute(DetailRoute::class) || node.hasRoute(FormRoute::class)
+            node.hasRoute(DetailRoute::class) ||
+                node.hasRoute(FormRoute::class) ||
+                node.hasRoute(CompareRoute::class)
         } == true
 
     // Once per launch, not on every recomposition: the key is the intent's own
@@ -165,6 +169,22 @@ fun SaatApp(
                     onAddWatch = { navController.navigate(FormRoute()) },
                     onOpenFilters = { showFilters = true },
                     onRemoveFilter = filtersViewModel::remove,
+                    onCompare = { left, right ->
+                        navController.navigate(CompareRoute(left, right))
+                    },
+                )
+            }
+            composable<CompareRoute> { entry ->
+                val route = entry.toRoute<CompareRoute>()
+                CompareScreen(
+                    // Keyed by the PAIR: two compare screens for different
+                    // pairs must not share a state holder, and a ViewModel is
+                    // stored by type within a back stack entry.
+                    viewModel = viewModel(
+                        key = "${route.leftSlug}|${route.rightSlug}",
+                        factory = CompareViewModel.factory(app, route.leftSlug, route.rightSlug),
+                    ),
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable<DetailRoute> { entry ->
