@@ -39,12 +39,12 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.ui.WatchCard
-import io.github.sudomegas.saat.ui.formatMeasurement
 import io.github.sudomegas.saat.ui.detail.SpecValue
 import io.github.sudomegas.saat.ui.form.EnumChoice
 import io.github.sudomegas.saat.ui.form.MOVEMENT_KINDS
 import io.github.sudomegas.saat.ui.form.STYLES
 import io.github.sudomegas.saat.ui.form.labelFor
+import io.github.sudomegas.saat.ui.formatMeasurement
 
 /**
  * One watch in the grid.

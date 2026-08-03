@@ -52,9 +52,10 @@ class SettingsViewModel(
      * Applied before it is persisted, for the same reason the theme is: the
      * apply is what the owner sees happen, and a write that failed should not
      * be able to hold the interface back. The code is a bare language tag
-     * (`en`, `tr`) and reaches `AppCompatDelegate.setApplicationLocales`, which
-     * is the only per-app locale mechanism that covers the whole minSdk 26
-     * range — the framework's own LocaleManager is API 33+.
+     * (`en`, `tr`) and reaches `SaatApplication.applyLanguage`, which asks the
+     * framework's LocaleManager on API 33+ and AppCompatDelegate below it —
+     * neither mechanism covers the whole minSdk 26 range on its own, and the
+     * reason that split exists at all is written out there.
      *
      * Nothing here touches storage. Enum values in `watch.toml` stay canonical
      * English whatever this is set to; the Turkish build shows a Turkish label

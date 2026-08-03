@@ -10,10 +10,11 @@ import io.github.sudomegas.saat.ui.detail.acquisitionRows
 import io.github.sudomegas.saat.ui.detail.caseRows
 import io.github.sudomegas.saat.ui.detail.dialRows
 import io.github.sudomegas.saat.ui.detail.enumValue
+import io.github.sudomegas.saat.ui.detail.movementRows
 import io.github.sudomegas.saat.ui.form.GROUPS
 import io.github.sudomegas.saat.ui.form.STATUSES
+import io.github.sudomegas.saat.ui.form.STRAP_MATERIALS
 import io.github.sudomegas.saat.ui.form.STYLES
-import io.github.sudomegas.saat.ui.detail.movementRows
 
 /**
  * The Specs list's preset switcher — SPEC-ANDROID 5.3.
@@ -175,13 +176,22 @@ private fun identityCells(watch: Watch): List<SpecRow> = listOf(
  */
 private fun strapCells(watch: Watch): List<SpecRow> {
     val fitted = watch.straps.firstOrNull { it.fitted }
-    val description = listOfNotNull(fitted?.material, fitted?.colour)
-        .mapNotNull { it.trim().takeIf(String::isNotEmpty) }
+
+    // The material is a schema value and the colour is the owner's word, so the
+    // two halves of this one cell are built differently on purpose: the specs
+    // list said `Steel Bracelet · Brushed` under a Turkish header while the
+    // detail page's strap row said `Çelik Bileklik`, because this cell flattened
+    // both into Plain. `Joined` translates each part first and punctuates with
+    // the middle dot the cell always used.
+    val description: List<SpecValue> = listOfNotNull(
+        enumValue(fitted?.material, STRAP_MATERIALS),
+        fitted?.colour?.trim()?.takeIf(String::isNotEmpty)?.let { SpecValue.Plain(it) },
+    )
 
     return listOf(
         SpecRow(
             R.string.field_strap_fitted,
-            description.takeIf { it.isNotEmpty() }?.let { SpecValue.Plain(it.joinToString(" · ")) },
+            description.takeIf { it.isNotEmpty() }?.let { SpecValue.Joined(it, separator = " · ") },
         ),
         SpecRow(
             R.string.field_strap_width,
