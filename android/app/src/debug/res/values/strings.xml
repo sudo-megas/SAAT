@@ -18,4 +18,9 @@
 
     <string name="action_add_demo_watches">Add demo watches</string>
     <string name="action_clear_demo_watches">Clear demo watches</string>
+
+    <!-- AM8. Named "demo" like every other key here so the release-absence
+         scanner recognises it; it is a developer convenience for placing the
+         widget without driving the launcher's own long-press menu. -->
+    <string name="action_demo_pin_widget">Pin today widget</string>
 </resources>

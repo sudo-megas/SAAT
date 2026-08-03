@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark. The caption stays white over its scrim in both, because the scrim is
+     over a photograph rather than over the plate. -->
+<resources>
+    <color name="widget_background">#FF1A1815</color>
+    <color name="widget_on_background">#FFA8A29A</color>
+</resources>

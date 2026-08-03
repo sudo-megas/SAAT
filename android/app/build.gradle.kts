@@ -18,10 +18,10 @@ android {
         applicationId = "io.github.sudomegas.saat"
         minSdk = 26
         targetSdk = 37
-        // versionCode is bumped on every TAGGED release and AM7 is not one —
+        // versionCode is bumped on every TAGGED release and AM8 is not one —
         // SPEC-ANDROID 8. The name follows the milestone table.
         versionCode = 1
-        versionName = "0.7"
+        versionName = "0.8"
     }
 
     buildTypes {
@@ -197,6 +197,22 @@ dependencies {
     // forbids outright and verifyReleaseManifestPolicy would fail the build
     // over. Nothing here ever loads a URL: every model is a local File.
     implementation(libs.coil.compose)
+
+    // NO GLANCE, and AM8 is where that was settled — against SPEC-ANDROID 2.1,
+    // which approves it. Every published Glance version declares
+    // androidx.work:work-runtime, and GlanceAppWidget's CONSTRUCTOR resolves
+    // androidx.work.CoroutineWorker: it is not an optional path that could be
+    // excluded, it is the class itself. Measured, not assumed — with the
+    // dependency excluded the widget crashed on a real phone with
+    // NoClassDefFoundError before it drew a pixel.
+    //
+    // Keeping WorkManager means shipping WAKE_LOCK, ACCESS_NETWORK_STATE,
+    // RECEIVE_BOOT_COMPLETED and FOREGROUND_SERVICE — hard rule 2 forbids every
+    // one, and verifyReleaseManifestPolicy found all four — plus androidx.sqlite,
+    // which hard rule 4 forbids by name. The hard rules are "non-negotiable, do
+    // not improve past them"; §2.1's approved list is a budget written before
+    // anyone checked what Glance drags in. So the widget is plain RemoteViews,
+    // which needs no dependency at all. See the note in TodayWidgetProvider.
 
     testImplementation(libs.junit)
 }

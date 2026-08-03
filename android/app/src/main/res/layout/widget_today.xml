@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The today widget — SPEC-ANDROID 5.9.
+
+  Plain RemoteViews rather than Glance. See the note in TodayWidgetProvider: the
+  library §2.1 approves cannot be used without WorkManager, which cannot be used
+  without breaking hard rules 2 and 4.
+
+  A photograph behind, two lines of text at the bottom over a scrim so they stay
+  legible on a pale one. Colours come from resources with values-night/ and
+  values-v31/ variants, which is how a RemoteViews layout respects dark mode and
+  Android 12+ dynamic colour without any code.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/widget_background">
+
+    <ImageView
+        android:id="@+id/widget_photo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="centerCrop" />
+
+    <!-- The empty state, centred and quiet — the same voice as every other
+         empty state in the app. Visibility is swapped in code. -->
+    <TextView
+        android:id="@+id/widget_empty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:padding="12dp"
+        android:text="@string/screen_widget_nothing_today"
+        android:textColor="@color/widget_on_background"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:id="@+id/widget_caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@color/widget_scrim"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/widget_brand"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/widget_caption_muted"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/widget_model"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/widget_caption"
+            android:textSize="14sp" />
+    </LinearLayout>
+</FrameLayout>

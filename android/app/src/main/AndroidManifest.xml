@@ -83,6 +83,63 @@
         </activity>
 
         <!--
+          Today's picker, hosted on its own — SPEC-ANDROID 5.9's "lightweight
+          activity, not the full app shell". Reached from the widget and from
+          the "Wore this today" shortcut; the whole point of both is that
+          logging today never requires opening the app.
+
+          exported="true" because the LAUNCHER starts it, from a shortcut and
+          from a widget tap, and both are other processes. It accepts no data:
+          it reads nothing from the intent, so there is nothing an unexpected
+          caller could ask it to do beyond showing today's picker.
+        -->
+        <activity
+            android:name=".widget.TodayPickerActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/screen_widget_picker_title"
+            android:theme="@style/Theme.SAAT" />
+
+        <!--
+          The widget. No android:updatePeriodMillis in its metadata — see
+          @xml/today_widget_info: the platform's periodic update is a poll and
+          the brief forbids one.
+        -->
+        <receiver
+            android:name=".widget.TodayWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_widget_info" />
+        </receiver>
+
+        <!--
+          The midnight rollover, and the system's own date/time-zone changes.
+
+          All three of these broadcasts are exempt from the API 26 implicit-
+          broadcast restrictions, so a manifest receiver still gets them — which
+          is what covers a phone that slept through midnight, one whose clock
+          was set by hand, and one carried across a time zone. The alarm alone
+          sees none of those.
+
+          Still no permission of any kind: the alarm behind this is INEXACT, so
+          it needs neither SCHEDULE_EXACT_ALARM nor USE_EXACT_ALARM.
+        -->
+        <receiver
+            android:name=".widget.MidnightReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="io.github.sudomegas.saat.MIDNIGHT" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
           The camera hand-off, and the reason there is still no CAMERA
           permission (AM5).
 

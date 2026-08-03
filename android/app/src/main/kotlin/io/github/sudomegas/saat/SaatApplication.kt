@@ -20,7 +20,12 @@ import io.github.sudomegas.saat.ui.FilterState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import io.github.sudomegas.saat.widget.TodayWidgetProvider
+import io.github.sudomegas.saat.widget.todayWatch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import okio.Path.Companion.toOkioPath
 
 class SaatApplication : Application(), SingletonImageLoader.Factory {
@@ -101,6 +106,19 @@ class SaatApplication : Application(), SingletonImageLoader.Factory {
         // because an empty collection and an unread one look different
         // (SPEC-ANDROID 5.8).
         applicationScope.launch { watchRepository.load() }
+
+        // SPEC-ANDROID 5.9: the widget updates "immediately whenever today's
+        // assignment changes from anywhere in the app". Observed here rather
+        // than called from each of the three wear entry points, because there
+        // is one collection and this is the one place that outlives every
+        // screen. distinctUntilChanged means an edit to some unrelated watch
+        // does not redraw it.
+        applicationScope.launch {
+            watchRepository.state
+                .map { it.records.todayWatch(LocalDate.now(), paths)?.slug }
+                .distinctUntilChanged()
+                .collect { TodayWidgetProvider.updateAll(this@SaatApplication) }
+        }
     }
 
     /**
