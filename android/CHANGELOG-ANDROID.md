@@ -3,6 +3,61 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [0.9] - 2026-08-03
+
+Feature-completeness for v1: the screen for deciding what to wear, and the three
+small intelligences that make the catalogue smarter than a spreadsheet.
+
+**Compare pairs rows by label, never by index.** The detail page's movement rows
+are conditional — a mechanical watch gets `power_reserve_hours` and a quartz
+gets `battery_life_years` — so the two lists differ in length and position N is
+not the same attribute on both sides. Zipping them would have put a 72-hour
+power reserve opposite a 2-year battery life, classified the pair as differing,
+and been confidently wrong on both rows. A two-pointer merge keyed on the label
+puts each figure on its own row and lands a one-sided row where its own side
+puts it, so an automatic against a quartz reads `… power reserve, battery life,
+accuracy …` rather than stranding the battery figure at the foot of the group.
+
+**Compare calls the detail page's row builders rather than restating them.** The
+brief is explicit that this screen "must not become a second implementation of
+value display", so a formatting fix made for one arrives at the other for free.
+Only two builders are new, and both exist because compare needs what a header
+line cannot give: identity as labelled rows, and the *fitted* strap rather than
+the whole list — comparing "3 straps" against "1 strap" tells the owner nothing.
+
+**Zero is always folded into the timing sparkline's range.** Ported from the
+desktop rather than reinvented, and this is the decision a fresh implementation
+gets wrong: without it the reference line leaves the chart whenever a watch
+never crosses zero, and a line wiggling inside an auto-scaled box looks the same
+whether it is ±0.5 sec/day or ±30. It costs vertical detail on a consistently
+fast watch and buys the only comparison the chart is for. The x axis is the
+reading's index rather than its date for the mirror reason — readings come three
+in a week after a service and then not for a year, and true spacing would crush
+that cluster into a smear.
+
+**The maintenance line's silence is the feature.** Nothing when there is no
+Service entry to project from, nothing when the interval is blank, nothing when
+the date is comfortably ahead. Most watches will never carry an interval and a
+catalogue that nagged about them is one the owner stops opening. A test asserts
+that a watch serviced in 1998 with no interval recorded says nothing at all.
+
+**`battery_due` gets the same treatment, so the notice is a list.** The brief
+says "a single line", which is about not building a banner; a watch that
+legitimately has both a service and a battery due would otherwise have one of
+them suppressed — the page knowing something it does not say. The accent dot
+fires on either clock, and overdue and due-soon look identical on the card on
+purpose: a grid that graded its warnings would be a grid that nags.
+
+**Strap compatibility is the desktop's rules, all four of them.** Both sides
+must be Owned — swapping only makes sense between watches physically on hand —
+and a strap with no width of its own matches on its owner's lug width, which is
+what makes the feature find anything at all in a real collection where most
+straps never get a figure typed in. Nothing is deduplicated: two identical 20 mm
+leather straps on two watches are two straps to reach for, and collapsing them
+would hide where the second one is.
+
+**No charting dependency.** The sparkline is a `Canvas`, a `Path` and nine lines.
+
 ## [0.8] - 2026-08-03
 
 From this build, logging today never requires opening the app.

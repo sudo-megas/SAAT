@@ -342,7 +342,7 @@ private const val MAX_RATING = 5
 
 // --- rows within the list-shaped groups -------------------------------------
 
-private fun Strap.toCard(owner: Watch, mediaDir: File) = StrapCard(
+internal fun Strap.toCard(owner: Watch, mediaDir: File) = StrapCard(
     material = material.orNull(),
     colour = colour.orNull(),
     widthMm = effectiveWidthMm(owner),
