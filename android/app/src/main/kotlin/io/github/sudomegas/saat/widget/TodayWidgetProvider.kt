@@ -7,8 +7,11 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.os.LocaleList
 import android.view.View
 import android.widget.RemoteViews
+import androidx.appcompat.app.AppCompatDelegate
 import io.github.sudomegas.saat.MainActivity
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.SaatApplication
@@ -72,6 +75,18 @@ class TodayWidgetProvider : AppWidgetProvider() {
     private fun render(context: Context, today: TodayWatch?): RemoteViews =
         RemoteViews(context.packageName, R.layout.widget_today).apply {
             if (today == null) {
+                // Pushed across rather than left to the layout's android:text.
+                // A RemoteViews tree is inflated in the LAUNCHER's process, so
+                // `@string/screen_widget_nothing_today` in widget_today.xml is
+                // resolved against the DEVICE's locale and knows nothing about
+                // this app's. On a Turkish phone with the app set to English the
+                // widget read "Bugün için kayıt yok" beside an entirely English
+                // app — hard rule 7, on the one surface the rule's machinery
+                // cannot reach by itself.
+                setTextViewText(
+                    R.id.widget_empty,
+                    context.inAppLanguage().getString(R.string.screen_widget_nothing_today),
+                )
                 setViewVisibility(R.id.widget_empty, View.VISIBLE)
                 setViewVisibility(R.id.widget_caption, View.GONE)
                 setViewVisibility(R.id.widget_photo, View.GONE)
@@ -212,4 +227,30 @@ class MidnightReceiver : android.content.BroadcastReceiver() {
         TodayWidgetProvider.updateAll(context)
         MidnightRefresh.schedule(context)
     }
+}
+
+/**
+ * A Context whose resources speak the language the OWNER chose, not the one the
+ * phone is set to.
+ *
+ * Hard rule 7 is enforced for the app's own screens by
+ * `SaatApplication.applyLanguage`, and for API 33+ the framework then applies
+ * that locale to the whole process. A widget is the exception, twice over: its
+ * layout is inflated somewhere else entirely, and on API 26-32 the per-app
+ * locale lives in an AppCompat static that only Activity contexts consult — a
+ * broadcast receiver's context has never heard of it.
+ *
+ * `AppCompatDelegate.getApplicationLocales` answers correctly on both sides of
+ * 33 (it reads the framework's LocaleManager above, its own record below), so
+ * pinning it onto a configuration context gives one lookup that is right
+ * everywhere. An empty list means nothing was ever asserted, and the platform
+ * default is then the honest answer.
+ */
+private fun Context.inAppLanguage(): Context {
+    val locales = AppCompatDelegate.getApplicationLocales()
+    if (locales.isEmpty) return this
+
+    val configuration = Configuration(resources.configuration)
+    configuration.setLocales(LocaleList.forLanguageTags(locales.toLanguageTags()))
+    return createConfigurationContext(configuration)
 }
