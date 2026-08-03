@@ -36,6 +36,13 @@ import io.github.sudomegas.saat.storage.FacetKind
 import io.github.sudomegas.saat.storage.WatchFilter
 import io.github.sudomegas.saat.ui.FiltersViewModel
 import io.github.sudomegas.saat.ui.formatPrice
+import io.github.sudomegas.saat.ui.form.CASE_MATERIALS
+import io.github.sudomegas.saat.ui.form.EnumChoice
+import io.github.sudomegas.saat.ui.form.GROUPS
+import io.github.sudomegas.saat.ui.form.MOVEMENT_KINDS
+import io.github.sudomegas.saat.ui.form.STATUSES
+import io.github.sudomegas.saat.ui.form.STYLES
+import io.github.sudomegas.saat.ui.form.labelFor
 
 /**
  * The filter sheet — SPEC-ANDROID 5.12, the desktop sidebar folded into a
@@ -157,8 +164,12 @@ private fun SummaryFooter(summary: CollectionSummary) {
                 color = MaterialTheme.colorScheme.onSurface,
             )
             summary.byMovementKind.forEach { (kind, count) ->
+                // The kind is a schema value here too — the summary counted
+                // `Automatic: 2` in Turkish until it asked for the label. A
+                // movement the schema has never heard of keeps its own spelling.
+                val label = labelFor(kind, MOVEMENT_KINDS)?.let { stringResource(it) } ?: kind
                 Text(
-                    text = stringResource(R.string.screen_filters_summary_kind, kind, count),
+                    text = stringResource(R.string.screen_filters_summary_kind, label, count),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -221,19 +232,41 @@ fun ActiveFilterChips(filter: WatchFilter, onRemove: (FacetKind, String) -> Unit
 /**
  * A facet value's label.
  *
- * Every one of these is the owner's own data — a style, a brand group, a tag —
- * except the boolean facet, whose single value is a token this app invented and
- * therefore the only one with a translatable name.
+ * Five of these facets count schema `enum*` values and are translated the same
+ * way they are everywhere else. An earlier version of this comment called all of
+ * them "the owner's own data", which is true of a tag and not of a status: the
+ * sheet headed a section `Durum` and listed `Owned (3)` beneath it, and the
+ * dismiss chip above the grid said `Automatic: 2`, on a fully Turkish
+ * interface.
+ *
+ * A value the schema does not know still falls through to itself, so a group
+ * the owner invented reads as they typed it — and a tag, which is nothing but
+ * the owner's word, has no choice list to consult at all.
  */
 @Composable
-private fun FacetKind.label(value: String): String =
-    if (this == FacetKind.NOT_WORN_90) {
-        stringResource(R.string.screen_filters_not_worn)
-    } else if (this == FacetKind.LUG_WIDTH) {
-        stringResource(R.string.field_value_mm, value)
-    } else {
-        value
-    }
+private fun FacetKind.label(value: String): String = when (this) {
+    FacetKind.NOT_WORN_90 -> stringResource(R.string.screen_filters_not_worn)
+    FacetKind.LUG_WIDTH -> stringResource(R.string.field_value_mm, value)
+    else -> choices()?.let { labelFor(value, it) }?.let { stringResource(it) } ?: value
+}
+
+/**
+ * The choice list a facet's values are drawn from, or null when they are the
+ * owner's own words.
+ *
+ * Exhaustive for the same reason [titleRes] is: a facet added later must say
+ * which of the two it is rather than defaulting quietly to untranslated.
+ */
+private fun FacetKind.choices(): List<EnumChoice>? = when (this) {
+    FacetKind.STATUS -> STATUSES
+    FacetKind.STYLE -> STYLES
+    FacetKind.GROUP -> GROUPS
+    FacetKind.MOVEMENT_KIND -> MOVEMENT_KINDS
+    FacetKind.CASE_MATERIAL -> CASE_MATERIALS
+    FacetKind.LUG_WIDTH -> null
+    FacetKind.TAG -> null
+    FacetKind.NOT_WORN_90 -> null
+}
 
 /**
  * `FacetKind` lives in `storage/` and holds no resource id — the storage layer
