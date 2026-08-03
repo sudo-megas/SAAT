@@ -157,6 +157,23 @@ dropdown, then save. Export, and open the `watch.toml` in a text editor.
 - Pass: set the phone's own system language to Turkish while the app is set to
   English. The app **stays English**. That is hard rule 7 and it is deliberate.
 
+**Do this on Android 13 or newer, and the check is not the screen alone.** This
+failed the first time it was ever run, and it could only fail there: below API 33
+the per-app locale is an AppCompat static that works from anywhere, while on 33+
+it belongs to the framework and the app has to hand it over. An older phone
+passes this check trivially while a newer one is broken, so a PASS from a
+pre-33 device proves nothing about the devices anyone is using.
+
+Confirm the framework agrees, not just the screen:
+
+```
+adb shell cmd locale get-app-locales io.github.sudomegas.saat
+```
+
+- Pass: `[en]` — the app asserted its language and the system recorded it.
+- Fail: `[]` while `config.toml` says `en`. That is the bug this check exists
+  for, and the interface will be in the phone's language.
+
 ### 13. Widget and shortcut still work
 
 These are AM8's and should be unaffected, but the wear path was touched.
@@ -164,6 +181,17 @@ These are AM8's and should be unaffected, but the wear path was touched.
 - Pass: the widget shows today's watch or "Nothing recorded today".
 - Pass: the launcher long-press shortcut **Wore this today** records, and the
   calendar shows it.
+
+**Check the widget's language separately from the app's, with the app set to
+English.** It is not covered by item 12 and was wrong when 12 was fixed: a
+widget's layout is inflated in the LAUNCHER'S process, so any string it draws
+from `@string/` is resolved against the DEVICE's language and this app is never
+asked. Clear today's watch from the picker to make the empty state appear —
+that is the only string the widget owns.
+
+- Pass: it reads "Nothing recorded today" while the phone is in Turkish and the
+  app is in English.
+- Fail: "Bugün için kayıt yok" beside an English app.
 
 ---
 
