@@ -79,8 +79,24 @@ library — `tomlkt`, chosen in AM1** with the measurements recorded in that
 milestone's commit message; Glance for the widget; JUnit and Robolectric for
 tests. That is the whole list.
 
-Two entries changed during AM1 and the reasons belong here rather than only in a
-commit message:
+**Glance was removed in AM8, and the widget is plain RemoteViews.** This entry
+was written before anyone checked what Glance depends on. Every published
+version declares `androidx.work:work-runtime`, and `GlanceAppWidget`'s
+*constructor* resolves `androidx.work.CoroutineWorker` — it is the class itself,
+not an optional path something could exclude, which was measured rather than
+assumed: with the dependency excluded the widget crashed on a real phone with
+`NoClassDefFoundError` before drawing a pixel.
+
+Keeping WorkManager breaks two hard rules at once. It injects WAKE_LOCK,
+ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED and FOREGROUND_SERVICE into the
+merged manifest — hard rule 2, and `verifyReleaseManifestPolicy` failed on all
+four the moment Glance went in — and it brings `androidx.sqlite`, which hard
+rule 4 forbids by name. The hard rules are non-negotiable; this list is a
+budget. So the widget uses `RemoteViews`, which needs no dependency at all, and
+Glance is off the approved list.
+
+Three entries changed after this section was first written, and the reasons
+belong here rather than only in a commit message:
 
 - **`androidx.appcompat` was added.** Hard rule 7 below says the app never reads
   the system locale and defaults to English. On Android that is not a default you
