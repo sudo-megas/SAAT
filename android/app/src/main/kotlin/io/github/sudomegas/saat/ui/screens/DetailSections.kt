@@ -228,7 +228,17 @@ private fun StrapBlock(strap: StrapCard) {
             StrapPhoto(strap)
         }
         Column(modifier = Modifier.weight(1f)) {
-            val description = listOfNotNull(strap.material, strap.colour)
+            // `: List<String>` is load-bearing, here and at every other join in
+            // this file. `material` is a SpecValue and `colour` a String, so
+            // without it `listOfNotNull` infers List<Any> and `joinToString`
+            // reaches for SpecValue's data-class toString — which is how
+            // `EnumValue(value=Steel, labelRes=null)` came to be printed on the
+            // detail page of a shipping build. Naming the type makes that a
+            // compile error rather than something only a phone can notice.
+            val description: List<String> = listOfNotNull(
+                strap.material?.let { specValueText(it) },
+                strap.colour,
+            )
             Text(
                 text = description.takeIf { it.isNotEmpty() }
                     ?.joinToString(stringResource(R.string.screen_detail_separator))
@@ -236,9 +246,9 @@ private fun StrapBlock(strap: StrapCard) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            val detail = listOfNotNull(
+            val detail: List<String> = listOfNotNull(
                 strap.widthMm?.let { stringResource(R.string.field_value_mm, it.toString()) },
-                strap.clasp,
+                strap.clasp?.let { specValueText(it) },
             )
             if (detail.isNotEmpty()) {
                 Text(
@@ -287,7 +297,10 @@ private fun CompatibleStrapBlock(card: CompatibleStrapCard, onOpenWatch: (String
             StrapPhoto(card.strap)
         }
         Column(modifier = Modifier.weight(1f)) {
-            val description = listOfNotNull(card.strap.material, card.strap.colour)
+            val description: List<String> = listOfNotNull(
+                card.strap.material?.let { specValueText(it) },
+                card.strap.colour,
+            )
             Text(
                 text = description.takeIf { it.isNotEmpty() }
                     ?.joinToString(stringResource(R.string.screen_detail_separator))
@@ -337,7 +350,10 @@ private fun LogBlock(entry: LogLine) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 5.dp),
     ) {
-        val heading = listOfNotNull(entry.date, entry.kind)
+        val heading: List<String> = listOfNotNull(
+            entry.date,
+            entry.kind?.let { specValueText(it) },
+        )
         Text(
             text = heading.takeIf { it.isNotEmpty() }
                 ?.joinToString(stringResource(R.string.screen_detail_separator))
@@ -434,7 +450,11 @@ private const val SPARKLINE_STROKE_PX = 3f
  */
 @Composable
 private fun TimingBlock(reading: TimingLine) {
-    val parts = listOfNotNull(reading.date, reading.deviation, reading.position)
+    val parts: List<String> = listOfNotNull(
+        reading.date,
+        reading.deviation,
+        reading.position?.let { specValueText(it) },
+    )
     Text(
         text = parts.takeIf { it.isNotEmpty() }
             ?.joinToString(stringResource(R.string.screen_detail_separator))
