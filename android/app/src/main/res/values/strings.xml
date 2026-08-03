@@ -212,6 +212,15 @@
     <string name="settings_export_done">Exported %1$d watches and %2$d photographs to %3$s.</string>
     <string name="settings_export_skipped">Skipped, no watch.toml inside: %1$s</string>
     <string name="settings_transfer_failed">That did not work: %1$s</string>
+    <string name="settings_import_done">Imported %1$d watches, skipped %2$d already here.</string>
+    <string name="settings_import_added">Added: %1$s</string>
+    <string name="settings_import_skipped">Already here: %1$s</string>
+    <string name="settings_import_malformed">Would not parse: %1$s</string>
+    <string name="settings_import_ignored">Not part of a collection: %1$s</string>
+    <!-- The data paragraph AM10c asks for: where things live, what the cloud
+         backup covers and what it does not. Dull on purpose — this is where an
+         owner comes to satisfy themselves their records are not trapped. -->
+    <string name="settings_data_about">Watches and their photographs live in this app\'s private storage. Android\'s cloud backup carries the records only, because photographs would exhaust its quota — the ZIP export is how photographs travel, and it is always available. Moving to a new phone directly carries everything.</string>
 
     <!-- Month abbreviations for the twelve-month strip, and for AM7's calendar.
          Resources rather than Month.getDisplayName, which would need a Locale:

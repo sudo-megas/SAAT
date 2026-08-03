@@ -2,6 +2,7 @@ package io.github.sudomegas.saat.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -148,6 +149,13 @@ private fun DataSection(viewModel: TransferViewModel) {
         ActivityResultContracts.CreateDocument(ZIP_MIME),
     ) { uri -> uri?.let(viewModel::export) }
 
+    val open = rememberLauncherForActivityResult(
+        // Two MIME types, because a ZIP arrives under either depending on which
+        // app wrote it, and a file the picker greys out is a file the owner
+        // cannot import however valid it is.
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(viewModel::import) }
+
     SectionHeader(stringResource(R.string.settings_data))
 
     Text(
@@ -167,6 +175,12 @@ private fun DataSection(viewModel: TransferViewModel) {
         ) {
             Text(text = stringResource(R.string.action_export_zip))
         }
+        TextButton(
+            onClick = { open.launch(ZIP_MIME_TYPES) },
+            enabled = !state.isRunning,
+        ) {
+            Text(text = stringResource(R.string.action_import_zip))
+        }
     }
 
     state.progress?.takeIf { state.isRunning }?.let { progress ->
@@ -183,6 +197,13 @@ private fun DataSection(viewModel: TransferViewModel) {
     }
 
     TransferOutcome(result = state.result)
+
+    Text(
+        text = stringResource(R.string.settings_data_about),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
 }
 
 /**
@@ -224,6 +245,26 @@ private fun TransferOutcome(result: TransferResult?) {
             }
         }
 
+        is TransferResult.Imported -> Column(
+            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.settings_import_done,
+                    result.summary.added.size,
+                    result.summary.skipped.size,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            // Every one of the four outcomes is NAMED, not counted — SPEC-ANDROID
+            // 3.2 asks for "n added, n skipped, named", and a watch that did not
+            // arrive is exactly the thing the owner needs to be able to look for.
+            ImportDetail(R.string.settings_import_added, result.summary.added)
+            ImportDetail(R.string.settings_import_skipped, result.summary.skipped)
+            ImportDetail(R.string.settings_import_malformed, result.summary.malformed)
+            ImportDetail(R.string.settings_import_ignored, result.summary.ignored)
+        }
+
         is TransferResult.Failed -> Text(
             text = stringResource(R.string.settings_transfer_failed, result.message),
             style = MaterialTheme.typography.bodyMedium,
@@ -234,6 +275,25 @@ private fun TransferOutcome(result: TransferResult?) {
 }
 
 private const val ZIP_MIME = "application/zip"
+
+/**
+ * `application/octet-stream` is listed because a good many file managers hand a
+ * .zip over under it, and without it the picker greys out the very file the
+ * owner just exported. The archive is validated on the way in regardless of
+ * what MIME type it claimed on the way through the picker.
+ */
+private val ZIP_MIME_TYPES = arrayOf(ZIP_MIME, "application/octet-stream")
+
+/** One named list, or nothing at all when that outcome did not happen. */
+@Composable
+private fun ImportDetail(@StringRes templateRes: Int, names: List<String>) {
+    if (names.isEmpty()) return
+    Text(
+        text = stringResource(templateRes, names.joinToString(", ")),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
 
 @Composable
 private fun SectionHeader(text: String) {
