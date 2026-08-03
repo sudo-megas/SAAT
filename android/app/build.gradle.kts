@@ -21,7 +21,7 @@ android {
         // versionCode is bumped on every TAGGED release and AM8 is not one —
         // SPEC-ANDROID 8. The name follows the milestone table.
         versionCode = 1
-        versionName = "0.9"
+        versionName = "0.10"
     }
 
     buildTypes {
@@ -69,6 +69,13 @@ android {
 tasks.withType<Test>().configureEach {
     outputs.dir(layout.buildDirectory.dir("reports/parity"))
         .withPropertyName("desktopParityArtefacts")
+
+    // AM10's half of the same bargain: the exported archive is a real output of
+    // the tests, and CI hands it to `parity_check.py zip`. Undeclared, a cached
+    // test task would restore no file on a fresh checkout and the release gate
+    // would fail for a reason that is not a bug.
+    outputs.dir(layout.buildDirectory.dir("reports/zip-bridge"))
+        .withPropertyName("zipBridgeArtefacts")
 
     inputs.files(fileTree(layout.buildDirectory.dir("parity-in")))
         .withPropertyName("desktopWrittenFixture")
