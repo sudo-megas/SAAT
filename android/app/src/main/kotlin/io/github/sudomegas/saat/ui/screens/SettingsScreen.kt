@@ -44,6 +44,7 @@ fun SettingsScreen(
     transferViewModel: TransferViewModel,
     onThemeModeChange: (ThemeMode) -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
+    onLanguageChange: (String) -> Unit,
 ) {
     Column(
         Modifier
@@ -117,6 +118,12 @@ fun SettingsScreen(
             Modifier.padding(vertical = 8.dp),
             color = MaterialTheme.colorScheme.outlineVariant,
         )
+        LanguageSection(current = config.language, onChange = onLanguageChange)
+
+        HorizontalDivider(
+            Modifier.padding(vertical = 8.dp),
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
         DataSection(viewModel = transferViewModel)
 
         // Renders the demo-watch actions in debug builds and literally nothing
@@ -126,6 +133,59 @@ fun SettingsScreen(
         DeveloperSection(repository)
     }
 }
+
+/**
+ * English or Turkish, chosen explicitly — SPEC-ANDROID 5.10 and hard rule 7.
+ *
+ * EACH LANGUAGE IS NAMED IN ITS OWN TONGUE and neither name is translated, so
+ * an owner who has just set the app to a language they cannot read can still
+ * find their way back. That is the one place in the app where leaving a string
+ * untranslated is the correct decision rather than an oversight.
+ *
+ * There is no "System" option here, and its absence is the rule rather than an
+ * omission: hard rule 7 says the app never reads the system locale to choose
+ * its language, and a System entry would be exactly that, offered as a feature.
+ */
+@Composable
+private fun LanguageSection(current: String, onChange: (String) -> Unit) {
+    SectionHeader(stringResource(R.string.settings_language))
+
+    Column(Modifier.selectableGroup()) {
+        LANGUAGES.forEach { (code, labelRes) ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = current == code,
+                        onClick = { onChange(code) },
+                        role = Role.RadioButton,
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = current == code, onClick = null)
+                Text(
+                    text = stringResource(labelRes),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = 16.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The two languages v1.0 ships, as (tag, label) pairs.
+ *
+ * The tag is what reaches AppCompatDelegate and what `config.toml` stores; it
+ * is never shown. Adding a third language means adding `values-<tag>/` and one
+ * entry here, and StringsTranslationTest will then require the new folder to be
+ * complete.
+ */
+private val LANGUAGES = listOf(
+    AppConfig.DEFAULT_LANGUAGE to R.string.settings_language_en,
+    "tr" to R.string.settings_language_tr,
+)
 
 /**
  * Export and import — SPEC-ANDROID 5.10, AM10.

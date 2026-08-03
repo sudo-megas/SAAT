@@ -256,6 +256,7 @@ fun SaatApp(
                     transferViewModel = transferViewModel,
                     onThemeModeChange = viewModel::setThemeMode,
                     onDynamicColorChange = viewModel::setDynamicColor,
+                    onLanguageChange = viewModel::setLanguage,
                 )
             }
         }

@@ -239,7 +239,14 @@ class ComparePageTest {
         // Leather against Leather — the unfitted rubber strap is not what is on
         // the wrist and does not enter the comparison.
         assertEquals(RowContrast.SHARED, material!!.contrast)
-        assertEquals(SpecValue.Plain("Leather"), material.left)
+
+        // An EnumValue since AM11a, not a Plain: `Leather` is one of the
+        // schema's own strap materials, so it carries the label Turkish shows
+        // alongside the English that is stored. The comparison is on both, which
+        // is what keeps two watches reading `Leather` matching.
+        val leftMaterial = material.left as SpecValue.EnumValue
+        assertEquals("Leather", leftMaterial.value)
+        assertEquals(R.string.enum_strapmaterial_leather, leftMaterial.labelRes)
     }
 
     /**

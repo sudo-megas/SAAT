@@ -11,16 +11,21 @@
   check reads the variant's R.txt and fails if any string resource whose name
   contains "demo" appears in the release build, and StringsConventionTest asserts
   the naming from this side so the two halves cannot drift apart.
+
+  translatable="false" on every one of them, for the same reason they live here:
+  a developer action that cannot reach a release build is not a product string,
+  and AM11's values-tr covers what the app SHIPS. Without it lint reports five
+  missing Turkish translations for text no owner can ever see.
 -->
 <resources>
-    <string name="settings_demo_watches">Demo watches</string>
-    <string name="settings_demo_watches_summary">Debug builds only. Two watches generated in code — nothing is bundled, nothing is committed.</string>
+    <string translatable="false" name="settings_demo_watches">Demo watches</string>
+    <string translatable="false" name="settings_demo_watches_summary">Debug builds only. Two watches generated in code — nothing is bundled, nothing is committed.</string>
 
-    <string name="action_add_demo_watches">Add demo watches</string>
-    <string name="action_clear_demo_watches">Clear demo watches</string>
+    <string translatable="false" name="action_add_demo_watches">Add demo watches</string>
+    <string translatable="false" name="action_clear_demo_watches">Clear demo watches</string>
 
     <!-- AM8. Named "demo" like every other key here so the release-absence
          scanner recognises it; it is a developer convenience for placing the
          widget without driving the launcher's own long-press menu. -->
-    <string name="action_demo_pin_widget">Pin today widget</string>
+    <string translatable="false" name="action_demo_pin_widget">Pin today widget</string>
 </resources>
