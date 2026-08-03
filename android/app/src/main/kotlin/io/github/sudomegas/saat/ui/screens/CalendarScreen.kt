@@ -4,21 +4,17 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,8 +41,6 @@ import io.github.sudomegas.saat.ui.CalendarViewModel
 import io.github.sudomegas.saat.ui.DaySelection
 import io.github.sudomegas.saat.ui.calendar.DAYS_IN_WEEK
 import io.github.sudomegas.saat.ui.calendar.MonthLayout
-import io.github.sudomegas.saat.ui.calendar.MonthStats
-import io.github.sudomegas.saat.ui.calendar.monthLayout
 import io.github.sudomegas.saat.ui.theme.slugColour
 import java.time.LocalDate
 import java.time.YearMonth
@@ -94,20 +88,9 @@ fun CalendarScreen(
     ) {
         MonthHeader(
             month = state.month,
-            isYearView = state.isYearView,
-            onPrevious = { viewModel.step(if (state.isYearView) -MONTHS_IN_YEAR else -1) },
-            onNext = { viewModel.step(if (state.isYearView) MONTHS_IN_YEAR else 1) },
-            onToggleYear = viewModel::toggleYearView,
+            onPrevious = { viewModel.step(-1) },
+            onNext = { viewModel.step(1) },
         )
-
-        if (state.isYearView) {
-            YearView(year = state.year, onOpenMonth = {
-                viewModel.showMonth(it)
-                viewModel.toggleYearView()
-            })
-            return@Column
-        }
-
         WeekdayHeader()
         MonthGrid(
             layout = state.layout,
@@ -124,8 +107,6 @@ fun CalendarScreen(
                 onCancel = viewModel::cancelSelection,
             )
         }
-
-        MonthFooter(state.stats)
 
         if (state.isLoaded && state.days.values.none { it.slug != null }) {
             // SPEC-ANDROID 5.8: an empty month plus one muted line. Shown
@@ -195,13 +176,7 @@ private fun RangeBar(days: Int, onPick: () -> Unit, onCancel: () -> Unit) {
 }
 
 @Composable
-private fun MonthHeader(
-    month: YearMonth,
-    isYearView: Boolean,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onToggleYear: () -> Unit,
-) {
+private fun MonthHeader(month: YearMonth, onPrevious: () -> Unit, onNext: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -212,21 +187,15 @@ private fun MonthHeader(
         TextButton(onClick = onPrevious) {
             Text(text = stringResource(R.string.action_previous_month))
         }
-        TextButton(onClick = onToggleYear) {
-            Text(
-                text = if (isYearView) {
-                    month.year.toString()
-                } else {
-                    stringResource(
-                        R.string.screen_calendar_month,
-                        stringResource(monthNameRes(month.monthValue)),
-                        month.year.toString(),
-                    )
-                },
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
+        Text(
+            text = stringResource(
+                R.string.screen_calendar_month,
+                stringResource(monthNameRes(month.monthValue)),
+                month.year.toString(),
+            ),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         TextButton(onClick = onNext) {
             Text(text = stringResource(R.string.action_next_month))
         }
@@ -426,127 +395,3 @@ internal fun monthNameRes(monthValue: Int): Int = when (monthValue) {
     11 -> R.string.screen_month_short_nov
     else -> R.string.screen_month_short_dec
 }
-
-/**
- * The footer strip — SPEC-ANDROID 5.5's three plain figures for the month on
- * screen.
- *
- * The third one is the only one that earns its place, and the brief says so:
- * days recorded and distinct watches are both visible by looking at the grid,
- * but which watches you did NOT wear this month is the thing you cannot see. So
- * it names them rather than counting them — a number would be as useless as the
- * other two.
- */
-@Composable
-private fun MonthFooter(stats: MonthStats) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Text(
-            text = stringResource(
-                R.string.screen_calendar_stats,
-                stats.daysRecorded,
-                stats.distinctWatches,
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (stats.notWorn.isNotEmpty()) {
-            Text(
-                text = stringResource(
-                    R.string.screen_calendar_not_worn,
-                    stats.notWorn.joinToString(", "),
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/**
- * The year view — twelve compact month grids, cells as colour chips.
- *
- * One hue per watch, from the same `slugColour` the month grid gives a
- * photo-less day, so a watch is the same colour wherever it appears. At this
- * size a photograph would be four pixels of brown; a hue is legible, and
- * recognising "that green one again" across twelve months is the only thing
- * this view is for.
- *
- * Tapping a month opens it. A year view you cannot get out of by pointing at
- * the month you wanted would be a picture rather than a control.
- */
-@Composable
-private fun YearView(
-    year: List<Pair<YearMonth, Map<LocalDate, String>>>,
-    onOpenMonth: (YearMonth) -> Unit,
-) {
-    val dark = isSystemInDarkTheme()
-
-    LazyColumn(
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(year.chunked(YEAR_COLUMNS)) { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEach { (month, worn) ->
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(monthNameRes(month.monthValue)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 2.dp),
-                        )
-                        MiniMonth(month = month, worn = worn, dark = dark) { onOpenMonth(month) }
-                    }
-                }
-                // Keeps the last row's months the same width as every other
-                // row's when twelve does not divide by the column count.
-                repeat(YEAR_COLUMNS - row.size) { Box(Modifier.weight(1f)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MiniMonth(
-    month: YearMonth,
-    worn: Map<LocalDate, String>,
-    dark: Boolean,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    ) {
-        monthLayout(month).cells.chunked(DAYS_IN_WEEK).forEach { week ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-                week.forEach { date ->
-                    val slug = date?.let { worn[it] }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .padding(0.5.dp)
-                            .background(
-                                when {
-                                    slug != null -> slugColour(slug, dark)
-                                    date != null -> MaterialTheme.colorScheme.surfaceContainer
-                                    else -> Color.Transparent
-                                }
-                            ),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Three across on a phone; twelve one-month grids at four columns are too small to read. */
-private const val YEAR_COLUMNS = 3
-
-private const val MONTHS_IN_YEAR = 12L

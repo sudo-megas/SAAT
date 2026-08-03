@@ -53,8 +53,6 @@
         <item quantity="one">1 day</item>
         <item quantity="other">%1$d days</item>
     </plurals>
-    <string name="screen_calendar_stats">%1$d days recorded · %2$d watches worn</string>
-    <string name="screen_calendar_not_worn">Not worn this month: %1$s</string>
     <string name="action_clear_day">Clear</string>
     <string name="action_pick_watch">Pick watch</string>
     <string name="action_previous_month">‹</string>

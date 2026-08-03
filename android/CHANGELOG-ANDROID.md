@@ -3,58 +3,7 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
-## [0.7] - 2026-08-03
-
-The most satisfying screen in the app, and the one whose desktop interaction
-grammar translates least.
-
-**The index is built in memory, at load, from each watch's own `worn` list.** No
-central log — the brief forbids centralising it "for efficiency", and the reason
-is that a watch folder stays a complete record: deleting a watch takes its days
-with it for free, the ZIP needs no second file, and a hand-edited `watch.toml`
-cannot disagree with an index nobody can see.
-
-**Monday-first, and not from the locale.** Deriving the first day of the week
-from the system locale would be reading the system locale to decide the
-interface — hard rule 7, arriving through a door nobody thought to close.
-
-**Blanks are blanks.** A grid showing the 31st of last month above the 1st
-invites tapping it, and every tap would silently edit a month you are not
-looking at.
-
-**A watch with no photograph fills its cell with its own hue.** Found by
-sideloading: the demo pair carries no photographs by design, which made every
-worn day indistinguishable from an empty one. The derivation is the desktop's
-exactly — crc32 of the slug's UTF-8 bytes, modulo 360 — because `hashCode()` is
-a *different* function and a collection opened on both platforms would colour
-the same watch two different ways.
-
-**Range mode replaces click-drag rather than imitating it.** A drag across a
-calendar competes with the scroll, and a drag starting on a cell competes with
-the tap. Long-press anchors a span, each tap extends it, and a bar shows the day
-count with Cancel and Pick watch — because a long press with no visible
-consequence reads as a missed tap.
-
-**One sheet for every case,** because tapping an empty day, tapping a filled day
-and finishing a span are the same question: which watch was on the wrist.
-Picking is one tap with no confirm, and the one-per-day rule moves the day off
-another watch *silently* — the brief forbids prompting, and a calendar you have
-to argue with never gets a year of backlog entered.
-
-**The rule itself is not reimplemented.** Assigning goes straight through AM4b's
-`assignWorn`; the whole of the reuse is one call.
-
-**The footer names the watches you did not wear.** Days recorded and distinct
-watches are both visible by looking at the grid — the brief is candid that the
-third figure is the only one that tells the owner something new, so it lists
-them rather than counting them. No streaks, no badges, no goals.
-
-**The year view is twelve compact grids of colour chips,** the same hue a watch
-gets anywhere else. At that size a photograph would be four pixels of brown; a
-hue is legible, and recognising "that green one again" across twelve months is
-the only thing the view is for. Tapping a month opens it.
-
-
+## [0.6] - 2026-08-03
 
 The desktop's table and its filter sidebar, rethought for a hand.
 
