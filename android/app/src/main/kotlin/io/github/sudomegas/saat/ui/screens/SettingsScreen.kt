@@ -1,35 +1,46 @@
 package io.github.sudomegas.saat.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.config.AppConfig
 import io.github.sudomegas.saat.config.ThemeMode
 import io.github.sudomegas.saat.storage.WatchRepository
+import io.github.sudomegas.saat.storage.exportFilename
+import io.github.sudomegas.saat.ui.TransferResult
+import io.github.sudomegas.saat.ui.TransferViewModel
 import io.github.sudomegas.saat.ui.theme.dynamicColorAvailable
+import java.time.LocalDate
 
 @Composable
 fun SettingsScreen(
     config: AppConfig,
     repository: WatchRepository,
+    transferViewModel: TransferViewModel,
     onThemeModeChange: (ThemeMode) -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
 ) {
@@ -101,6 +112,12 @@ fun SettingsScreen(
             }
         }
 
+        HorizontalDivider(
+            Modifier.padding(vertical = 8.dp),
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
+        DataSection(viewModel = transferViewModel)
+
         // Renders the demo-watch actions in debug builds and literally nothing
         // in release: there are two DeveloperSection composables, one per build
         // type, and this file names neither the generator nor its package. See
@@ -108,6 +125,115 @@ fun SettingsScreen(
         DeveloperSection(repository)
     }
 }
+
+/**
+ * Export and import — SPEC-ANDROID 5.10, AM10.
+ *
+ * The paragraph beneath the buttons is AM10c's "plain data section stating where
+ * data lives, what the cloud backup covers and does not". It is deliberately
+ * dull: this is the screen where an owner comes to satisfy themselves that their
+ * records are not trapped, and a marketing voice here would achieve the reverse.
+ *
+ * The picker is launched with a filename the owner can change. Both buttons are
+ * disabled while a transfer runs, because two concurrent writes to the same tree
+ * is the one way this feature could actually lose data.
+ */
+@Composable
+private fun DataSection(viewModel: TransferViewModel) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    val create = rememberLauncherForActivityResult(
+        // "application/zip" rather than a wildcard: the picker then suggests the
+        // right extension and other apps can see what the file is.
+        ActivityResultContracts.CreateDocument(ZIP_MIME),
+    ) { uri -> uri?.let(viewModel::export) }
+
+    SectionHeader(stringResource(R.string.settings_data))
+
+    Text(
+        text = stringResource(R.string.settings_export_summary),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+
+    Row(
+        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        TextButton(
+            onClick = { create.launch(exportFilename(LocalDate.now())) },
+            enabled = !state.isRunning,
+        ) {
+            Text(text = stringResource(R.string.action_export_zip))
+        }
+    }
+
+    state.progress?.takeIf { state.isRunning }?.let { progress ->
+        Text(
+            text = stringResource(
+                R.string.settings_transfer_working,
+                progress.done,
+                progress.total,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+
+    TransferOutcome(result = state.result)
+}
+
+/**
+ * What happened, in plain figures.
+ *
+ * Stays on screen rather than passing as a snackbar: an export names a
+ * destination the owner may want to go and look for, and a message that
+ * disappears after four seconds is a message they have to repeat the operation
+ * to read again.
+ */
+@Composable
+private fun TransferOutcome(result: TransferResult?) {
+    when (result) {
+        null -> Unit
+
+        is TransferResult.Exported -> Column(
+            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.settings_export_done,
+                    result.summary.watches,
+                    result.summary.images,
+                    result.destination,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            // Hard rule 6 again: a folder with no watch.toml in it did not
+            // travel, and the owner hears which one while they can still act.
+            if (result.summary.skipped.isNotEmpty()) {
+                Text(
+                    text = stringResource(
+                        R.string.settings_export_skipped,
+                        result.summary.skipped.joinToString(", "),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        is TransferResult.Failed -> Text(
+            text = stringResource(R.string.settings_transfer_failed, result.message),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
+}
+
+private const val ZIP_MIME = "application/zip"
 
 @Composable
 private fun SectionHeader(text: String) {

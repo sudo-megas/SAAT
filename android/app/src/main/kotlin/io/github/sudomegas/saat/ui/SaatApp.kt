@@ -68,6 +68,9 @@ fun SaatApp(
     // drift. Hoisted here rather than created per screen for that reason.
     val filtersViewModel: FiltersViewModel = viewModel(factory = FiltersViewModel.factory(app))
     val calendarViewModel: CalendarViewModel = viewModel(factory = CalendarViewModel.factory(app))
+    // Hoisted with the others rather than created inside SettingsScreen, so an
+    // export survives a tab switch made while it is running.
+    val transferViewModel: TransferViewModel = viewModel(factory = TransferViewModel.factory(app))
 
     // Which screen opened the sheet does not matter — it is the same sheet over
     // the same filter — so one flag serves both.
@@ -250,6 +253,7 @@ fun SaatApp(
                 SettingsScreen(
                     config = config,
                     repository = app.watchRepository,
+                    transferViewModel = transferViewModel,
                     onThemeModeChange = viewModel::setThemeMode,
                     onDynamicColorChange = viewModel::setDynamicColor,
                 )
