@@ -311,6 +311,34 @@ class WatchRepository(
         }
     }
 
+    /**
+     * Take days off whichever watches hold them — the calendar's Clear.
+     *
+     * The other half of [assignWorn] and the desktop's `clear_worn`. A
+     * drag-selected span can cross more than one owner, so this may touch
+     * several watches in one gesture; it returns the slugs it actually changed,
+     * and an empty list when nothing held any of those days.
+     *
+     * `backup = false` for the same reason [assignWorn] uses it: `backups/` is
+     * pruned to twenty shared slots and a calendar gesture must not crowd out a
+     * real edit.
+     */
+    suspend fun clearWorn(dates: Collection<LocalDate>): List<String> = writeLock.withLock {
+        val wanted = dates.toSet()
+        if (wanted.isEmpty()) return@withLock emptyList()
+
+        val cleared = mutableListOf<String>()
+        _state.value.records.forEach { holder ->
+            if (holder.watch?.worn.orEmpty().none { it in wanted }) return@forEach
+
+            updateLocked(holder.slug, backup = false) { watch ->
+                watch.copy(worn = watch.worn.filterNot { it in wanted })
+            }
+            cleared += holder.slug
+        }
+        cleared
+    }
+
     /** Dismiss the notice, once the owner has seen it. */
     fun clearWriteError() {
         _state.update { it.copy(writeError = null) }

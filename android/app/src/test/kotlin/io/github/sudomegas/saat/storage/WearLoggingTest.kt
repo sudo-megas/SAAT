@@ -165,6 +165,53 @@ class WearLoggingTest {
         assertEquals(emptyList<LocalDate>(), repository.wornOf("seiko-skx007"))
     }
 
+    // ---- clearing (AM7's calendar) -----------------------------------------
+
+    @Test
+    fun `clearing takes days off whichever watches hold them`() = runBlocking {
+        // A drag-selected span can cross more than one owner, so one gesture can
+        // touch several watches — the desktop's clear_worn behaves the same.
+        writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\nworn = [2026-08-01, 2026-08-03]\n")
+        writeWatch("casio-f-91w", "brand = \"Casio\"\nmodel = \"F-91W\"\nworn = [2026-08-02]\n")
+        val repository = loaded()
+
+        val cleared = repository.clearWorn((1..2).map { LocalDate.of(2026, 8, it) })
+
+        assertEquals(setOf("seiko-skx007", "casio-f-91w"), cleared.toSet())
+        assertEquals(listOf(today), repository.wornOf("seiko-skx007"))
+        assertEquals(emptyList<LocalDate>(), repository.wornOf("casio-f-91w"))
+    }
+
+    @Test
+    fun `clearing a day nobody holds changes nothing`() = runBlocking {
+        writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\nworn = [2026-08-03]\n")
+        val repository = loaded()
+        val before = tomlOf("seiko-skx007").readText()
+
+        assertEquals(emptyList<String>(), repository.clearWorn(listOf(LocalDate.of(2026, 9, 9))))
+        assertEquals(before, tomlOf("seiko-skx007").readText())
+    }
+
+    @Test
+    fun `clearing an empty span is a no-op`() = runBlocking {
+        val repository = loaded()
+
+        assertEquals(emptyList<String>(), repository.clearWorn(emptyList()))
+    }
+
+    @Test
+    fun `a range assignment fills every day in the span`() = runBlocking {
+        // What long-press range mode does: one call, one critical section, and
+        // the same one-per-day rule applied across the whole span.
+        writeWatch("seiko-skx007", "brand = \"Seiko\"\nmodel = \"SKX007\"\n")
+        val repository = loaded()
+
+        val span = (1..7).map { LocalDate.of(2026, 8, it) }
+        repository.assignWorn("seiko-skx007", span)
+
+        assertEquals(span, repository.wornOf("seiko-skx007"))
+    }
+
     // ---- what it writes ----------------------------------------------------
 
     @Test

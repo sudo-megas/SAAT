@@ -47,6 +47,14 @@
     <string name="screen_calendar_weekday_fri">Fri</string>
     <string name="screen_calendar_weekday_sat">Sat</string>
     <string name="screen_calendar_weekday_sun">Sun</string>
+    <string name="screen_calendar_current">On this day</string>
+    <string name="screen_calendar_range_hint">Tap another day to extend the span.</string>
+    <plurals name="screen_calendar_span">
+        <item quantity="one">1 day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <string name="action_clear_day">Clear</string>
+    <string name="action_pick_watch">Pick watch</string>
     <string name="action_previous_month">‹</string>
     <string name="action_next_month">›</string>
 

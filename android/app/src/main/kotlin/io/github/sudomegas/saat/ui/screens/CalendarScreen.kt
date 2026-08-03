@@ -2,7 +2,9 @@ package io.github.sudomegas.saat.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -35,6 +38,7 @@ import coil3.compose.rememberAsyncImagePainter
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.ui.CalendarDay
 import io.github.sudomegas.saat.ui.CalendarViewModel
+import io.github.sudomegas.saat.ui.DaySelection
 import io.github.sudomegas.saat.ui.calendar.DAYS_IN_WEEK
 import io.github.sudomegas.saat.ui.calendar.MonthLayout
 import io.github.sudomegas.saat.ui.theme.slugColour
@@ -54,12 +58,15 @@ import java.time.YearMonth
  * Today carries a hairline border in the one accent the palette has — identity,
  * not selection, and the same restraint the rest of the app keeps.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CalendarScreen(
     viewModel: CalendarViewModel,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val pickerWatches by viewModel.pickerWatches.collectAsStateWithLifecycle()
+    val pickerQuery by viewModel.pickerQuery.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -85,7 +92,21 @@ fun CalendarScreen(
             onNext = { viewModel.step(1) },
         )
         WeekdayHeader()
-        MonthGrid(layout = state.layout, days = state.days)
+        MonthGrid(
+            layout = state.layout,
+            days = state.days,
+            selection = state.selection,
+            onTap = viewModel::onDayTapped,
+            onLongPress = viewModel::onDayLongPressed,
+        )
+
+        state.selection?.let { selection ->
+            RangeBar(
+                days = selection.dates.size,
+                onPick = viewModel::pickForSelection,
+                onCancel = viewModel::cancelSelection,
+            )
+        }
 
         if (state.isLoaded && state.days.values.none { it.slug != null }) {
             // SPEC-ANDROID 5.8: an empty month plus one muted line. Shown
@@ -102,6 +123,55 @@ fun CalendarScreen(
                     .padding(horizontal = 32.dp, vertical = 20.dp),
             )
         }
+    }
+
+    state.picking?.let { dates ->
+        DayPicker(
+            dates = dates,
+            watches = pickerWatches,
+            query = pickerQuery,
+            // Only meaningful for a single day: a span can cross several
+            // watches, and marking one of them as "the" current would be a
+            // claim about the others.
+            currentSlug = dates.singleOrNull()?.let { state.days[it]?.slug },
+            onQueryChange = viewModel::setPickerQuery,
+            onPick = viewModel::assign,
+            onClear = viewModel::clearPicked,
+            onDismiss = viewModel::dismissPicker,
+        )
+    }
+}
+
+/**
+ * Range mode's own bar — the state has to be visible while it lasts.
+ *
+ * A long press with no visible consequence would read as a missed tap, and the
+ * owner would have no way to tell the span had started other than by tapping
+ * again and watching it grow.
+ */
+@Composable
+private fun RangeBar(days: Int, onPick: () -> Unit, onCancel: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = pluralStringResource(R.plurals.screen_calendar_span, days, days),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(R.string.screen_calendar_range_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        TextButton(onClick = onCancel) { Text(text = stringResource(R.string.action_cancel)) }
+        TextButton(onClick = onPick) { Text(text = stringResource(R.string.action_pick_watch)) }
     }
 }
 
@@ -154,8 +224,15 @@ private fun WeekdayHeader() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MonthGrid(layout: MonthLayout, days: Map<LocalDate, CalendarDay>) {
+private fun MonthGrid(
+    layout: MonthLayout,
+    days: Map<LocalDate, CalendarDay>,
+    selection: DaySelection?,
+    onTap: (LocalDate) -> Unit,
+    onLongPress: (LocalDate) -> Unit,
+) {
     // A plain Column of Rows rather than a LazyVerticalGrid: a month is at most
     // six rows and every one of them is on screen, so laziness would buy
     // nothing and would take away the even cell sizing that comes free here.
@@ -178,7 +255,14 @@ private fun MonthGrid(layout: MonthLayout, days: Map<LocalDate, CalendarDay>) {
                         // not emitted yet — and there is a frame in which the
                         // grid is composed against it. A missing entry is just
                         // an empty day, which is what it would be anyway.
-                        if (date != null) DayCell(days[date] ?: emptyDay(date))
+                        if (date != null) {
+                            DayCell(
+                                day = days[date] ?: emptyDay(date),
+                                isSelected = selection?.contains(date) == true,
+                                onTap = { onTap(date) },
+                                onLongPress = { onLongPress(date) },
+                            )
+                        }
                     }
                 }
             }
@@ -186,8 +270,14 @@ private fun MonthGrid(layout: MonthLayout, days: Map<LocalDate, CalendarDay>) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DayCell(day: CalendarDay) {
+private fun DayCell(
+    day: CalendarDay,
+    isSelected: Boolean,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+) {
     val shape = MaterialTheme.shapes.extraSmall
 
     Box(
@@ -196,12 +286,18 @@ private fun DayCell(day: CalendarDay) {
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .then(
-                if (day.isToday) {
-                    Modifier.border(HAIRLINE_TODAY, MaterialTheme.colorScheme.primary, shape)
-                } else {
-                    Modifier
+                // Selection wins over today's marker while a span is being
+                // chosen: for those few seconds the question on screen is
+                // "which days", and today is not one of the answers.
+                when {
+                    isSelected ->
+                        Modifier.border(SELECTION_BORDER, MaterialTheme.colorScheme.tertiary, shape)
+                    day.isToday ->
+                        Modifier.border(HAIRLINE_TODAY, MaterialTheme.colorScheme.primary, shape)
+                    else -> Modifier
                 }
-            ),
+            )
+            .combinedClickable(onClick = onTap, onLongClick = onLongPress),
     ) {
         // A watch with no photograph still has to be visibly a worn day. Its
         // identity hue fills the cell instead — the same colour the year view
@@ -267,6 +363,9 @@ private fun emptyDay(date: LocalDate) =
 private const val SWIPE_THRESHOLD = 120f
 
 private val HAIRLINE_TODAY = 1.5.dp
+
+/** Heavier than today's hairline, because a selection is a thing in progress. */
+private val SELECTION_BORDER = 3.dp
 
 /** Just enough to keep a day number legible over a pale photograph. */
 private val SCRIM = Color(0x99000000)

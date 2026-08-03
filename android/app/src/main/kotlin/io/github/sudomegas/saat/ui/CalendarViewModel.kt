@@ -6,17 +6,30 @@ import androidx.lifecycle.viewModelScope
 import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.WatchRepository
+import io.github.sudomegas.saat.storage.WatchSort
+import io.github.sudomegas.saat.storage.query
 import io.github.sudomegas.saat.storage.wornIndex
 import io.github.sudomegas.saat.ui.calendar.MonthLayout
+import io.github.sudomegas.saat.ui.calendar.daysBetween
 import io.github.sudomegas.saat.ui.calendar.monthLayout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
 import java.time.YearMonth
+
+/** One watch in the picker: a thumbnail and a name. */
+data class PickerWatch(
+    val slug: String,
+    val brand: String,
+    val model: String,
+    val image: File?,
+)
 
 /** One day in the grid: the watch on it, if any, and what to draw for it. */
 data class CalendarDay(
@@ -27,6 +40,20 @@ data class CalendarDay(
     val isToday: Boolean,
 )
 
+/**
+ * A span of days being chosen — SPEC-ANDROID 5.5's long-press range mode.
+ *
+ * Two dates rather than a list, so extending the span is one assignment and the
+ * order they were touched in does not matter. It replaces the desktop's
+ * click-drag, which has no touch equivalent worth imitating: a drag across a
+ * calendar competes with the scroll, and a drag that starts on a cell competes
+ * with the tap.
+ */
+data class DaySelection(val anchor: LocalDate, val extent: LocalDate) {
+    val dates: List<LocalDate> get() = daysBetween(anchor, extent)
+    fun contains(date: LocalDate): Boolean = date in dates
+}
+
 data class CalendarUiState(
     val month: YearMonth = YearMonth.now(),
     val layout: MonthLayout = monthLayout(YearMonth.now()),
@@ -34,6 +61,10 @@ data class CalendarUiState(
     val days: Map<LocalDate, CalendarDay> = emptyMap(),
     val isLoaded: Boolean = false,
     val isCollectionEmpty: Boolean = false,
+    /** Non-null while the owner is choosing a span. */
+    val selection: DaySelection? = null,
+    /** The days the picker is about to fill, or null when it is closed. */
+    val picking: List<LocalDate>? = null,
 )
 
 /**
@@ -53,9 +84,44 @@ class CalendarViewModel(
 ) : ViewModel() {
 
     private val _month = MutableStateFlow(YearMonth.from(today()))
+    private val _selection = MutableStateFlow<DaySelection?>(null)
+    private val _picking = MutableStateFlow<List<LocalDate>?>(null)
+    private val _pickerQuery = MutableStateFlow("")
+
+    /** What is typed in the picker's search field. Cleared when it closes. */
+    val pickerQuery: StateFlow<String> = _pickerQuery.asStateFlow()
+
+    /**
+     * The collection as the picker shows it: search field plus thumbnails —
+     * SPEC-ANDROID 5.5.
+     *
+     * The AM3 matcher again, unchanged. A collection large enough to need a
+     * search here is large enough that scrolling it under a bottom sheet would
+     * be the slowest part of entering a year of backlog.
+     */
+    val pickerWatches: StateFlow<List<PickerWatch>> =
+        combine(repository.state, _pickerQuery) { collection, query ->
+            collection.watches
+                .query(query, WatchSort.BRAND, today())
+                .mapNotNull { record ->
+                    val watch = record.watch ?: return@mapNotNull null
+                    PickerWatch(
+                        slug = record.slug,
+                        brand = watch.brand,
+                        model = watch.model,
+                        image = watch.images.firstOrNull()
+                            ?.let { File(paths.watchMedia(record.slug), File(it).name) },
+                    )
+                }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val state: StateFlow<CalendarUiState> =
-        combine(repository.state, _month) { collection, month ->
+        combine(
+            repository.state,
+            _month,
+            _selection,
+            _picking,
+        ) { collection, month, selection, picking ->
             val index = collection.records.wornIndex()
             val now = today()
             val layout = monthLayout(month)
@@ -76,12 +142,83 @@ class CalendarViewModel(
                 },
                 isLoaded = collection.isLoaded,
                 isCollectionEmpty = collection.isLoaded && collection.records.isEmpty(),
+                selection = selection,
+                picking = picking,
             )
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
             CalendarUiState(month = YearMonth.from(today()), layout = monthLayout(YearMonth.from(today()))),
         )
+
+    /**
+     * A tap: opens the picker for that one day, or extends the span when one is
+     * being chosen.
+     *
+     * The same gesture on a filled day and an empty one — SPEC-ANDROID 5.5 opens
+     * the same picker for both, with the current watch marked when there is one.
+     * "Every day is editable, past or future", so nothing here consults the
+     * clock: future days are how you plan.
+     */
+    fun onDayTapped(date: LocalDate) {
+        val selection = _selection.value
+        if (selection == null) {
+            _picking.value = listOf(date)
+        } else {
+            _selection.value = selection.copy(extent = date)
+        }
+    }
+
+    /** A long press starts range mode on that day — the brief's item 5. */
+    fun onDayLongPressed(date: LocalDate) {
+        _selection.value = DaySelection(date, date)
+    }
+
+    /** Open the picker for the whole span the owner has chosen. */
+    fun pickForSelection() {
+        _picking.value = _selection.value?.dates
+    }
+
+    fun cancelSelection() {
+        _selection.value = null
+    }
+
+    fun dismissPicker() {
+        _picking.value = null
+        _pickerQuery.value = ""
+    }
+
+    fun setPickerQuery(query: String) {
+        _pickerQuery.value = query
+    }
+
+    /**
+     * Fill the days being picked with one watch.
+     *
+     * Straight through AM4b's `assignWorn` — the single wear-logging path — so
+     * the one-watch-per-day rule, the silent move and the backup policy are the
+     * ones already built and tested rather than a second implementation. This
+     * milestone's brief says "reused, not reimplemented", and this is the whole
+     * of that reuse: one call.
+     */
+    fun assign(slug: String) {
+        val dates = _picking.value ?: return
+        viewModelScope.launch {
+            repository.assignWorn(slug, dates)
+            _picking.value = null
+            _selection.value = null
+        }
+    }
+
+    /** Empty the days being picked, whichever watches hold them. */
+    fun clearPicked() {
+        val dates = _picking.value ?: return
+        viewModelScope.launch {
+            repository.clearWorn(dates)
+            _picking.value = null
+            _selection.value = null
+        }
+    }
 
     fun showMonth(month: YearMonth) {
         _month.value = month
