@@ -49,6 +49,7 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
     val error by viewModel.error.collectAsStateWithLifecycle()
 
     val gridViewModel: GridViewModel = viewModel(factory = GridViewModel.factory(app))
+    val specsViewModel: SpecsViewModel = viewModel(factory = SpecsViewModel.factory(app))
 
     // Only the error is collected, not the whole CollectionState: the shell has
     // no interest in the watches themselves, and observing them here would
@@ -179,7 +180,12 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                     },
                 )
             }
-            composable<SpecsRoute> { SpecsScreen() }
+            composable<SpecsRoute> {
+                SpecsScreen(
+                    viewModel = specsViewModel,
+                    onOpenWatch = { slug -> navController.navigate(DetailRoute(slug)) },
+                )
+            }
             composable<CalendarRoute> { CalendarScreen() }
             composable<SettingsRoute> {
                 SettingsScreen(
