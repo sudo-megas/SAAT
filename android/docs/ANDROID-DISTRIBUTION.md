@@ -8,14 +8,33 @@ release itself. This document starts where that one ends.
 
 ## Status, as of this commit
 
-**Neither channel is submitted, and the app is not yet released anywhere.** Said
-plainly because the alternative is a document that reads as though it were.
+**v1.0 is released on GitHub. Neither store channel is submitted yet.**
 
 | Channel | Status |
 |---|---|
-| GitHub Releases | Not cut — no `android-v1.0` tag exists |
-| IzzyOnDroid | Not submitted — blocked on the release |
-| F-Droid | Not submitted — recipe drafted, blocked on the release |
+| GitHub Releases | **Live** — [`android-v1.0`][rel], `saat-android-1.0.apk`, 9.87 MiB |
+| IzzyOnDroid | Not submitted — screenshots outstanding |
+| F-Droid | Not submitted — recipe needs the tag's commit hash |
+
+[rel]: https://github.com/sudo-megas/SAAT/releases/tag/android-v1.0
+
+The release was cut from `0c68a6e` on 2026-08-03 by the tag-triggered workflow,
+after a `workflow_dispatch` dry run proved the signing path — which earned its
+keep immediately by failing on an empty `ANDROID_KEYSTORE_BASE64` before a tag
+had been spent on it.
+
+Verified against the published artifact after download, not against the build
+that produced it:
+
+- `apksigner verify` passes. One signer, `CN=sudo-megas, O=SAAT`, RSA, APK
+  Signature Scheme v2, certificate SHA-256 `e32594ad7a0d3191…`.
+- `apkanalyzer manifest permissions` returns nothing, and the binary manifest
+  contains no `uses-permission`, no `debuggable` and no `testOnly`.
+
+**Both remaining blockers are now IzzyOnDroid's and F-Droid's own preconditions
+rather than ours.** The screenshots are still the owner's to take (hard rule 1),
+and the F-Droid recipe's `commit:` can now be filled with the real hash, since
+the tag it names finally exists.
 
 SPEC-ANDROID 9 puts these in a deliberate order, and it is a dependency chain
 rather than a preference:
@@ -28,19 +47,19 @@ keystore  →  GitHub secrets  →  merge to master  →  tag  →  GitHub relea
                                             F-Droid (builds from source itself)
 ```
 
-Five things stand between here and the first submission. Four are the owner's
-and cannot be delegated:
+Everything up to and including the GitHub release is done:
 
-1. **Generate the release keystore.** `docs/ANDROID-RELEASING.md` has the
-   command. Deliberately not generated for you — losing it means never being
-   able to update the app for anyone who installed it.
-2. **Add the three GitHub secrets.**
+1. ~~Generate the release keystore.~~ Done. It lives outside this repository and
+   always must — **back up the `.jks` and its password offline if that has not
+   happened yet. Losing them means never being able to ship an update to anyone
+   who installed the app**, because Android refuses an update signed by a
+   different key.
+2. ~~Add the three GitHub secrets.~~ Done.
 3. **Take the screenshots.** Hard rule 1; `android/fastlane/README.md` names the
-   exact set and how to take them.
-4. **Merge to `master` and tag `android-v1.0`.** AM11's own rule forbids tagging
-   before AM10's round-trip test is green on `master`.
-5. Then the release workflow runs and produces the signed APK, which is what
-   both channels need.
+   exact set and how to take them. **The one thing still outstanding**, and the
+   only thing IzzyOnDroid is now waiting on.
+4. ~~Merge to `master` and tag `android-v1.0`.~~ Done, in that order.
+5. ~~The release workflow produces the signed APK.~~ Done — and it is published.
 
 ## What was actually verified
 
@@ -216,10 +235,13 @@ if any of them is user-visible, an `android-v1.0.1`.
 is actually live** — not when submitted, not when accepted-in-principle. AM12
 says so and the desktop project's standing rule says so.
 
-There is a debt here already, and it predates this milestone: README.md tells
-people to download `saat-android-1.0.apk` from the releases page and says the
-Android builds are tagged `android-v1.0`. **No such tag and no such release
-exist.** It is true only in the future tense. Cutting the release makes it true,
-which is the cheapest fix and the one the chain above already leads to — but
-until then the README claims a channel that is not there, which is the exact
-thing this milestone forbids.
+There was a debt here, and cutting the release paid it rather than any edit
+doing so. README.md told people to download `saat-android-1.0.apk` from the
+releases page and said the Android builds are tagged `android-v1.0`, at a point
+when neither the tag nor the release existed — true only in the future tense,
+and the exact thing this milestone forbids. Both now exist, and the asset is
+named `saat-android-1.0.apk` exactly as the README says, so the sentence is
+true as written and needs no change.
+
+IzzyOnDroid and F-Droid still get no mention there, and must not until each is
+actually live.
