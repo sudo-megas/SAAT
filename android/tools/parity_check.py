@@ -18,6 +18,8 @@ Two subcommands, run either side of the Gradle build:
     verify <dir>    loads the TOML the Kotlin tests wrote using
                     saat.storage.load_collection and asserts every field
                     survived, then diffs the field maps
+    enums [root]    diffs the enum* suggestion lists the two forms offer,
+                    parsed from both sources -- see the note above `enums`
 
 The fixture below is the twin of `fullyPopulatedWatch()` in the Kotlin test
 sources. The duplication is the point: two independent constructions of the same
@@ -36,6 +38,7 @@ import dataclasses
 import datetime
 import json
 import pathlib
+import re
 import sys
 import tempfile
 
@@ -337,6 +340,132 @@ def diff_field_maps(desktop: dict, kotlin: dict) -> list[str]:
     return problems
 
 
+
+# --- enum* suggestion lists (AM5) -------------------------------------------
+#
+# The third thing that can drift, and the one that is invisible in English.
+#
+# The Android form offers ninety-nine suggested values across seventeen enum*
+# lists, and every one of them is DATA: the canonical English string is what
+# lands in watch.toml and what the desktop reads back. A value renamed on one
+# side -- "Stainless Steel" becoming "Stainless steel" -- does not fail any
+# test, does not fail the field-map check (the field is still there), and does
+# not fail a round trip (the string survives). It simply means the two apps
+# offer different vocabularies for the same field, and a collection edited on
+# both grows two spellings of everything.
+#
+# So the lists are compared directly, desktop source against Android source.
+# Parsed with `ast` rather than imported, because watch_form.py imports PySide6
+# and CI has no Qt -- and because a parse cannot execute anything.
+
+# desktop identifier -> Android identifier in EnumChoices.kt
+ENUM_LISTS = {
+    "GROUP_SUGGESTIONS": "GROUPS",
+    "STYLE_SUGGESTIONS": "STYLES",
+    "STATUS_OPTIONS": "STATUSES",
+    "MOVEMENT_KIND_SUGGESTIONS": "MOVEMENT_KINDS",
+    "ACCURACY_UNIT_OPTIONS": "ACCURACY_UNITS",
+    "CASE_MATERIAL_SUGGESTIONS": "CASE_MATERIALS",
+    "CRYSTAL_SUGGESTIONS": "CRYSTALS",
+    "CROWN_SUGGESTIONS": "CROWNS",
+    "BEZEL_SUGGESTIONS": "BEZELS",
+    "CASEBACK_SUGGESTIONS": "CASEBACKS",
+    "INDICES_SUGGESTIONS": "INDICES",
+    "COMPLICATIONS_SUGGESTIONS": "COMPLICATIONS",
+    "STRAP_MATERIAL_SUGGESTIONS": "STRAP_MATERIALS",
+    "STRAP_CLASP_SUGGESTIONS": "CLASPS",
+    "CONDITION_OPTIONS": "CONDITIONS",
+    "LOG_KIND_OPTIONS": "LOG_KINDS",
+    "TIMING_POSITION_OPTIONS": "TIMING_POSITIONS",
+}
+
+DESKTOP_ENUM_SOURCES = ("saat/ui/watch_form.py", "saat/ui/list_editors.py")
+ANDROID_ENUM_SOURCE = "android/app/src/main/kotlin/io/github/sudomegas/saat/ui/form/EnumChoices.kt"
+
+
+def _literal(node) -> str | None:
+    """The string a list element carries, through QT_TRANSLATE_NOOP or bare."""
+    import ast as _ast
+
+    if isinstance(node, _ast.Constant) and isinstance(node.value, str):
+        return node.value
+    # QT_TRANSLATE_NOOP("EnumChoices", "Stainless Steel") -- a runtime
+    # pass-through whose second argument is the canonical value.
+    if isinstance(node, _ast.Call) and node.args:
+        last = node.args[-1]
+        if isinstance(last, _ast.Constant) and isinstance(last.value, str):
+            return last.value
+    return None
+
+
+def desktop_enums(root: pathlib.Path) -> dict[str, list[str]]:
+    import ast as _ast
+
+    found: dict[str, list[str]] = {}
+    for relative in DESKTOP_ENUM_SOURCES:
+        tree = _ast.parse((root / relative).read_text(encoding="utf-8"))
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.Assign):
+                continue
+            names = [t.id for t in node.targets if isinstance(t, _ast.Name)]
+            if not names or names[0] not in ENUM_LISTS:
+                continue
+            if not isinstance(node.value, (_ast.List, _ast.Tuple)):
+                continue
+            values = [_literal(element) for element in node.value.elts]
+            if all(v is not None for v in values):
+                found[names[0]] = values
+    return found
+
+
+def android_enums(root: pathlib.Path) -> dict[str, list[str]]:
+    text = (root / ANDROID_ENUM_SOURCE).read_text(encoding="utf-8")
+    found: dict[str, list[str]] = {}
+    # val NAME: List<EnumChoice> = listOf( choice("Value", R.string.key), ... )
+    for match in re.finditer(r"val (\w+): List<EnumChoice> = listOf\((.*?)\n\)", text, re.S):
+        name, body = match.group(1), match.group(2)
+        found[name] = re.findall(r'choice\("((?:[^"\\]|\\.)*)"', body)
+    return found
+
+
+def enums(root: pathlib.Path) -> int:
+    desktop = desktop_enums(root)
+    android = android_enums(root)
+
+    problems: list[str] = []
+    for desktop_name, android_name in ENUM_LISTS.items():
+        expected = desktop.get(desktop_name)
+        actual = android.get(android_name)
+        if expected is None:
+            problems.append(f"{desktop_name}: not found in the desktop sources")
+            continue
+        if actual is None:
+            problems.append(f"{android_name}: not found in {ANDROID_ENUM_SOURCE}")
+            continue
+        if expected != actual:
+            problems.append(
+                f"{desktop_name} -> {android_name} differ\n"
+                f"    desktop: {expected}\n"
+                f"    android: {actual}"
+            )
+
+    if problems:
+        print("ENUM PARITY FAILED", file=sys.stderr)
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        print(
+            "\nThese strings are DATA: they are written into watch.toml and read by\n"
+            "both apps. A value spelled differently on the two sides means a\n"
+            "collection edited on both grows two spellings of the same thing.",
+            file=sys.stderr,
+        )
+        return 1
+
+    total = sum(len(v) for v in desktop.values())
+    print(f"ENUM PARITY OK -- {total} values across {len(ENUM_LISTS)} lists match the desktop")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -347,9 +476,14 @@ def main() -> int:
     p_verify = sub.add_parser("verify", help="check what the Kotlin tests wrote")
     p_verify.add_argument("dir", type=pathlib.Path)
 
+    p_enums = sub.add_parser("enums", help="diff the enum* suggestion lists against the desktop")
+    p_enums.add_argument("root", type=pathlib.Path, nargs="?", default=pathlib.Path("."))
+
     args = parser.parse_args()
     if args.command == "emit":
         return emit(args.dir)
+    if args.command == "enums":
+        return enums(args.root)
     return verify(args.dir)
 
 

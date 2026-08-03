@@ -29,12 +29,14 @@ import kotlinx.coroutines.flow.map
 import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.ui.nav.CalendarRoute
 import io.github.sudomegas.saat.ui.nav.DetailRoute
+import io.github.sudomegas.saat.ui.nav.FormRoute
 import io.github.sudomegas.saat.ui.nav.GridRoute
 import io.github.sudomegas.saat.ui.nav.SettingsRoute
 import io.github.sudomegas.saat.ui.nav.SpecsRoute
 import io.github.sudomegas.saat.ui.nav.TopLevelDestination
 import io.github.sudomegas.saat.ui.screens.CalendarScreen
 import io.github.sudomegas.saat.ui.screens.DetailScreen
+import io.github.sudomegas.saat.ui.screens.FormScreen
 import io.github.sudomegas.saat.ui.screens.GridScreen
 import io.github.sudomegas.saat.ui.screens.SettingsScreen
 import io.github.sudomegas.saat.ui.screens.SpecsScreen
@@ -85,7 +87,9 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
     // the alternative. `matchesTab` stays exhaustive over the four tabs, and the
     // routes AM4 and AM5 add join the list here rather than there.
     val onFullScreenRoute = backStackEntry?.destination?.hierarchy
-        ?.any { node -> node.hasRoute(DetailRoute::class) } == true
+        ?.any { node ->
+            node.hasRoute(DetailRoute::class) || node.hasRoute(FormRoute::class)
+        } == true
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -126,8 +130,8 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
             composable<GridRoute> {
                 GridScreen(
                     viewModel = gridViewModel,
-                    snackbarHostState = snackbarHostState,
                     onOpenWatch = { slug -> navController.navigate(DetailRoute(slug)) },
+                    onAddWatch = { navController.navigate(FormRoute()) },
                 )
             }
             composable<DetailRoute> { entry ->
@@ -144,6 +148,32 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                     ),
                     snackbarHostState = snackbarHostState,
                     onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate(FormRoute(slug)) },
+                )
+            }
+            composable<FormRoute> { entry ->
+                val slug = entry.toRoute<FormRoute>().slug
+                FormScreen(
+                    viewModel = viewModel(
+                        // Keyed so add and edit, and two different edits, never
+                        // share a state holder: a ViewModel is scoped to the
+                        // back stack entry but stored by type within it.
+                        key = slug ?: ADD_WATCH_KEY,
+                        factory = FormViewModel.factory(app, slug),
+                    ),
+                    snackbarHostState = snackbarHostState,
+                    onClose = { navController.popBackStack() },
+                    onSaved = { saved ->
+                        // Adding lands on the new watch's page; editing goes
+                        // back to the page it was opened from. Either way the
+                        // form is off the stack, so back does not return to it.
+                        if (slug == null) {
+                            navController.popBackStack()
+                            navController.navigate(DetailRoute(saved))
+                        } else {
+                            navController.popBackStack()
+                        }
+                    },
                 )
             }
             composable<SpecsRoute> { SpecsScreen() }
@@ -159,6 +189,9 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
         }
     }
 }
+
+/** The ViewModel key for the add form, which has no slug to be keyed by. */
+private const val ADD_WATCH_KEY = "add"
 
 private fun NavDestination.matchesTab(destination: TopLevelDestination): Boolean =
     when (destination) {

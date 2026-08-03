@@ -81,6 +81,21 @@ jobs:
           python3 -m pip install --quiet --disable-pip-version-check tomlkit==0.15.1
           python3 android/tools/parity_check.py emit android/app/build/parity-in
 
+      # AM5 gave the Android form ninety-nine suggested enum* values, and every
+      # one of them is DATA — the canonical English string is what lands in
+      # watch.toml and what the desktop reads back. A value respelled on one
+      # side fails nothing: not the field-map diff (the field is still there),
+      # not a round trip (the string survives), not any unit test. It just means
+      # the two apps offer different vocabularies for the same field, and a
+      # collection edited on both grows two spellings of everything. So the
+      # lists are diffed directly, parsed from both sources.
+      #
+      # Before `check` rather than after, because it needs no build output and a
+      # four-minute Gradle run should not stand between a typo and its message.
+      - name: Verify the enum* lists still match the desktop's
+        working-directory: ${{ github.workspace }}
+        run: python3 android/tools/parity_check.py enums .
+
       # `check` runs, in order: buildSrc's own tests (the guardian's guardian,
       # finalized onto the jar Gradle must build anyway), the app's unit tests,
       # and verifyDebugManifestPolicy + verifyReleaseManifestPolicy. The release

@@ -35,6 +35,16 @@ object SettingsRoute
 @Serializable
 data class DetailRoute(val slug: String)
 
+/**
+ * The add/edit form — SPEC-ANDROID 5.7's "the same screen serves add and edit".
+ *
+ * [slug] null is ADD. That is why it is nullable rather than two routes: two
+ * routes would be two places to keep the argument list right, and the screen
+ * itself differs only in where its initial state comes from.
+ */
+@Serializable
+data class FormRoute(val slug: String? = null)
+
 enum class TopLevelDestination(
     val route: Any,
     @param:StringRes val labelRes: Int,

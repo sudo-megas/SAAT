@@ -14,12 +14,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -30,7 +27,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sudomegas.saat.R
 import io.github.sudomegas.saat.ui.GridViewModel
 import io.github.sudomegas.saat.ui.WatchCard
-import kotlinx.coroutines.launch
 
 /**
  * The collection.
@@ -45,22 +41,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun GridScreen(
     viewModel: GridViewModel,
-    snackbarHostState: SnackbarHostState,
     onOpenWatch: (String) -> Unit,
+    onAddWatch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-
-    // Resolved at composition, not at click time. `stringResource` needs a
-    // composable scope, and reaching for a Context inside the lambda instead is
-    // exactly the habit that leaves an untranslatable literal behind — which
-    // StringsConventionTest's regex cannot see, because it only inspects
-    // Text/Button/Label call sites.
-    val stubMessage = stringResource(R.string.screen_add_watch_stub)
-    val showAddWatchStub = remember(stubMessage) {
-        { scope.launch { snackbarHostState.showSnackbar(stubMessage) }; Unit }
-    }
 
     Scaffold(
         // The shell's Scaffold already consumed the system bars — MainActivity
@@ -84,7 +69,7 @@ fun GridScreen(
             // button IS that control, so showing both would put two of them on
             // the quietest screen in the app.
             if (!state.isCollectionEmpty) {
-                ExtendedFloatingActionButton(onClick = showAddWatchStub) {
+                ExtendedFloatingActionButton(onClick = onAddWatch) {
                     Text(text = stringResource(R.string.action_add_watch))
                 }
             }
@@ -105,7 +90,7 @@ fun GridScreen(
                 !state.isLoaded -> Unit
 
                 state.isCollectionEmpty ->
-                    CollectionEmptyState(onAddWatch = showAddWatchStub)
+                    CollectionEmptyState(onAddWatch = onAddWatch)
 
                 // A search that found nothing is NOT the collection being empty.
                 // Offering "add your first watch" here would be the app lying
