@@ -8,9 +8,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import io.github.sudomegas.saat.SaatApplication
 import io.github.sudomegas.saat.storage.ExportSummary
+import io.github.sudomegas.saat.storage.ImportSummary
 import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.storage.exportCollection
+import io.github.sudomegas.saat.storage.importCollection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +40,8 @@ data class Progress(val done: Int, val total: Int)
 
 sealed interface TransferResult {
     data class Exported(val summary: ExportSummary, val destination: String) : TransferResult
+
+    data class Imported(val summary: ImportSummary) : TransferResult
 
     /**
      * Hard rule 6: the message reaches the UI intact rather than becoming a log
@@ -85,6 +89,52 @@ class TransferViewModel(
 
                     TransferResult.Exported(summary, resolver.displayName(destination))
                 }
+            }
+
+            _state.value = TransferUiState(
+                result = outcome.getOrElse { TransferResult.Failed(it.messageForUi()) },
+            )
+        }
+    }
+
+    /**
+     * Read an archive the owner picked into the collection.
+     *
+     * The URI is opened TWICE — `importCollection` surveys the archive before it
+     * writes anything, and `ZipInputStream` cannot seek — so a factory is passed
+     * rather than a stream. `openInputStream` on a Storage Access Framework
+     * document is reopenable for as long as the permission grant lasts, which
+     * for a one-shot `ACTION_OPEN_DOCUMENT` result is the life of this call.
+     *
+     * The repository is reloaded afterwards rather than being told what changed:
+     * the files on disk are the truth (hard rule 4), and re-reading them is both
+     * simpler and impossible to get out of step with what was actually written.
+     */
+    fun import(source: Uri) {
+        if (_state.value.isRunning) return
+        _state.value = TransferUiState(isRunning = true)
+
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val summary = importCollection(
+                        paths = paths,
+                        open = {
+                            resolver.openInputStream(source)
+                                ?: error("Could not open $source for reading")
+                        },
+                        onProgress = { done, total ->
+                            _state.value = _state.value.copy(progress = Progress(done, total))
+                        },
+                    )
+                    TransferResult.Imported(summary)
+                }
+            }
+
+            // Only when something actually landed. A refused archive changed
+            // nothing, and a reload would be work done to discover that.
+            if ((outcome.getOrNull() as? TransferResult.Imported)?.summary?.added?.isNotEmpty() == true) {
+                repository.load()
             }
 
             _state.value = TransferUiState(
