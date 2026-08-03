@@ -120,6 +120,39 @@ fun Watch.isMaintenanceOverdue(today: LocalDate): Boolean {
 }
 
 /**
+ * The battery clock, on the same terms as the service clock — AM9b: "battery_due
+ * behaves the same way for quartz".
+ *
+ * Simpler than [nextServiceDue] because there is nothing to project: the owner
+ * writes the date the battery is expected to need changing and
+ * `maintenance.battery_due` IS that date. Absent is silent, exactly as a blank
+ * service interval is, and for the same reason — most watches will never carry
+ * it and the UI must not nag about the ones that do not.
+ */
+fun Watch.isBatteryDue(today: LocalDate): Boolean {
+    val due = maintenance.batteryDue ?: return false
+    return !due.isAfter(today.plusDays(MAINTENANCE_DUE_SOON_DAYS))
+}
+
+/** True only once the battery date has actually passed. */
+fun Watch.isBatteryOverdue(today: LocalDate): Boolean {
+    val due = maintenance.batteryDue ?: return false
+    return due.isBefore(today)
+}
+
+/**
+ * Either clock — what puts the accent dot on a grid card.
+ *
+ * SPEC-ANDROID 5.2 names only service, because it was written before AM9 gave
+ * `battery_due` the same treatment. One dot for both is the honest reading of
+ * "the same way": a quartz watch whose battery is overdue has something wanting
+ * doing, and a card that stayed quiet about it would be keeping a different
+ * secret from the one the spec sentence was about.
+ */
+fun Watch.needsAttention(today: LocalDate): Boolean =
+    isMaintenanceDue(today) || isBatteryDue(today)
+
+/**
  * Beat rate as frequency in hertz — bph ÷ 7200, shown beside the bph figure.
  * Null when the movement has no bph, which is every quartz watch.
  */

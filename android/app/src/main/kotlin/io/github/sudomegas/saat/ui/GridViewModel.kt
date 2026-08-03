@@ -11,6 +11,7 @@ import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.storage.WatchFilter
 import io.github.sudomegas.saat.storage.WatchSort
 import io.github.sudomegas.saat.storage.filtered
+import io.github.sudomegas.saat.storage.needsAttention
 import io.github.sudomegas.saat.ui.compare.COMPARE_WATCHES
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,12 @@ data class WatchCard(
     val lugWidthMm: Int?,
     /** `media/<slug>/<first image>`, or null when the watch has no photographs. */
     val image: File?,
+    /**
+     * Service or battery due within 90 days, or overdue — the accent dot
+     * SPEC-ANDROID 5.2 asks for. Resolved here rather than on the card, so the
+     * clock is read once per emission instead of once per visible tile.
+     */
+    val needsAttention: Boolean = false,
 )
 
 /**
@@ -149,7 +156,7 @@ class GridViewModel(
 
             GridUiState(
                 cards = loaded.filtered(filter, query, config.sort, today)
-                    .mapNotNull { it.toCard(paths) },
+                    .mapNotNull { it.toCard(paths, today) },
                 isLoaded = collection.isLoaded,
                 // Empty means empty, not "nothing readable". A collection of
                 // three malformed files is not an invitation to add your first
@@ -231,7 +238,7 @@ class GridViewModel(
     }
 }
 
-private fun WatchRecord.toCard(paths: SaatPaths): WatchCard? {
+private fun WatchRecord.toCard(paths: SaatPaths, today: LocalDate): WatchCard? {
     val loaded = watch ?: return null
     return WatchCard(
         slug = slug,
@@ -250,6 +257,7 @@ private fun WatchRecord.toCard(paths: SaatPaths): WatchCard? {
         // to decode and the card falls back to the placeholder tile.
         image = loaded.images.firstOrNull()
             ?.let { File(paths.watchMedia(slug), File(it).name) },
+        needsAttention = loaded.needsAttention(today),
     )
 }
 

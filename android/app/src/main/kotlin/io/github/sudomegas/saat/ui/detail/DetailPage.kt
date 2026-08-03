@@ -52,6 +52,12 @@ data class DetailPage(
     val straps: List<StrapCard>,
     val log: List<LogLine>,
     val timing: List<TimingLine>,
+    /**
+     * Null below three plottable readings — AM9b. Computed here rather than in
+     * the composable so the threshold is tested as arithmetic, and so the
+     * chart's data cannot drift from the list printed beneath it.
+     */
+    val timingSparkline: Sparkline?,
     val notes: String?,
 )
 
@@ -139,6 +145,11 @@ fun detailPage(record: WatchRecord, mediaDir: File): DetailPage? {
         straps = watch.straps.map { it.toCard(watch, mediaDir) },
         log = watch.log.newestFirst { it.date }.map { it.toLine() },
         timing = watch.timing.newestFirst { it.date }.map { it.toLine() },
+        // The list above reads NEWEST first, the chart below reads OLDEST first.
+        // Both are right: a log is read as history, a trend is read as time
+        // passing left to right. `sparkline` does its own sorting for that
+        // reason rather than trusting the order it is handed.
+        timingSparkline = sparkline(watch.timing),
         notes = watch.notes.orNull(),
     )
 }

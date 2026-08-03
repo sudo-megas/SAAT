@@ -7,11 +7,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -109,6 +113,7 @@ fun WatchGridCard(
                 .aspectRatio(4f / 5f),
         ) {
             CardImage(card)
+            MaintenanceDot(card)
         }
 
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -212,6 +217,37 @@ private fun PlaceholderTile(card: WatchCard) {
         )
     }
 }
+
+/**
+ * The small accent dot a watch due for service or a battery carries —
+ * SPEC-ANDROID 5.2, AM9b.
+ *
+ * A DOT, and nothing else. No badge, no count, no colour-coded severity: the
+ * card's job is to make the owner open the page, and the page says what is due
+ * and when. Overdue and due-soon look the same here on purpose — a grid that
+ * graded its warnings would be a grid that nags, which AM9's brief forbids by
+ * name.
+ *
+ * Over the photograph's top-right corner, with a `contentDescription` because
+ * this is the one thing on the card a screen reader could not otherwise learn:
+ * the brand and model lines below it say nothing about a service being due.
+ */
+@Composable
+private fun BoxScope.MaintenanceDot(card: WatchCard) {
+    if (!card.needsAttention) return
+    val label = stringResource(R.string.screen_detail_maintenance_dot)
+
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(8.dp)
+            .size(DOT_SIZE)
+            .background(MaterialTheme.colorScheme.primary, CircleShape)
+            .semantics { contentDescription = label },
+    )
+}
+
+private val DOT_SIZE = 10.dp
 
 /** Thick enough to read as a state at arm's length, not as a rendering artefact. */
 private val SELECTED_BORDER = 2.dp
