@@ -131,7 +131,19 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                 )
             }
             composable<DetailRoute> { entry ->
-                DetailScreen(slug = entry.toRoute<DetailRoute>().slug)
+                val slug = entry.toRoute<DetailRoute>().slug
+                // Keyed by slug so opening a second watch from a future
+                // cross-link builds its own ViewModel rather than reusing the
+                // first one's — a ViewModel is scoped to the back stack entry,
+                // and two entries for the same route class would otherwise
+                // share a store keyed only by type.
+                DetailScreen(
+                    viewModel = viewModel(
+                        key = slug,
+                        factory = DetailViewModel.factory(app, slug),
+                    ),
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable<SpecsRoute> { SpecsScreen() }
             composable<CalendarRoute> { CalendarScreen() }

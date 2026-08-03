@@ -48,7 +48,32 @@
     <string name="screen_add_watch_stub">Adding watches arrives in a later milestone.</string>
 
     <string name="screen_grid_no_matches">No watches match that search.</string>
-    <string name="screen_detail_placeholder">Watch detail arrives in a later milestone.</string>
+
+    <!-- Detail (AM4). Group titles are their own keys rather than reusing the
+         field_* label of the same name: "Case" is a spec group here and a form
+         section in AM5, and Turkish need not spell them the same way. -->
+    <string name="screen_detail_group_movement">Movement</string>
+    <string name="screen_detail_group_case">Case</string>
+    <string name="screen_detail_group_dial">Dial</string>
+    <string name="screen_detail_group_straps">Straps</string>
+    <string name="screen_detail_group_acquisition">Acquisition</string>
+    <string name="screen_detail_group_maintenance">Maintenance</string>
+    <string name="screen_detail_group_log">Log</string>
+    <string name="screen_detail_group_timing">Timing</string>
+    <string name="screen_detail_group_notes">Notes</string>
+
+    <!-- The interpunct that joins the parts of a meta line. A resource because
+         it is punctuation the way a comma is punctuation: translatable, and not
+         a literal a composable gets to invent. -->
+    <string name="screen_detail_separator">" · "</string>
+    <string name="screen_detail_title_nickname">%1$s “%2$s”</string>
+    <string name="screen_detail_reference">Ref. %1$s</string>
+    <string name="screen_detail_storage">Storage: %1$s</string>
+    <string name="screen_detail_tags">Tags: %1$s</string>
+    <string name="screen_detail_serial">Serial %1$s</string>
+    <string name="screen_detail_strap_fitted">Fitted</string>
+    <string name="screen_detail_missing">That watch is no longer in the collection.</string>
+    <string name="screen_detail_unreadable">%1$s could not be read: %2$s</string>
 
     <string name="action_add_watch">Add watch</string>
     <string name="action_dismiss">Dismiss</string>
@@ -60,8 +85,78 @@
     <string name="action_sort_acquired">Acquired (newest first)</string>
     <string name="action_sort_least_worn">Least worn</string>
 
+    <string name="action_back">Back</string>
+
     <!-- The muted em-dash that stands for a value the owner has not recorded. -->
     <string name="field_absent">—</string>
+
+    <!-- Field labels, in the model's order. Case, dial and strap each have a
+         "Material", and the dial has a "Colour" of its own: one key per site,
+         never one shared key, because Turkish need not use the same word for
+         the metal a case is made of and the finish on a dial. Same rule that
+         keeps field_power_reserve apart from enum_complication_power_reserve —
+         see android/docs/ANDROID-STRINGS.md. -->
+    <string name="field_caliber">Caliber</string>
+    <string name="field_kind">Kind</string>
+    <string name="field_power_reserve">Power Reserve</string>
+    <string name="field_battery_life">Battery Life</string>
+    <string name="field_accuracy">Accuracy</string>
+    <string name="field_jewels">Jewels</string>
+    <string name="field_frequency">Frequency</string>
+    <string name="field_hacking">Hacking</string>
+    <string name="field_handwinding">Handwinding</string>
+    <string name="field_origin">Origin</string>
+
+    <string name="field_diameter">Diameter</string>
+    <string name="field_lug_to_lug">Lug-to-Lug</string>
+    <string name="field_thickness">Thickness</string>
+    <string name="field_lug_width">Lug Width</string>
+    <string name="field_case_material">Material</string>
+    <string name="field_crystal">Crystal</string>
+    <string name="field_crown">Crown</string>
+    <string name="field_bezel">Bezel</string>
+    <string name="field_caseback">Caseback</string>
+    <string name="field_water_resistance">Water Resistance</string>
+    <string name="field_weight">Weight</string>
+
+    <string name="field_dial_colour">Colour</string>
+    <string name="field_dial_material">Material</string>
+    <string name="field_indices">Indices</string>
+    <string name="field_lume">Lume</string>
+    <string name="field_complications">Complications</string>
+
+    <string name="field_strap_material">Material</string>
+    <string name="field_strap_colour">Colour</string>
+    <string name="field_strap_width">Width</string>
+    <string name="field_strap_clasp">Clasp</string>
+
+    <string name="field_acquired">Acquired</string>
+    <string name="field_price">Price</string>
+    <string name="field_target_price">Target Price</string>
+    <string name="field_target_date">Target Date</string>
+    <string name="field_seller">Seller</string>
+    <string name="field_url">URL</string>
+    <string name="field_condition">Condition</string>
+    <string name="field_box_and_papers">Box &amp; Papers</string>
+    <string name="field_warranty_until">Warranty Until</string>
+
+    <string name="field_service_interval">Service Interval</string>
+    <string name="field_battery_due">Battery Due</string>
+
+    <!-- Value templates: a figure and the unit that makes it mean something.
+         Under the field_ role rather than screen_ because they belong to the
+         attribute, not to the screen — AM6's Specs list renders the same
+         values from the same templates. -->
+    <string name="field_value_mm">%1$s mm</string>
+    <string name="field_value_grams">%1$s g</string>
+    <string name="field_value_hours">%1$s h</string>
+    <string name="field_value_years">%1$s y</string>
+    <string name="field_value_price">%1$s %2$s</string>
+    <string name="field_value_water_resistance">%1$s m (%2$s bar)</string>
+    <string name="field_value_frequency">%1$s bph (%2$s Hz)</string>
+    <string name="field_value_accuracy">%1$s/%2$s %3$s</string>
+    <string name="field_value_yes">Yes</string>
+    <string name="field_value_no">No</string>
 
     <string name="error_watch_unreadable">%1$s: %2$s</string>
     <string name="error_watches_dir_unreadable">The collection folder could not be read.</string>

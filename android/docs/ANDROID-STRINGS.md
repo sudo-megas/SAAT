@@ -17,8 +17,15 @@ string sweep at that point would be the expensive way to do it.
 | `settings_` | labels and descriptions inside Settings |
 | `action_` | buttons and menu items |
 | `error_` | messages surfaced per SPEC-ANDROID hard rule 6 |
-| `field_` | a watch attribute used as a form label or column header |
+| `field_` | a watch attribute used as a form label or column header, and `field_value_*` for the template that gives one of its values a unit |
 | `enum_<group>_` | one suggested value within a specific `enum*` list |
+
+`field_value_*` earns its place under `field_` rather than `screen_` because a
+unit belongs to the attribute and not to the page: `field_value_mm` renders the
+same way on the detail page (AM4), in the Specs list (AM6) and in Compare (AM9).
+Turkish writes `41,5` where English writes `41.5`, so these templates are a
+translation site rather than punctuation — which is exactly why they are
+resources and not string literals in Kotlin.
 
 ## Why `field_` and `enum_<group>_` are separate
 
