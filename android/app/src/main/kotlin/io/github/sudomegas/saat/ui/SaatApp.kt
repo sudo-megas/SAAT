@@ -58,6 +58,7 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
     // to count against, and two would be two places for the facet arithmetic to
     // drift. Hoisted here rather than created per screen for that reason.
     val filtersViewModel: FiltersViewModel = viewModel(factory = FiltersViewModel.factory(app))
+    val calendarViewModel: CalendarViewModel = viewModel(factory = CalendarViewModel.factory(app))
 
     // Which screen opened the sheet does not matter — it is the same sheet over
     // the same filter — so one flag serves both.
@@ -202,7 +203,7 @@ fun SaatApp(app: SaatApplication, viewModel: SettingsViewModel) {
                     onRemoveFilter = filtersViewModel::remove,
                 )
             }
-            composable<CalendarRoute> { CalendarScreen() }
+            composable<CalendarRoute> { CalendarScreen(viewModel = calendarViewModel) }
             composable<SettingsRoute> {
                 SettingsScreen(
                     config = config,
