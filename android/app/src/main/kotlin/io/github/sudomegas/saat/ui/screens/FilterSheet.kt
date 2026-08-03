@@ -35,7 +35,6 @@ import io.github.sudomegas.saat.storage.Facet
 import io.github.sudomegas.saat.storage.FacetKind
 import io.github.sudomegas.saat.storage.WatchFilter
 import io.github.sudomegas.saat.ui.FiltersViewModel
-import io.github.sudomegas.saat.ui.formatPrice
 import io.github.sudomegas.saat.ui.form.CASE_MATERIALS
 import io.github.sudomegas.saat.ui.form.EnumChoice
 import io.github.sudomegas.saat.ui.form.GROUPS
@@ -43,6 +42,7 @@ import io.github.sudomegas.saat.ui.form.MOVEMENT_KINDS
 import io.github.sudomegas.saat.ui.form.STATUSES
 import io.github.sudomegas.saat.ui.form.STYLES
 import io.github.sudomegas.saat.ui.form.labelFor
+import io.github.sudomegas.saat.ui.formatPrice
 
 /**
  * The filter sheet — SPEC-ANDROID 5.12, the desktop sidebar folded into a
@@ -116,16 +116,37 @@ private fun FacetBlock(facet: Facet, selected: Set<String>, onToggle: (String) -
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 6.dp),
         )
+        // Sorted on the LABEL, here, rather than on the value in the storage
+        // layer where the rest of the ordering lives. Those were the same string
+        // until the labels were translated; afterwards the Turkish status facet
+        // came out in English order — `Hediye Edildi, Geliyor, Sahip Olunan,
+        // Satıldı` — which reads as no order at all, and only in Turkish.
+        //
+        // `WatchFilter` cannot do this: it holds no resource ids on purpose. Lug
+        // widths keep the order it gave them, because 8 before 20 before 22 is
+        // numeric and alphabetising the labels would undo it.
+        val ordered = facet.values
+            .map { it to facet.kind.label(it.value) }
+            .let { labelled ->
+                if (facet.kind == FacetKind.LUG_WIDTH) {
+                    labelled
+                } else {
+                    labelled.sortedBy { (_, label) -> label.lowercase() }
+                }
+            }
+
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            facet.values.forEach { value ->
+            ordered.forEach { (value, label) ->
                 FilterChip(
                     selected = value.value in selected,
+                    // The canonical value, never the label — the filter is
+                    // matched against what the file says.
                     onClick = { onToggle(value.value) },
                     label = {
                         Text(
                             text = stringResource(
                                 R.string.screen_filters_facet_value,
-                                facet.kind.label(value.value),
+                                label,
                                 value.count,
                             )
                         )

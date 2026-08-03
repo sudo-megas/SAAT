@@ -133,9 +133,25 @@ sealed interface SpecValue {
     /**
      * Several values on one line — `complications`, and any future list of
      * enum* values. Joined at draw time so each part is translated first.
+     *
+     * [separator] because the specs list sets a fitted strap's material beside
+     * its colour with a middle dot rather than a comma, and that cell needs the
+     * material translated and the colour left alone — which is precisely what
+     * this type is for, once it can punctuate the way the cell already did.
      */
-    data class Joined(val parts: List<SpecValue>) : SpecValue
+    data class Joined(
+        val parts: List<SpecValue>,
+        val separator: String = LIST_SEPARATOR,
+    ) : SpecValue
 }
+
+/**
+ * `Steel, Leather`. Not a resource: a comma and a space is punctuation.
+ *
+ * Lives here rather than beside the renderer because [SpecValue.Joined] now
+ * defaults to it.
+ */
+internal const val LIST_SEPARATOR = ", "
 
 /** A label and its value. A null [value] is an absent field: a muted em-dash. */
 data class SpecRow(@StringRes val labelRes: Int, val value: SpecValue?)

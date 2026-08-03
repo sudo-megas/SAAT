@@ -4,10 +4,16 @@ import io.github.sudomegas.saat.storage.SaatPaths
 import io.github.sudomegas.saat.storage.Watch
 import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.storage.WatchStore
+import io.github.sudomegas.saat.ui.form.ACCURACY_UNITS
+import io.github.sudomegas.saat.ui.form.BEZELS
+import io.github.sudomegas.saat.ui.form.CASEBACKS
 import io.github.sudomegas.saat.ui.form.CASE_MATERIALS
 import io.github.sudomegas.saat.ui.form.CLASPS
+import io.github.sudomegas.saat.ui.form.COMPLICATIONS
 import io.github.sudomegas.saat.ui.form.CONDITIONS
+import io.github.sudomegas.saat.ui.form.CROWNS
 import io.github.sudomegas.saat.ui.form.CRYSTALS
+import io.github.sudomegas.saat.ui.form.GROUPS
 import io.github.sudomegas.saat.ui.form.INDICES
 import io.github.sudomegas.saat.ui.form.LOG_KINDS
 import io.github.sudomegas.saat.ui.form.MOVEMENT_KINDS
@@ -15,6 +21,7 @@ import io.github.sudomegas.saat.ui.form.STATUSES
 import io.github.sudomegas.saat.ui.form.STRAP_MATERIALS
 import io.github.sudomegas.saat.ui.form.STYLES
 import io.github.sudomegas.saat.ui.form.TIMING_POSITIONS
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -24,7 +31,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import java.time.LocalDate
 
 /**
  * The sanctioned debug fixture, and the properties AM3 relies on it having.
@@ -174,6 +180,14 @@ class DemoWatchesTest {
                 add(Triple("dial.indices", watch.dial.indices, INDICES))
                 add(Triple("acquisition.condition", watch.acquisition.condition, CONDITIONS))
                 add(Triple("status", watch.status, STATUSES))
+                add(Triple("group", watch.group, GROUPS))
+                add(Triple("case.crown", watch.case.crown, CROWNS))
+                add(Triple("case.bezel", watch.case.bezel, BEZELS))
+                add(Triple("case.caseback", watch.case.caseback, CASEBACKS))
+                add(Triple("movement.accuracyUnit", watch.movement.accuracyUnit, ACCURACY_UNITS))
+                watch.dial.complications.forEach {
+                    add(Triple("dial.complications", it, COMPLICATIONS))
+                }
                 watch.straps.forEach {
                     add(Triple("strap.material", it.material, STRAP_MATERIALS))
                     add(Triple("strap.clasp", it.clasp, CLASPS))

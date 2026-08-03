@@ -133,7 +133,13 @@ class LocalePolicyTest {
      */
     @Test
     fun `the locale is asserted through the framework on API 33 and above`() {
-        val text = source("src/main/kotlin/io/github/sudomegas/saat/SaatApplication.kt")
+        // Through SourceScan, not readText, for the reason the sibling test
+        // below gives: this file's own prose names `LocaleManager` several
+        // times, and matching a comment would let the assertions pass with the
+        // code reverted to the one-line call that started all this.
+        val text = SourceScan
+            .codeLines(File("src/main/kotlin/io/github/sudomegas/saat/SaatApplication.kt"))
+            .joinToString("\n") { it.value }
 
         val body = Regex("""fun\s+applyLanguage\([\s\S]*?\n    \}""")
             .find(text)?.value

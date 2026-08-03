@@ -60,6 +60,7 @@ import io.github.sudomegas.saat.ui.WearMessage
 import io.github.sudomegas.saat.ui.detail.CompatibleStrapCard
 import io.github.sudomegas.saat.ui.detail.DetailPage
 import io.github.sudomegas.saat.ui.detail.MaintenanceNotice
+import io.github.sudomegas.saat.ui.detail.LIST_SEPARATOR
 import io.github.sudomegas.saat.ui.detail.SpecValue
 import io.github.sudomegas.saat.ui.detail.WearStats
 import io.github.sudomegas.saat.ui.formatMeasurement
@@ -591,8 +592,6 @@ internal fun specValueText(value: SpecValue?): String = when (value) {
     // inline, so a @Composable call inside its lambda does not compile. `map`
     // is, which is the whole difference.
     is SpecValue.Joined ->
-        value.parts.map { specValueText(it) }.joinToString(LIST_SEPARATOR)
+        value.parts.map { specValueText(it) }.joinToString(value.separator)
 }
 
-/** `Steel, Leather`. Not a resource: a comma and a space is punctuation. */
-private const val LIST_SEPARATOR = ", "

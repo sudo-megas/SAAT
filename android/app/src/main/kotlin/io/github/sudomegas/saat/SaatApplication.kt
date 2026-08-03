@@ -155,9 +155,11 @@ class SaatApplication : Application(), SingletonImageLoader.Factory {
      * — explicitly, on every process start, before the first composition.
      * Doing it from AM1 means AM11 adds a picker rather than a behaviour.
      *
-     * It takes TWO calls, for the same reason `applyNightMode` below takes two:
-     * from `Application.onCreate` there is no Activity yet, and one of the two
-     * mechanisms cannot work without one.
+     * It takes TWO mechanisms, for the same reason `applyNightMode` below takes
+     * two: from `Application.onCreate` there is no Activity yet, and one of them
+     * cannot work without one. Unlike night mode these are an either/or with a
+     * fallback rather than a pair — the framework owns the setting outright
+     * where it exists.
      *
      * `AppCompatDelegate.setApplicationLocales` is the only per-app locale API
      * that reaches back to API 26, and on 26-32 it stores the request in a
@@ -181,19 +183,25 @@ class SaatApplication : Application(), SingletonImageLoader.Factory {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val manager = getSystemService(LocaleManager::class.java)
-            val desired = LocaleList.forLanguageTags(tag)
+            if (manager != null) {
+                val desired = LocaleList.forLanguageTags(tag)
 
-            // Compared before setting because assigning triggers a
-            // configuration change, and MainActivity carries no
-            // android:configChanges — so an unconditional write would recreate
-            // every Activity on each cold start to arrive at the value it
-            // already had.
-            if (manager != null && manager.applicationLocales != desired) {
-                manager.applicationLocales = desired
+                // Compared before setting because assigning triggers a
+                // configuration change, and MainActivity carries no
+                // android:configChanges — so an unconditional write would
+                // recreate every Activity on each cold start to arrive at the
+                // value it already had.
+                if (manager.applicationLocales != desired) {
+                    manager.applicationLocales = desired
+                }
+                return
             }
-        } else {
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
+            // and otherwise fall through: a 33+ device that cannot hand over the
+            // service still gets AppCompat's attempt rather than the silent
+            // nothing this whole function exists to stop happening.
         }
+
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
     }
 
     /**

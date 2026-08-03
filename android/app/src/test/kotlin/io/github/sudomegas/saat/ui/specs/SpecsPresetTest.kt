@@ -145,7 +145,20 @@ class SpecsPresetTest {
         )
         val row = cells(watch, SpecsPreset.STRAPS).associateBy { it.labelRes }
 
-        assertEquals(SpecValue.Plain("Leather · Brown"), row.getValue(R.string.field_strap_fitted).value)
+        // Two parts, not one string: the material is a schema value and carries
+        // its label, the colour is the owner's word and does not. Flattening
+        // both into Plain is what left this cell reading `Leather · Brown` on a
+        // Turkish specs list while the detail page said `Deri`.
+        assertEquals(
+            SpecValue.Joined(
+                listOf(
+                    SpecValue.EnumValue("Leather", R.string.enum_strapmaterial_leather),
+                    SpecValue.Plain("Brown"),
+                ),
+                separator = " · ",
+            ),
+            row.getValue(R.string.field_strap_fitted).value,
+        )
         // The fitted strap states no width of its own, so it borrows the case's
         // lug width — the same fallback every other screen uses.
         assertEquals(
