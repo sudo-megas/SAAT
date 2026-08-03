@@ -41,10 +41,12 @@ class MainActivity : AppCompatActivity() {
                 SaatApp(
                     app = app,
                     viewModel = viewModel,
-                    // AM8: the filled widget opens the app already pointed at
-                    // a watch. Read from the intent rather than held in a
-                    // ViewModel so a cold start and a warm one behave the same.
+                    // AM8: the filled widget and the "Add watch" shortcut both
+                    // open the app already pointed somewhere. Read from the
+                    // intent rather than held in a ViewModel so a cold start
+                    // and a warm one behave the same.
                     openSlug = intent?.getStringExtra(EXTRA_WATCH_SLUG),
+                    openAddWatch = intent?.action == ACTION_ADD_WATCH,
                 )
             }
         }
@@ -53,5 +55,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         /** A watch to open on launch — the widget's filled tap. */
         const val EXTRA_WATCH_SLUG = "io.github.sudomegas.saat.WATCH_SLUG"
+
+        /** Open the add form on launch — the launcher shortcut. */
+        const val ACTION_ADD_WATCH = "io.github.sudomegas.saat.ADD_WATCH"
     }
 }

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Static shortcuts — SPEC-ANDROID 5.9. Two, and the spec names both.
+
+  STATIC rather than dynamic, which is what makes them work on a cold start:
+  they are read from this file by the launcher and need no code to have run, so
+  long-pressing the icon after a reboot offers them immediately. A dynamic
+  shortcut would have to be published by the app, which means the app has to
+  have been opened at least once since boot.
+
+  "Wore this today" goes to the picker rather than into the app, for the same
+  reason the widget does: logging today must never require opening the app.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="wore_today"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/action_wore_today_shortcut"
+        android:shortcutLongLabel="@string/action_wore_today_shortcut">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="io.github.sudomegas.saat"
+            android:targetClass="io.github.sudomegas.saat.widget.TodayPickerActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="add_watch"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/action_add_watch"
+        android:shortcutLongLabel="@string/action_add_watch">
+        <intent
+            android:action="io.github.sudomegas.saat.ADD_WATCH"
+            android:targetPackage="io.github.sudomegas.saat"
+            android:targetClass="io.github.sudomegas.saat.MainActivity" />
+    </shortcut>
+</shortcuts>

@@ -3,6 +3,55 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [0.8] - 2026-08-03
+
+From this build, logging today never requires opening the app.
+
+**The widget is plain RemoteViews, not Glance — and that is this milestone's
+real finding.** SPEC-ANDROID 2.1 approves Glance for exactly this, so Glance is
+what was built first. It cannot be used: every published version declares
+`androidx.work:work-runtime`, and `GlanceAppWidget`'s *constructor* resolves
+`androidx.work.CoroutineWorker`. Excluding the dependency and running it on a
+real phone gave `NoClassDefFoundError` before a pixel was drawn.
+
+Keeping WorkManager costs two hard rules at once — WAKE_LOCK,
+ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED and FOREGROUND_SERVICE (rule 2,
+caught by the manifest guardian the moment Glance went in) and `androidx.sqlite`
+(rule 4, by name). The hard rules are non-negotiable; §2.1 is a budget written
+before anyone checked what Glance drags in. **SPEC-ANDROID 2.1 should be
+corrected**, the way AM3 corrected the media path.
+
+**RemoteViews costs no dependency at all,** and the APK still declares zero
+permissions — verified on the installed build, not just in the merged manifest.
+Dark mode and Android 12+ dynamic colour come from `values-night/` and
+`values-v31/` resources, which is the only way a layout inflated in the
+launcher's process can reach a theme.
+
+**Midnight is one inexact alarm, not a heartbeat.** `setExact` needs
+SCHEDULE_EXACT_ALARM from API 31, and a widget that turns over a few minutes
+into the new day is a fair price for a permission list anyone can verify is
+empty. It re-arms on every draw, so a reboot repairs itself with no boot
+receiver, and DATE_CHANGED / TIME_SET / TIMEZONE_CHANGED cover the cases an
+alarm cannot see.
+
+**Update-on-change is observed once, in the Application** — one collection, one
+place that outlives every screen.
+
+**Tapping opens the picker, not the app shell.** A lightweight activity hosting
+AM7's own picker sheet; dropping the owner on the grid to navigate to a calendar
+would give back the whole point at the last step. The click handler sits on the
+*root* view, which the phone taught: a photo-less watch hides the ImageView, and
+tapping the blank half fell straight through to the launcher.
+
+**Two static shortcuts,** static so they work on a cold start — the launcher
+reads them from XML and no app code has to have run first.
+
+**Exactly one implementation of one-watch-per-day, and a test that says so.**
+There are now four ways to record a day — detail button, calendar picker, widget
+and shortcut — and all four reach `WatchRepository.assignWorn`. A second copy
+would not fail anything; it would simply drift.
+
+
 ## [0.7] - 2026-08-03
 
 The most satisfying screen in the app, and the one whose desktop interaction
