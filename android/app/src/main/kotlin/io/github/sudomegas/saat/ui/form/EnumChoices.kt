@@ -249,3 +249,24 @@ fun List<EnumChoice>.plusExisting(existing: List<String>): List<EnumChoice> {
  */
 fun runsOnBattery(kind: String?): Boolean =
     kind?.trim()?.lowercase() in setOf("quartz", "solar")
+
+/**
+ * The label for a canonical value, or null when the schema never suggested it.
+ *
+ * Null is the free-text case and is not a failure: SPEC.md §4 is explicit that
+ * `enum*` lists are suggestions, "the owner will buy something you did not
+ * anticipate", and what they typed is their word rather than the app's
+ * vocabulary. It reaches the screen unchanged, in any language.
+ *
+ * The list is a parameter rather than this being a lookup over every list at
+ * once, because the same English word means different things in different
+ * fields — "Other" is a group and a style, "None" a bezel and an indices, "GMT"
+ * a style, a bezel and a complication. `StringsConventionTest` explains why
+ * those have separate keys; this is the function that would throw that away if
+ * it took the shortcut.
+ */
+@StringRes
+fun labelFor(value: String?, choices: List<EnumChoice>): Int? {
+    val trimmed = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return choices.firstOrNull { it.value == trimmed }?.labelRes
+}

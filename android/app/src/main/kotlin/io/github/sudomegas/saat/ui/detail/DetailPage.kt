@@ -10,6 +10,24 @@ import io.github.sudomegas.saat.storage.Watch
 import io.github.sudomegas.saat.storage.WatchRecord
 import io.github.sudomegas.saat.storage.effectiveWidthMm
 import io.github.sudomegas.saat.storage.frequencyHz
+import io.github.sudomegas.saat.ui.form.BEZELS
+import io.github.sudomegas.saat.ui.form.CASEBACKS
+import io.github.sudomegas.saat.ui.form.CASE_MATERIALS
+import io.github.sudomegas.saat.ui.form.CLASPS
+import io.github.sudomegas.saat.ui.form.COMPLICATIONS
+import io.github.sudomegas.saat.ui.form.CONDITIONS
+import io.github.sudomegas.saat.ui.form.CROWNS
+import io.github.sudomegas.saat.ui.form.CRYSTALS
+import io.github.sudomegas.saat.ui.form.EnumChoice
+import io.github.sudomegas.saat.ui.form.GROUPS
+import io.github.sudomegas.saat.ui.form.INDICES
+import io.github.sudomegas.saat.ui.form.LOG_KINDS
+import io.github.sudomegas.saat.ui.form.MOVEMENT_KINDS
+import io.github.sudomegas.saat.ui.form.STATUSES
+import io.github.sudomegas.saat.ui.form.STRAP_MATERIALS
+import io.github.sudomegas.saat.ui.form.STYLES
+import io.github.sudomegas.saat.ui.form.TIMING_POSITIONS
+import io.github.sudomegas.saat.ui.form.labelFor
 import io.github.sudomegas.saat.ui.formatDate
 import io.github.sudomegas.saat.ui.formatMeasurement
 import io.github.sudomegas.saat.ui.formatPrice
@@ -32,7 +50,9 @@ import java.time.LocalDate
  * translatable and the composable stays free of literals (see
  * `docs/ANDROID-STRINGS.md`). Values that are the owner's own words — a brand, a
  * dial colour, a note — are [SpecValue.Plain] and are never passed through the
- * resource table, because they are data rather than vocabulary.
+ * resource table, because they are data rather than vocabulary. An `enum*`
+ * value is [SpecValue.EnumValue], which carries both: the English that is
+ * stored and the label that is shown.
  */
 data class DetailPage(
     val slug: String,
@@ -64,10 +84,17 @@ data class DetailPage(
 /**
  * A value on the page.
  *
- * Two cases and no third: text the owner typed, and text the app supplies. The
- * split is the whole of hard rule 7's UI half — an enum value like `Automatic`
- * arrives here as [Plain] because it is what the file says, and AM11 will
- * translate it at display time without ever changing what is stored.
+ * Four cases, and the split between them is the whole of hard rule 7's UI half.
+ * [Plain] is text the owner typed — a brand, a dial colour, a note — and is
+ * never passed through the resource table. [Resource] is text the app supplies.
+ * [EnumValue] is the interesting one: a canonical English value that is what
+ * gets STORED, carried alongside the label that gets SHOWN, so a Turkish build
+ * reads `Otomatik` off a file that still says `Automatic`. [Joined] is several
+ * of those on one line.
+ *
+ * AM11a added the last two. Before it, an enum value arrived as [Plain] and the
+ * comment here promised it would be translated at display time — this is that
+ * promise kept.
  */
 sealed interface SpecValue {
     /** The owner's own words. Never translated, never templated. */
@@ -79,6 +106,35 @@ sealed interface SpecValue {
      */
     data class Resource(@StringRes val templateRes: Int, val args: List<String> = emptyList()) :
         SpecValue
+
+    /**
+     * A canonical English `enum*` value, and the label to show for it — AM11a
+     * making good on the promise in this file's header.
+     *
+     * BOTH HALVES ARE KEPT, and that is the whole of hard rule 7 in one type.
+     * [value] is what the file says and what the desktop reads; [labelRes] is
+     * what the owner reads, and it is null for a value the schema never
+     * suggested — something the owner typed themselves, which has no
+     * translation and should not acquire one.
+     *
+     * Resolved at BUILD time rather than by looking the value up at draw time,
+     * because the lookup is per-field: "Other" is a group and a style, "None" a
+     * bezel and an indices, "GMT" a style, a bezel and a complication, and a
+     * flat value-to-label map would pick whichever it met first and quietly
+     * produce the wrong Turkish. The row builder knows which list its field
+     * draws from; nothing downstream does.
+     *
+     * Equality is on both fields, which is what keeps AM9's compare honest: two
+     * watches reading `Automatic` match, and a free-text value matches only
+     * another spelling of itself.
+     */
+    data class EnumValue(val value: String, @StringRes val labelRes: Int?) : SpecValue
+
+    /**
+     * Several values on one line — `complications`, and any future list of
+     * enum* values. Joined at draw time so each part is translated first.
+     */
+    data class Joined(val parts: List<SpecValue>) : SpecValue
 }
 
 /** A label and its value. A null [value] is an absent field: a muted em-dash. */
@@ -96,20 +152,20 @@ data class SpecGroup(@StringRes val titleRes: Int, val rows: List<SpecRow>)
 
 /** One strap, as a small card. [image] is null when the strap has no photo. */
 data class StrapCard(
-    val material: String?,
+    val material: SpecValue?,
     val colour: String?,
     /** The strap's own width, or the watch's lug width — SPEC.md §4. */
     val widthMm: Int?,
-    val clasp: String?,
+    val clasp: SpecValue?,
     val fitted: Boolean,
     val image: File?,
 )
 
 /** One log entry. Dates are already formatted; null is an entry with no date. */
-data class LogLine(val date: String?, val kind: String?, val note: String?)
+data class LogLine(val date: String?, val kind: SpecValue?, val note: String?)
 
 /** One timing reading. [deviation] carries its sign — that is the reading. */
-data class TimingLine(val date: String?, val deviation: String?, val position: String?)
+data class TimingLine(val date: String?, val deviation: String?, val position: SpecValue?)
 
 /**
  * Build the page, or null when the record did not load.
@@ -173,7 +229,7 @@ internal fun movementRows(watch: Watch): List<SpecRow> {
 
     return buildList {
         add(SpecRow(R.string.field_caliber, plain(movement.caliber)))
-        add(SpecRow(R.string.field_kind, plain(movement.kind)))
+        add(SpecRow(R.string.field_kind, enumValue(movement.kind, MOVEMENT_KINDS)))
         if (!battery || movement.powerReserveHours != null) {
             add(SpecRow(R.string.field_power_reserve, hours(movement.powerReserveHours)))
         }
@@ -196,11 +252,11 @@ internal fun caseRows(watch: Watch): List<SpecRow> {
         SpecRow(R.string.field_lug_to_lug, millimetres(case.lugToLugMm)),
         SpecRow(R.string.field_thickness, millimetres(case.thicknessMm)),
         SpecRow(R.string.field_lug_width, millimetres(case.lugWidthMm?.toDouble())),
-        SpecRow(R.string.field_case_material, plain(case.material)),
-        SpecRow(R.string.field_crystal, plain(case.crystal)),
-        SpecRow(R.string.field_crown, plain(case.crown)),
-        SpecRow(R.string.field_bezel, plain(case.bezel)),
-        SpecRow(R.string.field_caseback, plain(case.caseback)),
+        SpecRow(R.string.field_case_material, enumValue(case.material, CASE_MATERIALS)),
+        SpecRow(R.string.field_crystal, enumValue(case.crystal, CRYSTALS)),
+        SpecRow(R.string.field_crown, enumValue(case.crown, CROWNS)),
+        SpecRow(R.string.field_bezel, enumValue(case.bezel, BEZELS)),
+        SpecRow(R.string.field_caseback, enumValue(case.caseback, CASEBACKS)),
         SpecRow(R.string.field_water_resistance, waterResistance(case.waterResistanceM)),
         SpecRow(R.string.field_weight, grams(case.weightG)),
     )
@@ -211,9 +267,9 @@ internal fun dialRows(watch: Watch): List<SpecRow> {
     return listOf(
         SpecRow(R.string.field_dial_colour, plain(dial.colour)),
         SpecRow(R.string.field_dial_material, plain(dial.material)),
-        SpecRow(R.string.field_indices, plain(dial.indices)),
+        SpecRow(R.string.field_indices, enumValue(dial.indices, INDICES)),
         SpecRow(R.string.field_lume, plain(dial.lume)),
-        SpecRow(R.string.field_complications, list(dial.complications)),
+        SpecRow(R.string.field_complications, enumList(dial.complications, COMPLICATIONS)),
     )
 }
 
@@ -236,7 +292,7 @@ internal fun acquisitionRows(watch: Watch): List<SpecRow> {
         SpecRow(R.string.field_target_date, date(acquisition.targetDate)),
         SpecRow(R.string.field_seller, plain(acquisition.seller)),
         SpecRow(R.string.field_url, plain(acquisition.url)),
-        SpecRow(R.string.field_condition, plain(acquisition.condition)),
+        SpecRow(R.string.field_condition, enumValue(acquisition.condition, CONDITIONS)),
         SpecRow(R.string.field_box_and_papers, yesNo(acquisition.boxAndPapers)),
         SpecRow(R.string.field_warranty_until, date(acquisition.warrantyUntil)),
     )
@@ -278,9 +334,9 @@ internal fun identityRows(watch: Watch): List<SpecRow> = listOf(
     SpecRow(R.string.field_model, plain(watch.model)),
     SpecRow(R.string.field_reference, plain(watch.reference)),
     SpecRow(R.string.field_nickname, plain(watch.nickname)),
-    SpecRow(R.string.field_group, plain(watch.group)),
-    SpecRow(R.string.field_style, plain(watch.style)),
-    SpecRow(R.string.field_status, plain(watch.status)),
+    SpecRow(R.string.field_group, enumValue(watch.group, GROUPS)),
+    SpecRow(R.string.field_style, enumValue(watch.style, STYLES)),
+    SpecRow(R.string.field_status, enumValue(watch.status, STATUSES)),
     SpecRow(R.string.field_storage, plain(watch.storage)),
     SpecRow(R.string.field_rating, count(watch.rating)),
     SpecRow(R.string.field_tags, list(watch.tags)),
@@ -300,10 +356,10 @@ internal fun identityRows(watch: Watch): List<SpecRow> = listOf(
 internal fun strapRows(watch: Watch): List<SpecRow> {
     val fitted = watch.straps.firstOrNull { it.fitted }
     return listOf(
-        SpecRow(R.string.field_strap_material, plain(fitted?.material)),
+        SpecRow(R.string.field_strap_material, enumValue(fitted?.material, STRAP_MATERIALS)),
         SpecRow(R.string.field_strap_colour, plain(fitted?.colour)),
         SpecRow(R.string.field_strap_width, millimetres(fitted?.effectiveWidthMm(watch)?.toDouble())),
-        SpecRow(R.string.field_strap_clasp, plain(fitted?.clasp)),
+        SpecRow(R.string.field_strap_clasp, enumValue(fitted?.clasp, CLASPS)),
     )
 }
 
@@ -343,24 +399,24 @@ private const val MAX_RATING = 5
 // --- rows within the list-shaped groups -------------------------------------
 
 internal fun Strap.toCard(owner: Watch, mediaDir: File) = StrapCard(
-    material = material.orNull(),
+    material = enumValue(material, STRAP_MATERIALS),
     colour = colour.orNull(),
     widthMm = effectiveWidthMm(owner),
-    clasp = clasp.orNull(),
+    clasp = enumValue(clasp, CLASPS),
     fitted = fitted,
     image = image.orNull()?.let { File(mediaDir, File(it).name) },
 )
 
 private fun LogEntry.toLine() = LogLine(
     date = date?.let(::formatDate),
-    kind = kind.orNull(),
+    kind = enumValue(kind, LOG_KINDS),
     note = note.orNull(),
 )
 
 private fun TimingEntry.toLine() = TimingLine(
     date = date?.let(::formatDate),
     deviation = deviationSec?.let(::formatSignedMeasurement),
-    position = position.orNull(),
+    position = enumValue(position, TIMING_POSITIONS),
 )
 
 /**
@@ -391,6 +447,19 @@ private fun Movement.runsOnBattery(): Boolean =
 private fun String?.orNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
 private fun plain(value: String?): SpecValue? = value.orNull()?.let(SpecValue::Plain)
+
+/**
+ * An enum* field: its canonical value, and the label for it when the schema
+ * knows one. Free text passes through with a null label and is shown as typed.
+ */
+private fun enumValue(value: String?, choices: List<EnumChoice>): SpecValue? =
+    value.orNull()?.let { SpecValue.EnumValue(it, labelFor(it, choices)) }
+
+/** A list of enum* values — complications. Each part translated, then joined. */
+private fun enumList(values: List<String>, choices: List<EnumChoice>): SpecValue? = values
+    .mapNotNull { enumValue(it, choices) }
+    .takeIf { it.isNotEmpty() }
+    ?.let { SpecValue.Joined(it) }
 
 private fun list(values: List<String>): SpecValue? = values
     .mapNotNull { it.orNull() }

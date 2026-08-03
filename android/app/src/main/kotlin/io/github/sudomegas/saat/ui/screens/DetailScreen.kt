@@ -576,4 +576,23 @@ internal fun specValueText(value: SpecValue?): String = when (value) {
         } else {
             stringResource(value.templateRes, *value.args.toTypedArray())
         }
+
+    // The label when the schema knows this value, the value itself when it does
+    // not. A free-text entry the owner typed is THEIR word and reaches the
+    // screen unchanged in either language — SPEC.md §4's "the owner will buy
+    // something you did not anticipate".
+    is SpecValue.EnumValue ->
+        value.labelRes?.let { stringResource(it) } ?: value.value
+
+    // Each part translated first, then joined — which is why this is a value
+    // rather than a string built in the row builder.
+    //
+    // `map` then `joinToString`, not a transform lambda: `joinToString` is not
+    // inline, so a @Composable call inside its lambda does not compile. `map`
+    // is, which is the whole difference.
+    is SpecValue.Joined ->
+        value.parts.map { specValueText(it) }.joinToString(LIST_SEPARATOR)
 }
+
+/** `Steel, Leather`. Not a resource: a comma and a space is punctuation. */
+private const val LIST_SEPARATOR = ", "

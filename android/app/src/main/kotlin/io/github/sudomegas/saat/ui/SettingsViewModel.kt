@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val configState: ConfigState,
     private val onThemeModeChanged: (ThemeMode) -> Unit,
+    private val onLanguageChanged: (String) -> Unit,
 ) : ViewModel() {
 
     val config: StateFlow<AppConfig> = configState.config
@@ -45,6 +46,25 @@ class SettingsViewModel(
 
     fun setDynamicColor(enabled: Boolean) = persist { it.copy(dynamicColor = enabled) }
 
+    /**
+     * The ONLY thing that changes the app's language — SPEC-ANDROID hard rule 7.
+     *
+     * Applied before it is persisted, for the same reason the theme is: the
+     * apply is what the owner sees happen, and a write that failed should not
+     * be able to hold the interface back. The code is a bare language tag
+     * (`en`, `tr`) and reaches `AppCompatDelegate.setApplicationLocales`, which
+     * is the only per-app locale mechanism that covers the whole minSdk 26
+     * range — the framework's own LocaleManager is API 33+.
+     *
+     * Nothing here touches storage. Enum values in `watch.toml` stay canonical
+     * English whatever this is set to; the Turkish build shows a Turkish label
+     * for `Automatic` and still writes `Automatic`.
+     */
+    fun setLanguage(code: String) {
+        onLanguageChanged(code)
+        persist { it.copy(language = code) }
+    }
+
     fun clearError() = configState.clearError()
 
     private fun persist(transform: (AppConfig) -> AppConfig) {
@@ -59,6 +79,7 @@ class SettingsViewModel(
                     SettingsViewModel(
                         configState = app.configState,
                         onThemeModeChanged = app::applyNightMode,
+                        onLanguageChanged = app::applyLanguage,
                     ) as T
             }
     }
