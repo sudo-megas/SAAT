@@ -1,3 +1,5 @@
+<img width="256" height="256" alt="" width="96" align="left" hspace="12" vspace="4" src="https://github.com/user-attachments/assets/9de5660a-993a-4954-adcd-05f7a178810f" />
+
 <h1>SAAT</h1>
 
 <p>
