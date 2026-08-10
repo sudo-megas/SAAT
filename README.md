@@ -62,7 +62,7 @@ its **[own release page][rel-android]**, because the two are versioned separatel
 > would send you to a page with nothing but an APK on it.
 
 [rel-desktop]: https://github.com/sudo-megas/SAAT/releases/tag/v2.1.1
-[rel-android]: https://github.com/sudo-megas/SAAT/releases/tag/android-v1.0
+[rel-android]: https://github.com/sudo-megas/SAAT/releases/tag/android-v1.1
 
 ### 3.A Build From Source
 
@@ -146,7 +146,7 @@ and run `SAAT.exe`. In that mode your collection lives inside the extracted fold
 
 ### 3.E Android 8.0 and newer
 
-Download **`saat-android-1.0.apk`** from the [Android release page][rel-android].
+Download **`saat-android-1.1.apk`** from the [Android release page][rel-android].
 
 1. Tap the downloaded APK. Android says your browser or file manager is not allowed to
    install apps.
