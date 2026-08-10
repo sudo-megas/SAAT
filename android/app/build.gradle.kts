@@ -24,8 +24,8 @@ android {
         // monotonically, because it is what Android compares to decide whether
         // an APK is an update. VersionGuardTest holds versionName to the newest
         // CHANGELOG-ANDROID.md heading.
-        versionCode = 2
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "1.1"
     }
 
     /**

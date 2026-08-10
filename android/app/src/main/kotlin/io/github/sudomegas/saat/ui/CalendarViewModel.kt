@@ -4,9 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import io.github.sudomegas.saat.SaatApplication
+import io.github.sudomegas.saat.config.ConfigState
+import io.github.sudomegas.saat.storage.PickerMode
 import io.github.sudomegas.saat.storage.SaatPaths
+import io.github.sudomegas.saat.storage.WatchRecord
 import io.github.sudomegas.saat.storage.WatchRepository
 import io.github.sudomegas.saat.storage.WatchSort
+import io.github.sudomegas.saat.storage.ownedWatches
+import io.github.sudomegas.saat.storage.pickOne
 import io.github.sudomegas.saat.storage.query
 import io.github.sudomegas.saat.storage.wornIndex
 import io.github.sudomegas.saat.ui.calendar.MonthLayout
@@ -24,6 +29,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
 import java.time.YearMonth
+import kotlin.random.Random
 
 /** One watch in the picker: a thumbnail and a name. */
 data class PickerWatch(
@@ -32,6 +38,25 @@ data class PickerWatch(
     val model: String,
     val image: File?,
 )
+
+/**
+ * "Pick for me" modal state — SPEC-ANDROID 5.5, additive to the day picker
+ * ([PickerWatch]/[DaySelection] above), not a replacement for it.
+ */
+data class PickForMeState(
+    val mode: PickerMode,
+    /** Every owned watch — the 0/1/N-watch branches the sheet special-cases on. */
+    val owned: List<PickerWatch>,
+    /**
+     * The current pick. Null when [owned] is empty, or — rarely — when the
+     * chosen watch stopped being owned or was deleted while the sheet stayed
+     * open: the composable disables "Wore this today" rather than assuming
+     * null only ever means [owned] is empty.
+     */
+    val chosen: PickerWatch?,
+)
+
+private data class PickForMeSelection(val mode: PickerMode, val chosenSlug: String?)
 
 /** One day in the grid: the watch on it, if any, and what to draw for it. */
 data class CalendarDay(
@@ -87,7 +112,9 @@ data class CalendarUiState(
 class CalendarViewModel(
     private val repository: WatchRepository,
     private val paths: SaatPaths,
+    private val configState: ConfigState,
     private val today: () -> LocalDate = LocalDate::now,
+    private val random: Random = Random.Default,
 ) : ViewModel() {
 
     private val _month = MutableStateFlow(YearMonth.from(today()))
@@ -95,9 +122,20 @@ class CalendarViewModel(
     private val _picking = MutableStateFlow<List<LocalDate>?>(null)
     private val _pickerQuery = MutableStateFlow("")
     private val _isYearView = MutableStateFlow(false)
+    private val _pickingForMe = MutableStateFlow<PickForMeSelection?>(null)
 
     /** What is typed in the picker's search field. Cleared when it closes. */
     val pickerQuery: StateFlow<String> = _pickerQuery.asStateFlow()
+
+    private fun WatchRecord.toPickerWatch(): PickerWatch? {
+        val watch = watch ?: return null
+        return PickerWatch(
+            slug = slug,
+            brand = watch.brand,
+            model = watch.model,
+            image = watch.images.firstOrNull()?.let { File(paths.watchMedia(slug), File(it).name) },
+        )
+    }
 
     /**
      * The collection as the picker shows it: search field plus thumbnails —
@@ -111,17 +149,26 @@ class CalendarViewModel(
         combine(repository.state, _pickerQuery) { collection, query ->
             collection.watches
                 .query(query, WatchSort.BRAND, today())
-                .mapNotNull { record ->
-                    val watch = record.watch ?: return@mapNotNull null
-                    PickerWatch(
-                        slug = record.slug,
-                        brand = watch.brand,
-                        model = watch.model,
-                        image = watch.images.firstOrNull()
-                            ?.let { File(paths.watchMedia(record.slug), File(it).name) },
-                    )
-                }
+                .mapNotNull { it.toPickerWatch() }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * "Pick for me" — separate from [CalendarUiState] rather than a sixth
+     * field on it: [state] below is already at [combine]'s 5-flow overload
+     * ceiling, and [pickerWatches]/[pickerQuery] already live outside it for
+     * the same reason.
+     */
+    val pickingForMe: StateFlow<PickForMeState?> =
+        combine(repository.state, _pickingForMe) { collection, selection ->
+            selection?.let { sel ->
+                val owned = collection.records.ownedWatches().mapNotNull { it.toPickerWatch() }
+                PickForMeState(
+                    mode = sel.mode,
+                    owned = owned,
+                    chosen = owned.firstOrNull { it.slug == sel.chosenSlug },
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val state: StateFlow<CalendarUiState> =
         combine(
@@ -183,6 +230,7 @@ class CalendarViewModel(
         val selection = _selection.value
         if (selection == null) {
             _picking.value = listOf(date)
+            _pickingForMe.value = null // mutual exclusion — see openPickForMe()
         } else {
             _selection.value = selection.copy(extent = date)
         }
@@ -196,6 +244,7 @@ class CalendarViewModel(
     /** Open the picker for the whole span the owner has chosen. */
     fun pickForSelection() {
         _picking.value = _selection.value?.dates
+        _pickingForMe.value = null // mutual exclusion — see openPickForMe()
     }
 
     fun cancelSelection() {
@@ -256,6 +305,55 @@ class CalendarViewModel(
         viewModelScope.launch { repository.clearWorn(listOf(today())) }
     }
 
+    /**
+     * Open "Pick for me", using the mode already saved in config and rolling
+     * one pick immediately — the sheet always opens on an answer, never on a
+     * bare toggle. Clears [_picking] for the same mutual-exclusion reason
+     * [onDayTapped]/[pickForSelection] clear this state in the other
+     * direction: the two pickers must never both be open at once.
+     */
+    fun openPickForMe() {
+        _picking.value = null
+        _pickerQuery.value = ""
+        val records = repository.state.value.records
+        val mode = configState.config.value.pickerMode
+        _pickingForMe.value = PickForMeSelection(mode = mode, chosenSlug = rollSlug(records, mode))
+    }
+
+    /** Re-roll with the current mode. Writes nothing — only "Wore this today" does. */
+    fun rerollPickForMe() {
+        val current = _pickingForMe.value ?: return
+        val records = repository.state.value.records
+        _pickingForMe.value = current.copy(chosenSlug = rollSlug(records, current.mode))
+    }
+
+    /** Switching mode re-rolls immediately, and persists the choice for next time. */
+    fun setPickForMeMode(mode: PickerMode) {
+        val current = _pickingForMe.value ?: return
+        if (mode == current.mode) return
+        viewModelScope.launch { configState.update { it.copy(pickerMode = mode) } }
+        val records = repository.state.value.records
+        _pickingForMe.value = current.copy(mode = mode, chosenSlug = rollSlug(records, mode))
+    }
+
+    fun dismissPickForMe() {
+        _pickingForMe.value = null
+    }
+
+    /**
+     * Straight through [assignToday] — the same commit every "Wore this
+     * today" entry point uses, so the one-watch-per-day rule, the silent
+     * move and the backup policy stay the ones already built and tested.
+     */
+    fun confirmPickForMe() {
+        val slug = pickingForMe.value?.chosen?.slug ?: return
+        assignToday(slug)
+        _pickingForMe.value = null
+    }
+
+    private fun rollSlug(records: List<WatchRecord>, mode: PickerMode): String? =
+        if (records.ownedWatches().isEmpty()) null else pickOne(records, mode, today(), random).slug
+
     fun toggleYearView() {
         _isYearView.value = !_isYearView.value
     }
@@ -278,6 +376,7 @@ class CalendarViewModel(
                     CalendarViewModel(
                         repository = app.watchRepository,
                         paths = app.paths,
+                        configState = app.configState,
                     ) as T
             }
     }

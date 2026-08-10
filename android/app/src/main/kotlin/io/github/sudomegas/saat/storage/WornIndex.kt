@@ -28,10 +28,19 @@ import java.time.LocalDate
  */
 fun List<WatchRecord>.wornIndex(): Map<LocalDate, WatchRecord> {
     val index = HashMap<LocalDate, WatchRecord>()
-    forEach { record ->
-        val watch = record.watch ?: return@forEach
-        if (watch.status != Watch.STATUS_OWNED) return@forEach
-        watch.worn.forEach { day -> index[day] = record }
+    ownedWatches().forEach { record ->
+        record.watch!!.worn.forEach { day -> index[day] = record }
     }
     return index
 }
+
+/**
+ * Owned watches only — the choke point [wornIndex] and "Pick for me"
+ * (`storage/Selection.kt`) both read through, matching the desktop's
+ * `owned_watches()`.
+ */
+fun List<WatchRecord>.ownedWatches(): List<WatchRecord> =
+    filter { record ->
+        val watch = record.watch
+        watch != null && watch.status == Watch.STATUS_OWNED
+    }

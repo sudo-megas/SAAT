@@ -3,6 +3,7 @@ package io.github.sudomegas.saat
 import io.github.sudomegas.saat.config.AppConfig
 import io.github.sudomegas.saat.config.ConfigStore
 import io.github.sudomegas.saat.config.ThemeMode
+import io.github.sudomegas.saat.storage.PickerMode
 import io.github.sudomegas.saat.storage.WatchSort
 import io.github.sudomegas.saat.storage.writeAtomically
 import org.junit.Assert.assertEquals
@@ -202,6 +203,39 @@ class ConfigStoreTest {
 
         val loaded = store().load()
         assertEquals(WatchSort.DEFAULT, loaded.config.sort)
+        assertNull(loaded.error)
+    }
+
+    // ---- the picker mode, added for "Pick for me" --------------------------
+
+    @Test
+    fun `the picker mode round-trips`() {
+        val store = store()
+        store.save(AppConfig(pickerMode = PickerMode.WEIGHTED))
+
+        assertEquals(PickerMode.WEIGHTED, store.load().config.pickerMode)
+    }
+
+    @Test
+    fun `a config with no picker table yields the default mode`() {
+        writeAtomically(File(temp.root, ConfigStore.FILE_NAME), "[theme]\nmode = \"dark\"\n")
+
+        val loaded = store().load()
+        assertEquals(PickerMode.DEFAULT, loaded.config.pickerMode)
+        assertNull("an absent preference is not an error", loaded.error)
+    }
+
+    @Test
+    fun `an unrecognised picker mode token falls back rather than throwing`() {
+        // Same leniency the sort/theme tokens already get: a config written by
+        // a later version must not stop this one from starting.
+        writeAtomically(
+            File(temp.root, ConfigStore.FILE_NAME),
+            "[picker]\nmode = \"coin_flip\"\n",
+        )
+
+        val loaded = store().load()
+        assertEquals(PickerMode.DEFAULT, loaded.config.pickerMode)
         assertNull(loaded.error)
     }
 

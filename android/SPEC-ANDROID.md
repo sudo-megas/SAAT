@@ -308,6 +308,21 @@ Footer strip: days recorded, distinct watches worn, and the watches *not* worn
 this month. **Year view** toggled in the header: twelve compact month grids,
 cells as colour chips, one hue per watch derived deterministically from its slug.
 
+**"Pick for me"** — ported from the desktop's `saat/ui/today_picker.py`, single
+day only; the desktop's week planner (`pick_week`) is out of scope. A button
+below the footer, always visible, always today regardless of which month is on
+screen. Opens a sheet drawing only from Owned watches: **Random** (uniform) or
+**Weighted** (favours whatever was worn least recently, via a gentle
+collection-relative curve that never truly excludes a recently-worn watch),
+persisted in `config.toml`'s `[picker]` table and switchable in the sheet
+itself. Choosing re-rolls immediately; **Re-roll** rolls again; nothing is
+written until **"Wore this today"** is tapped, which commits through the same
+`WatchRepository.assignWorn` every other wear entry point uses. Special-cased
+for zero owned watches (a message, nothing to pick) and exactly one (a name
+and a single confirm button — no toggle, no re-roll, nothing to roll between).
+No tumble or settle animation on the reveal — §6's "no celebratory animation"
+rules that out; the chosen watch is shown plainly the instant the sheet opens.
+
 ### 5.6 Detail
 
 A full screen with a back affordance. Large primary image, thumbnail strip

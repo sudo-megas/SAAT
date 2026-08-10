@@ -67,6 +67,17 @@
     <string name="action_previous_month">‹</string>
     <string name="action_next_month">›</string>
 
+    <!-- "Pick for me" — ported from the desktop's saat/ui/today_picker.py.
+         The toggle labels are action_, not enum_: they name a UI preference
+         (like action_sort_brand), not a value from a watch.toml enum* list. -->
+    <string name="action_pick_for_me">Pick for me</string>
+    <string name="screen_calendar_pick_for_me_title">Pick for me</string>
+    <string name="screen_calendar_pick_for_me_empty">No owned watches to pick from yet.</string>
+    <string name="screen_calendar_pick_for_me_only">Only one watch to wear: %1$s %2$s.</string>
+    <string name="action_picker_mode_random">Random</string>
+    <string name="action_picker_mode_weighted">Weighted</string>
+    <string name="action_reroll">Re-roll</string>
+
     <!-- Specs (AM6). The preset labels are their own keys rather than the
          detail page's group titles: a chip is a filter control and a heading is
          a heading, and Turkish need not use one word for both. -->

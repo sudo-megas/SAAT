@@ -2,7 +2,7 @@
 
 <p>
   <img alt="Desktop version" src="https://img.shields.io/badge/desktop-v2.1.1-C9A227?style=for-the-badge">
-  <img alt="Android version" src="https://img.shields.io/badge/android-v1.0-C9A227?style=for-the-badge">
+  <img alt="Android version" src="https://img.shields.io/badge/android-v1.1-C9A227?style=for-the-badge">
   <img alt="Licence"         src="https://img.shields.io/badge/licence-GPL--3.0--or--later-6E7B8B?style=for-the-badge">
 </p>
 
@@ -198,6 +198,7 @@ phones home. It opens no network socket at all.
 |---|---|
 | **Home-screen widget** | Shows today's watch, and taps through to record one. |
 | **Launcher shortcut** | "Wore this today" — long-press the app icon and log a watch in two taps, without opening the app at all. |
+| **Pick for me** | Can't decide? Let the calendar suggest a watch — random, or weighted toward whatever you haven't worn in a while. Re-roll until you like the answer; nothing is recorded until you confirm it. |
 | **ZIP bridge** | **Settings → Export** writes a ZIP holding exactly the `watches/` folder in the layout the desktop app uses — so unzipping it into your desktop collection *is* the import on that side. It works both ways, and watches you already have are skipped rather than overwritten, so re-importing is never destructive. |
 
 ### Where your collection lives

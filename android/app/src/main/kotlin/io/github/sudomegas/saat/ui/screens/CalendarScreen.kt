@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -73,6 +74,7 @@ fun CalendarScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pickerWatches by viewModel.pickerWatches.collectAsStateWithLifecycle()
     val pickerQuery by viewModel.pickerQuery.collectAsStateWithLifecycle()
+    val pickingForMe by viewModel.pickingForMe.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -127,6 +129,18 @@ fun CalendarScreen(
 
         MonthFooter(state.stats)
 
+        // "Pick for me" — SPEC-ANDROID 5.5. Always visible, always today,
+        // regardless of which month is on screen (the widget's own picker
+        // activity is the only other today-only entry point).
+        Button(
+            onClick = viewModel::openPickForMe,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Text(text = stringResource(R.string.action_pick_for_me))
+        }
+
         if (state.isLoaded && state.days.values.none { it.slug != null }) {
             // SPEC-ANDROID 5.8: an empty month plus one muted line. Shown
             // whenever the MONTH is empty rather than only when the collection
@@ -157,6 +171,16 @@ fun CalendarScreen(
             onPick = viewModel::assign,
             onClear = viewModel::clearPicked,
             onDismiss = viewModel::dismissPicker,
+        )
+    }
+
+    pickingForMe?.let { pickForMe ->
+        PickForMeSheet(
+            state = pickForMe,
+            onModeChange = viewModel::setPickForMeMode,
+            onReroll = viewModel::rerollPickForMe,
+            onConfirm = viewModel::confirmPickForMe,
+            onDismiss = viewModel::dismissPickForMe,
         )
     }
 }

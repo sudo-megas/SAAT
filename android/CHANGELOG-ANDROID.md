@@ -3,6 +3,47 @@
 Versioning is independent of the desktop app. Android releases are tagged
 `android-vX.Y`; the desktop's own tags and changelog are separate history.
 
+## [1.1] - 2026-08-10
+
+"Pick for me" — the desktop's `saat/selection.py`/`saat/ui/today_picker.py`
+feature, ported to Android's calendar for the first time since the app shipped.
+
+**A button, not a rebuild of the day picker.** The calendar already has a
+manual picker (search, tap, done); this is a second, additive way to fill
+today, opened from a new button below the month footer and mutually exclusive
+with the manual sheet at the `CalendarViewModel` level — opening one always
+closes the other, so neither can be left silently stale underneath its
+sibling. It commits through `assignToday`, the exact call every other "Wore
+this today" entry point already uses, so the one-watch-per-day rule, the
+silent move and the backup policy needed no changes at all.
+
+**Random and Weighted, ported as pure functions.** `storage/Selection.kt`
+mirrors `pick_random`/`pick_weighted`/`compute_weights` line for line: weighted
+mode's curve is linear in days-since-last-worn, floored at zero for a
+pre-planned future date rather than going negative, and a never-worn watch
+gets a bonus relative to the batch's own most-neglected real value rather than
+a fixed constant — so nothing is ever truly excluded, including the watch worn
+yesterday. The desktop's week planner (`pick_week`) stays out of scope; this is
+the single-day picker only.
+
+**Owned-only filtering got a shared home instead of a second copy.**
+`WornIndex.kt`'s inline "not Owned" check is now `List<WatchRecord>.ownedWatches()`,
+and both `wornIndex()` and the new picker read through it — one choke point,
+matching the desktop's own `owned_watches()`.
+
+**No die, no tumble.** The desktop's reveal is a rolling die settling on the
+pick; SPEC-ANDROID §6 says plainly that this app carries "no celebratory
+animation", so the chosen watch's name and photo are shown the instant the
+sheet composes, and the only motion is the standard sheet transition Material
+already provides. Re-roll and mode-switch both re-render the same way — no
+transition between one pick and the next.
+
+**The mode choice is config, not a one-off toggle.** A new `[picker]` table in
+`config.toml` remembers Random vs Weighted between sessions, following the
+grid sort and specs preset's own token-based pattern; an unrecognised or
+missing value falls back to the default rather than failing to start, the same
+leniency every other preference already gets.
+
 ## [1.0] - 2026-08-03
 
 The first public release. Turkish, signing, a tag-triggered workflow, and a

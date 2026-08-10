@@ -1,6 +1,7 @@
 package io.github.sudomegas.saat.config
 
 import dev.eav.tomlkt.Toml
+import io.github.sudomegas.saat.storage.PickerMode
 import io.github.sudomegas.saat.storage.WatchSort
 import io.github.sudomegas.saat.ui.specs.SpecsPreset
 import io.github.sudomegas.saat.storage.writeAtomically
@@ -64,11 +65,15 @@ class ConfigStore(root: File) {
     private data class SpecsSection(val preset: String? = null)
 
     @Serializable
+    private data class PickerSection(val mode: String? = null)
+
+    @Serializable
     private data class ConfigDto(
         val theme: ThemeSection? = null,
         val language: LanguageSection? = null,
         val grid: GridSection? = null,
         val specs: SpecsSection? = null,
+        val picker: PickerSection? = null,
     )
 
     fun load(): ConfigLoad {
@@ -95,6 +100,7 @@ class ConfigStore(root: File) {
             language = LanguageSection(code = config.language),
             grid = GridSection(sort = config.sort.token),
             specs = SpecsSection(preset = config.specsPreset.token),
+            picker = PickerSection(mode = config.pickerMode.token),
         )
         writeAtomically(file, toml.encodeToString(dto))
     }
@@ -117,6 +123,7 @@ class ConfigStore(root: File) {
             // config written by a later version must not stop this one starting.
             sort = WatchSort.fromToken(dto.grid?.sort),
             specsPreset = SpecsPreset.fromToken(dto.specs?.preset),
+            pickerMode = PickerMode.fromToken(dto.picker?.mode),
         )
     }
 

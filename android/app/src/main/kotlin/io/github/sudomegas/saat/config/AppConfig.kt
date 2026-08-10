@@ -1,5 +1,6 @@
 package io.github.sudomegas.saat.config
 
+import io.github.sudomegas.saat.storage.PickerMode
 import io.github.sudomegas.saat.storage.WatchSort
 import io.github.sudomegas.saat.ui.specs.SpecsPreset
 
@@ -27,6 +28,8 @@ data class AppConfig(
     val sort: WatchSort = WatchSort.DEFAULT,
     /** The Specs list's active preset — AM6, SPEC-ANDROID 5.3. */
     val specsPreset: SpecsPreset = SpecsPreset.DEFAULT,
+    /** Random vs Weighted for "Pick for me" — SPEC-ANDROID 5.5. */
+    val pickerMode: PickerMode = PickerMode.DEFAULT,
 ) {
     companion object {
         const val DEFAULT_LANGUAGE = "en"

@@ -159,14 +159,15 @@ private fun PickerRow(watch: PickerWatch, isCurrent: Boolean, onClick: () -> Uni
     }
 }
 
+/** [size] defaults to the picker row's own size; PickForMeSheet.kt asks for a larger one for its reveal. */
 @Composable
-private fun PickerThumbnail(file: File?) {
+internal fun PickerThumbnail(file: File?, size: androidx.compose.ui.unit.Dp = 44.dp) {
     val painter = rememberAsyncImagePainter(model = file)
     val state by painter.state.collectAsState()
 
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(size)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .border(androidx.compose.ui.unit.Dp.Hairline, MaterialTheme.colorScheme.outlineVariant),
     ) {

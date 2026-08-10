@@ -50,6 +50,15 @@
     <string name="action_pick_watch">Saat seç</string>
     <string name="action_previous_month">‹</string>
     <string name="action_next_month">›</string>
+    <!-- saat_tr.ts translates the desktop's identical today_picker.py strings;
+         reused verbatim here rather than translated again. -->
+    <string name="action_pick_for_me">Benim için seç</string>
+    <string name="screen_calendar_pick_for_me_title">Benim için seç</string>
+    <string name="screen_calendar_pick_for_me_empty">Henüz seçilecek sahip olunan saat yok.</string>
+    <string name="screen_calendar_pick_for_me_only">Takılacak tek saat: %1$s %2$s.</string>
+    <string name="action_picker_mode_random">Rastgele</string>
+    <string name="action_picker_mode_weighted">Ağırlıklı</string>
+    <string name="action_reroll">Yeniden Çevir</string>
     <string name="screen_specs_preset_identity">Kimlik</string>
     <string name="screen_specs_preset_movement">Mekanizma</string>
     <string name="screen_specs_preset_case">Kasa</string>
