@@ -115,7 +115,7 @@ class SelectionTest {
     fun `never-worn gets the maximum weight`() {
         val records = listOf(record("never-worn"), record("worn-long-ago", worn = listOf(today.minusDays(365))))
         val weights = computeWeights(records, today)
-        assertEquals(weights.values.max(), weights.getValue("never-worn"))
+        assertEquals(weights.values.max(), weights.getValue("never-worn"), 0.0001)
         assertTrue(weights.getValue("never-worn") > weights.getValue("worn-long-ago"))
     }
 
