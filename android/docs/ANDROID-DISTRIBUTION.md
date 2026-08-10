@@ -8,15 +8,22 @@ release itself. This document starts where that one ends.
 
 ## Status, as of this commit
 
-**v1.0 is released on GitHub. Neither store channel is submitted yet.**
+**v1.1 is released on GitHub. Screenshots are taken. Neither store channel is
+submitted yet — that step needs the owner's own accounts on Codeberg and
+GitLab, which nothing in this repository can act on.**
 
 | Channel | Status |
 |---|---|
-| GitHub Releases | **Live** — [`android-v1.0`][rel], `saat-android-1.0.apk`, 9.87 MiB |
-| IzzyOnDroid | Not submitted — screenshots outstanding |
-| F-Droid | Not submitted — recipe needs the tag's commit hash |
+| GitHub Releases | **Live** — [`android-v1.1`][rel], `saat-android-1.1.apk`, 9.89 MiB |
+| IzzyOnDroid | Not submitted — nothing outstanding on our side; filing the issue is the owner's action |
+| F-Droid | Not submitted — recipe has both versions' real commit hashes; filing the RFP and opening the merge request are the owner's action |
 
-[rel]: https://github.com/sudo-megas/SAAT/releases/tag/android-v1.0
+Screenshots exist for both `en-US` and `tr-TR` at
+`android/fastlane/metadata/android/<locale>/images/phoneScreenshots/`, taken
+from the owner's real collection per hard rule 1 — a real HONOR ELP-NX9, dark
+mode, native resolution, `adb exec-out screencap`.
+
+[rel]: https://github.com/sudo-megas/SAAT/releases/tag/android-v1.1
 
 The release was cut from `0c68a6e` on 2026-08-03 by the tag-triggered workflow,
 after a `workflow_dispatch` dry run proved the signing path — which earned its
@@ -55,17 +62,21 @@ Everything up to and including the GitHub release is done:
    who installed the app**, because Android refuses an update signed by a
    different key.
 2. ~~Add the three GitHub secrets.~~ Done.
-3. **Take the screenshots.** Hard rule 1; `android/fastlane/README.md` names the
-   exact set and how to take them. **The one thing still outstanding**, and the
-   only thing IzzyOnDroid is now waiting on.
-4. ~~Merge to `master` and tag `android-v1.0`.~~ Done, in that order.
-5. ~~The release workflow produces the signed APK.~~ Done — and it is published.
+3. ~~Take the screenshots.~~ Done for both `en-US` and `tr-TR`, hard rule 1
+   satisfied — the owner's real collection, on a real phone. **Filing the
+   actual submissions is what remains**, and it stays the owner's action; see
+   the per-channel sections below for exactly what to send.
+4. ~~Merge to `master` and tag `android-v1.0`, then `android-v1.1`.~~ Done, in
+   that order, each time.
+5. ~~The release workflow produces the signed APK.~~ Done for both — and both
+   are published.
 
 ### `versionCode 2` is spent, and nothing enforces the next one
 
 Android decides whether an APK is an update by comparing `versionCode` as an
 integer, and nothing else — `versionName` is a label it never reads for this.
-v1.0 shipped as `versionCode 2`, so **the next release must set 3 or higher or
+v1.0 shipped as `versionCode 2` (v1.1 shipped as `3`, correctly bumped), so
+**the next release must set 4 or higher or
 it will not install over v1.0 for anybody.**
 
 `VersionGuardTest` does not catch this. It asserts that `versionCode` is a
@@ -180,8 +191,8 @@ neither `debuggable` nor `testOnly`, roughly 30 MB or less, and fastlane
 metadata in the app's own repository with at least a short description, full
 description, icon and screenshots.
 
-Every one of those is satisfied by the table above **except the screenshots**,
-which is the only outstanding item on their side.
+Every one of those is now satisfied — the table above, plus real screenshots at
+`android/fastlane/metadata/android/en-US/images/phoneScreenshots/`.
 
 **The submission is the owner's action.** Once the release exists:
 
@@ -206,15 +217,15 @@ Builds from source on their own servers and signs with their own key, so
 inclusion is a stronger statement than IzzyOnDroid's and costs more to get.
 
 The recipe is drafted at **`android/fdroid/io.github.sudomegas.saat.yml`**, with
-its reasoning in comments. Two fields cannot be finished yet:
+its reasoning in comments, and now carries a `Builds:` entry per tagged release
+— `1.0` and `1.1` — each with its real 40-character commit hash, since both
+tags exist. Both entries share the field most likely to be wrong on the first
+build:
 
-- `commit:` currently names the tag `android-v1.0`. Their reference asks for the
-  full 40-character hash, which does not exist until the tag is cut.
-- `subdir: android/app` is the field most likely to be wrong on the first build.
-  **This repository's gradle root is `android/`, not the repository root**,
-  because the desktop application owns the top level — so `gradlew` and
-  `settings.gradle.kts` sit one level above the module. If their builder cannot
-  find them, `android` is the fallback to try.
+- `subdir: android/app`. **This repository's gradle root is `android/`, not the
+  repository root**, because the desktop application owns the top level — so
+  `gradlew` and `settings.gradle.kts` sit one level above the module. If their
+  builder cannot find them, `android` is the fallback to try.
 
 Two properties of this project happen to suit them well, neither by accident:
 

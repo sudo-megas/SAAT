@@ -1,0 +1,3 @@
+Pick for me: a button on the Calendar tab suggests a watch to wear today —
+Random, or Weighted toward whatever you haven't worn in a while. Re-roll as
+many times as you like; nothing is recorded until you confirm it.
