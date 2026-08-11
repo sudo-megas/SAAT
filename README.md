@@ -1,5 +1,4 @@
-<img width="256" height="256" alt="" width="96" align="left" hspace="12" vspace="4" src="https://github.com/user-attachments/assets/9de5660a-993a-4954-adcd-05f7a178810f" />
-
+<img width="256" height="256" align="center" src="https://github.com/user-attachments/assets/9de5660a-993a-4954-adcd-05f7a178810f" /> 
 <h1>SAAT</h1>
 
 <p>
@@ -9,11 +8,13 @@
 </p>
 
 <p>
-  <img alt="Windows installer" src="https://img.shields.io/badge/Windows-37.2%20MB-0078D6?style=for-the-badge&logo=windows&logoColor=white">
-  <img alt="Debian package"    src="https://img.shields.io/badge/Debian-64.4%20MB-A81D33?style=for-the-badge&logo=debian&logoColor=white">
   <img alt="Linux tarball"     src="https://img.shields.io/badge/Linux-81.8%20MB-1793D1?style=for-the-badge&logo=linux&logoColor=white">
+  <img alt="Debian package"    src="https://img.shields.io/badge/Debian-64.4%20MB-A81D33?style=for-the-badge&logo=debian&logoColor=white">
+  <img alt="Windows installer" src="https://img.shields.io/badge/Windows-37.2%20MB-0078D6?style=for-the-badge&logo=windows&logoColor=white">
   <img alt="Android APK"       src="https://img.shields.io/badge/Android-9.9%20MB-3DDC84?style=for-the-badge&logo=android&logoColor=white">
+ 
 </p>
+
 
 *Saat Koleksiyonu* · **Watch Collection**
 
