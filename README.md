@@ -2,15 +2,16 @@
     <img width="33%" src="https://github.com/user-attachments/assets/9de5660a-993a-4954-adcd-05f7a178810f">
 </p>
 
-<h1>SAAT</h1>
+<h1 align="center">SAAT</h1>
+<p align="center"><strong>Watch Collection / Saat Koleksiyonu</strong></p>
 
-<p>
+<p align="center">
   <img alt="Desktop version" src="https://img.shields.io/badge/desktop-v2.1.1-C9A227?style=for-the-badge">
   <img alt="Android version" src="https://img.shields.io/badge/android-v1.1-C9A227?style=for-the-badge">
   <img alt="Licence"         src="https://img.shields.io/badge/licence-GPL--3.0--or--later-6E7B8B?style=for-the-badge">
 </p>
 
-<p>
+<p align="center">
   <img alt="Arch Linux"        src="https://img.shields.io/badge/Arch Linux-81.8%20MB-1793D1?style=for-the-badge&logo=linux&logoColor=white">
   <img alt="Debian package"    src="https://img.shields.io/badge/Debian-64.4%20MB-A81D33?style=for-the-badge&logo=debian&logoColor=white">
   <img alt="Windows installer" src="https://img.shields.io/badge/Windows-37.2%20MB-0078D6?style=for-the-badge&logo=windows&logoColor=white">
@@ -19,7 +20,6 @@
 </p>
 
 
-*Saat Koleksiyonu* · **Watch Collection**
 
 ---
 
