@@ -35,7 +35,7 @@ Builds:
     # The full hash of `android-v1.0`, not the tag name. F-Droid's reference
     # asks for the hash because a tag can be moved and a hash cannot — which is
     # the whole point of building from someone else's source.
-    commit: 0c68a6e57ed1ce8ffb9c45221c4e7a7ee9f9097e
+    commit: 902bf891ebd58c89d32202e8a069e4e6b081221a
 
     # The path the `build` directory is generated in, which is F-Droid's own
     # definition of this field. THIS IS THE FIELD MOST LIKELY TO NEED CHANGING
@@ -51,7 +51,7 @@ Builds:
 
   - versionName: '1.1'
     versionCode: 3
-    commit: f0b59f1eb57153c26a0199ba57db96f121713241
+    commit: 9ae84fa645b9c722ffca08fb828b3030129800cc
     subdir: android/app
     gradle:
       - yes
