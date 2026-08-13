@@ -119,6 +119,63 @@ OPTIONAL = {
         "Qt print support, dlopened on demand. SAAT's only document output is "
         "a PDF written through QPdfWriter, which does not go through CUPS"
     ),
+    # Qt's GTK3 platform-theme plugin (platformthemes/libqgtk3.so), dlopened
+    # only when QT_QPA_PLATFORMTHEME=gtk3 is set. SAAT never sets it, so a
+    # machine without a GTK3 desktop stack runs SAAT exactly as it would with
+    # one -- Qt silently skips the plugin, the same reasoning as libtiff and
+    # libcups above. This masked itself on Ubuntu CI runners, which happen to
+    # have the whole GTK3/X11 stack pre-installed regardless of Depends; the
+    # Arch container that builds the .pkg.tar.zst has none of it, which is
+    # what surfaced this whole group. Everything from libgdk-3 down is pulled
+    # in only transitively through this one plugin.
+    "libgtk-3.so.0": "GTK3 platform-theme plugin, see the comment above",
+    "libgdk-3.so.0": "same GTK3 theme plugin",
+    "libgdk_pixbuf-2.0.so.0": "same GTK3 theme plugin",
+    "libatk-1.0.so.0": "same GTK3 theme plugin",
+    "libatk-bridge-2.0.so.0": "same GTK3 theme plugin, via libgtk-3",
+    "libatspi.so.0": "accessibility bus client, pulled in by libatk-bridge-2.0",
+    "libcairo.so.2": "same GTK3 theme plugin",
+    "libcairo-gobject.so.2": "same GTK3 theme plugin",
+    "libpango-1.0.so.0": "same GTK3 theme plugin",
+    "libpangocairo-1.0.so.0": "same GTK3 theme plugin",
+    "libpangoft2-1.0.so.0": "pulled in by libgtk-3, same GTK3 theme plugin",
+    "libharfbuzz.so.0": "text shaping, pulled in by libpango-1.0",
+    "libgraphite2.so.3": "font-shaping backend, pulled in by libharfbuzz",
+    "libthai.so.0": "Thai text segmentation, pulled in by libpango-1.0",
+    "libdatrie.so.1": "trie data structure, pulled in by libthai",
+    "libfribidi.so.0": "bidirectional text, pulled in by libgdk-3",
+    "libepoxy.so.0": "GL dispatch library, pulled in by libgdk-3",
+    "libjpeg.so.8": "JPEG codec, pulled in by libgdk_pixbuf-2.0",
+    "libselinux.so.1": (
+        "SELinux labelling, pulled in transitively through GLib's libgio -- "
+        "Arch does not use SELinux"
+    ),
+    "libpcre.so.3": "regex engine, pulled in transitively through GLib",
+    "libpixman-1.so.0": "pixel manipulation, pulled in by libcairo",
+    "libpng16.so.16": "PNG codec, pulled in by libcairo",
+    "libXcomposite.so.1": "X11 compositing extension client, pulled in by libgdk-3",
+    "libXcursor.so.1": "X11 cursor-theme client, pulled in by libgdk-3",
+    "libXdamage.so.1": "X11 damage extension client, pulled in by libgdk-3",
+    "libXfixes.so.3": "X11 fixes extension client, pulled in by libXcursor",
+    "libXi.so.6": "X11 input extension client, pulled in by libatspi",
+    "libXinerama.so.1": "X11 multi-monitor extension client, pulled in by libgdk-3",
+    "libXrandr.so.2": "X11 RandR extension client, pulled in by libgdk-3",
+    "libXrender.so.1": "X11 rendering extension client, pulled in by libXcursor",
+    # Transitive dependencies of the already-optional libtiff.so.5 above --
+    # moot for the same reason: the TIFF plugin they belong to never loads.
+    "libwebp.so.7": "WebP codec, pulled in by the already-optional libtiff.so.5",
+    "libjbig.so.0": "JBIG codec, pulled in by the already-optional libtiff.so.5",
+    "libdeflate.so.0": "compression library, pulled in by the already-optional libtiff.so.5",
+    # Same eglfs KMS/DRM backend as libdrm/libgbm above -- font lookup and
+    # rasterising for a QPA backend SAAT never selects on X11 or Wayland.
+    "libfontconfig.so.1": "font lookup for the eglfs QPA backend, see libdrm.so.2 note above",
+    "libfreetype.so.6": "font rasterising for the eglfs QPA backend, see libdrm.so.2 note above",
+    # libXdmcp (bundled, and itself unconditionally provided) implements the
+    # X Display Manager Control Protocol -- authenticating a *remote* X
+    # login -- which a SAAT session run from a local desktop or Wayland
+    # session never negotiates.
+    "libbsd.so.0": "legacy BSD compatibility routines, pulled in by libXdmcp's XDMCP support",
+    "libmd.so.0": "message-digest routines, pulled in by libbsd",
 }
 
 GLIBC_FLOOR = (2, 35)  # the ubuntu-22.04 build runner; see release.yml's header
