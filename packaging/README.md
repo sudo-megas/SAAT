@@ -137,6 +137,39 @@ Both are belt and braces for the same outcome, and the outcome is asserted for
 real — not reasoned about — by the CI smoke test, which launches
 `/usr/bin/saat` from an actually-installed package and confirms it starts.
 
+## The Arch package
+
+Same "one build, many artifacts" rule as the `.deb`: the `pkg` job in the release
+workflow wraps the `build-linux-x86_64` tarball rather than building anything, via
+`makepkg` and `packaging/arch/PKGBUILD.in` (a template -- `build-pkg.sh` fills in
+`pkgver`, `pkgrel` and the source tarball's checksum and writes the result as
+`PKGBUILD` before calling `makepkg`). `package()` calls the same `stage-tree.sh`
+the `.deb` uses, so the two payloads cannot drift apart either.
+
+Two differences from the `.deb`, both consequences of Arch not being Debian:
+
+- **No maintainer scripts.** Nothing here needs a `postinst`/`postrm` equivalent.
+  `hicolor-icon-theme` and `desktop-file-utils` ship their own pacman hooks that
+  refresh the desktop and icon caches on any package touching those paths --
+  calling `update-desktop-database`/`gtk-update-icon-cache` from a package's own
+  `.install` scriplet is what current Arch packaging guidelines deprecate that
+  behaviour in favour of. This also means removal needs no script to *not* touch
+  `$HOME`, unlike `postrm` -- the package simply owns nothing there.
+- **The `Depends` line has no version floor.** `libc6 (>= 2.35)` exists in
+  `debian/control.in` because Debian, Ubuntu, Fedora and Mint ship a range of glibc
+  versions across still-supported releases. Arch is rolling; there is only ever one
+  glibc in the repos, so `depends=('glibc' ...)` names the package and nothing else.
+  `audit-bundle.py`'s glibc-floor check still runs -- see `--check-resolution`,
+  used in the `pkg` job the same way the `deb` job uses it -- because the *build
+  runner's* glibc is still what matters, independent of which distribution
+  eventually installs the result.
+
+`packaging/build-pkg.sh --tarball <path> [--version X.Y.Z]` is also how
+`arch-backfill.yml` produces a package for a release that shipped before the `pkg`
+job existed: it downloads that release's own tarball asset first, then calls this
+script exactly as the `pkg` job does, so the backfilled package and the tarball
+that release actually shipped are byte-identical.
+
 ## Data safety
 
 **Removing or purging the package never deletes a collection.** The package

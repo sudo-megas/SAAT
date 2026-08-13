@@ -370,6 +370,146 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+  # The Arch Linux package. Same relationship to build-linux-x86_64 as the
+  # deb job above: wraps the tarball that job produced rather than building
+  # anything itself, so the tarball and this package are byte-identical
+  # inside and cannot drift apart. Runs inside an archlinux container
+  # because makepkg only exists there -- the ubuntu-22.04 runner every
+  # other job in this workflow uses has no pacman.
+  pkg:
+    needs: build-linux-x86_64
+    runs-on: ubuntu-22.04
+    container:
+      image: archlinux:base-devel
+    steps:
+      # -Syu rather than -Sy: Arch does not support partial upgrades, and a
+      # base-devel image pulled at an arbitrary time can be behind current.
+      # git and python are the only two base-devel lacks that this job
+      # needs -- checkout needs git, stage-tree.sh's version lookup and
+      # audit-bundle.py both need python3.
+      - name: Install git and Python
+        run: pacman -Syu --noconfirm --needed git python
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: saat-linux-x86_64
+          path: artifacts
+
+      # makepkg refuses to run as root, which every step in a fresh
+      # container otherwise does. NOPASSWD sudo is what lets
+      # `makepkg --syncdeps` (below, inside build-pkg.sh) install this
+      # package's own depends -- libglvnd, wayland, the xcb-util family --
+      # onto a base-devel image that starts with none of them.
+      - name: Create an unprivileged build user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      # Globbed rather than recomputing the build job's label, same as the
+      # deb job: the tarball is whatever that job uploaded, and there is
+      # exactly one.
+      - name: Build the package
+        run: |
+          set -euo pipefail
+          tarball=$(ls artifacts/*.tar.gz)
+          echo "wrapping $tarball"
+          sudo -u builder ./packaging/build-pkg.sh --tarball "$tarball" --output dist
+
+      - name: Install it the way a user would
+        run: pacman -U --noconfirm dist/saat-*.pkg.tar.zst
+
+      - name: The entry point exists and is what it claims to be
+        run: |
+          set -euo pipefail
+          test -L /usr/bin/saat
+          test -x /usr/bin/saat
+          echo "/usr/bin/saat -> $(readlink -f /usr/bin/saat)"
+          [ "$(readlink -f /usr/bin/saat)" = "/usr/lib/saat/SAAT" ]
+          test -f /usr/lib/saat/.installed
+          test -f /usr/share/applications/saat.desktop
+          test -f /usr/share/icons/hicolor/256x256/apps/saat.png
+          test -f /usr/share/licenses/saat/LICENSE
+          test -f /usr/share/man/man1/saat.1.gz
+
+      # Same reasoning as the deb job's identical step: the build-time
+      # Depends list (here, the PKGBUILD template's depends= array) names a
+      # package for every external soname. This proves those were the
+      # right package names, against a copy pacman installed with only the
+      # declared dependencies.
+      - name: Every library the bundle needs actually resolves
+        run: python3 packaging/audit-bundle.py --check-resolution /usr/lib/saat
+
+      - name: It starts, and resolves its data to the per-user locations
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          test ! -e "$HOME/.local/share/saat"
+          test ! -e "$HOME/.config/saat"
+
+          set +e
+          timeout --kill-after=5s 20s /usr/bin/saat > /tmp/pkg-smoke.log 2>&1
+          status=$?
+          set -e
+          case "$status" in
+            0|124|137|143) echo "healthy launch (exit $status)" ;;
+            *)
+              echo "::error::installed saat exited $status within the smoke-test window"
+              cat /tmp/pkg-smoke.log
+              exit 1
+              ;;
+          esac
+          if grep -iqE "could not load the qt platform plugin|Traceback \(most recent call last\)" /tmp/pkg-smoke.log; then
+            echo "::error::smoke test log contains a known failure signature"
+            cat /tmp/pkg-smoke.log
+            exit 1
+          fi
+
+          test -d "$HOME/.local/share/saat"
+          test -d "$HOME/.config/saat"
+          echo "installed mode confirmed: data resolved to ~/.local/share/saat"
+
+      # Same data-safety guarantee the deb job asserts for apt remove and
+      # purge, here for pacman -Rns -- the strongest removal a user might
+      # actually type, since Arch has no separate purge command.
+      - name: A collection survives pacman -Rns
+        run: |
+          set -euo pipefail
+          watch_dir="$HOME/.local/share/saat/watches/a-watch-the-user-entered"
+          mkdir -p "$watch_dir"
+          printf 'brand = "Stub"\nmodel = "Purge Guard"\n' > "$watch_dir/watch.toml"
+          printf 'stub = true\n' > "$HOME/.config/saat/config.toml"
+          sha_before=$(sha256sum "$watch_dir/watch.toml" | cut -d' ' -f1)
+
+          pacman -Rns --noconfirm saat
+          test ! -e /usr/bin/saat
+          test ! -e /usr/lib/saat
+          test ! -e /usr/share/applications/saat.desktop
+
+          test -f "$watch_dir/watch.toml" || {
+            echo "::error::pacman -Rns deleted the user's collection"
+            exit 1
+          }
+          test -f "$HOME/.config/saat/config.toml" || {
+            echo "::error::pacman -Rns deleted the user's configuration"
+            exit 1
+          }
+          [ "$(sha256sum "$watch_dir/watch.toml" | cut -d' ' -f1)" = "$sha_before" ] || {
+            echo "::error::pacman -Rns altered the user's collection"
+            exit 1
+          }
+          echo "collection intact after pacman -Rns"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: saat-pkg-x86_64
+          path: dist/saat-*.pkg.tar.zst
+          if-no-files-found: error
+          compression-level: 0
+
   # Windows. Two artifacts from one build, the same shape as Linux: a
   # portable .zip that keeps its data beside the executable, and an Inno
   # Setup installer that writes the .installed marker and uses
@@ -564,7 +704,7 @@ jobs:
     # Every build job must succeed before anything is published, so a
     # second platform failing can never leave a half-populated release
     # behind.
-    needs: [build-linux-x86_64, deb, build-windows-x86_64]
+    needs: [build-linux-x86_64, deb, pkg, build-windows-x86_64]
     # The dry run stops here: workflow_dispatch builds, tests and smoke-
     # tests, then leaves the artifact attached to the workflow run and
     # publishes nothing at all.
