@@ -1,0 +1,58 @@
+# Maintainer: sudo-megas <gonzalorodriguez761@gmail.com>
+#
+# Template, not a real PKGBUILD -- packaging/build-pkg.sh fills in the
+# @PLACEHOLDER@ values and writes the result as PKGBUILD before calling
+# makepkg. See packaging/README.md for why this wraps an already-built
+# tarball instead of compiling anything: same "one build, many artifacts"
+# rule that gives the .deb its Depends line and its byte-identical payload.
+#
+# package() calls the checked-out repository's own packaging/stage-tree.sh
+# to compose the FHS tree, exactly as build-deb.sh does -- one source of
+# truth for the layout, so the .deb and this package cannot drift apart.
+# $SAAT_REPO must be exported by the caller before `makepkg` runs.
+pkgname=saat
+pkgver=@VERSION@
+pkgrel=@PKGREL@
+pkgdesc="Catalogue a mechanical-watch collection"
+arch=('x86_64')
+url="https://github.com/sudo-megas/SAAT"
+license=('GPL-3.0-or-later')
+
+# Mirrors packaging/audit-bundle.py's REQUIRED table (the sonames the
+# bundle needs from the system, i.e. everything it does NOT carry itself),
+# translated from Debian package names to Arch ones. Verified by actually
+# installing this package and running
+# `packaging/audit-bundle.py --check-resolution /usr/lib/saat` in CI --
+# see the `pkg` job in .github/workflows/release.yml -- rather than trusted
+# on paper.
+depends=(
+  'glibc'
+  'libglvnd'
+  'wayland'
+  'libxcb'
+  'xcb-util'
+  'xcb-util-image'
+  'xcb-util-keysyms'
+  'xcb-util-renderutil'
+  'xcb-util-wm'
+  'xcb-util-cursor'
+  'libxkbcommon'
+  'libxkbcommon-x11'
+  'libx11'
+)
+
+# The bundle is PyInstaller output: stripping or debug-splitting it is at
+# best slow and at worst breaks Qt's own plugin loading (see build-deb.sh,
+# which never strips the .deb's copy either).
+options=('!strip' '!debug')
+
+source=("@SOURCE@")
+sha256sums=('@SHA256@')
+
+# source= has already extracted the tarball to $srcdir/SAAT (its own
+# top-level directory, same as `tar -xzf ...-linux-x86_64.tar.gz`) -- there
+# is nothing to build.
+package() {
+  "$SAAT_REPO/packaging/stage-tree.sh" --dist "$srcdir/SAAT" --stage "$pkgdir"
+  install -Dm644 "$SAAT_REPO/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

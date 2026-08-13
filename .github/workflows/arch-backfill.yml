@@ -1,0 +1,161 @@
+# One-off: builds a real Arch package for a release that already shipped
+# without one. Wraps the exact tarball that release's `linux-x86_64.tar.gz`
+# asset already is -- downloaded from that release's own page, not
+# rebuilt -- so the package is byte-identical to what was published, per
+# the same "one build, many artifacts" rule release.yml's `deb` and `pkg`
+# jobs both follow.
+#
+# Manual dispatch only, and it never publishes anything itself: like every
+# workflow_dispatch run in this repository, it leaves its output as a
+# downloadable workflow artifact. Attaching it to the release it was built
+# for is a separate, deliberate step:
+#
+#   gh release upload <tag> dist/saat-<version>-1-x86_64.pkg.tar.zst
+#
+# Existed for exactly one thing: backfilling v2.1.1 once the `pkg` job
+# landed in release.yml. Any tag after that already gets a real package
+# from release.yml itself and needs no backfill -- but the tag is an input
+# rather than hardcoded, in case another gap is ever found.
+name: Arch package backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build a .pkg.tar.zst for, e.g. v2.1.1"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  pkg-backfill:
+    runs-on: ubuntu-22.04
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install git, Python, curl and jq
+        run: pacman -Syu --noconfirm --needed git python curl jq
+
+      - uses: actions/checkout@v4
+
+      - name: Resolve the release tarball for ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          version="${tag#v}"
+          echo "version=$version" >> "$GITHUB_ENV"
+
+          url=$(curl -sf "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" \
+            | jq -er '[.assets[] | select(.name | endswith("-linux-x86_64.tar.gz"))]
+                      | if length == 1 then .[0].browser_download_url
+                        else error("expected exactly one linux-x86_64.tar.gz asset, found \(length)")
+                        end')
+          echo "tarball_url=$url" >> "$GITHUB_ENV"
+          echo "resolved $tag ($version) -> $url"
+
+      - name: Download the release tarball
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          curl -sfL -o "artifacts/$(basename "$tarball_url")" "$tarball_url"
+          sha256sum "artifacts/$(basename "$tarball_url")"
+
+      # Same reasoning as the pkg job in release.yml: makepkg refuses root,
+      # and --syncdeps needs passwordless sudo to install this package's
+      # own depends onto a base-devel image that starts with none of them.
+      - name: Create an unprivileged build user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      - name: Build the package
+        run: |
+          set -euo pipefail
+          tarball="artifacts/$(basename "$tarball_url")"
+          sudo -u builder ./packaging/build-pkg.sh \
+            --tarball "$tarball" --version "$version" --output dist
+
+      - name: Install it the way a user would
+        run: pacman -U --noconfirm dist/saat-*.pkg.tar.zst
+
+      - name: The entry point exists and is what it claims to be
+        run: |
+          set -euo pipefail
+          test -L /usr/bin/saat
+          test -x /usr/bin/saat
+          [ "$(readlink -f /usr/bin/saat)" = "/usr/lib/saat/SAAT" ]
+          test -f /usr/lib/saat/.installed
+          test -f /usr/share/applications/saat.desktop
+          test -f /usr/share/icons/hicolor/256x256/apps/saat.png
+          test -f /usr/share/licenses/saat/LICENSE
+          test -f /usr/share/man/man1/saat.1.gz
+
+      - name: Every library the bundle needs actually resolves
+        run: python3 packaging/audit-bundle.py --check-resolution /usr/lib/saat
+
+      - name: It starts, and resolves its data to the per-user locations
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          test ! -e "$HOME/.local/share/saat"
+          test ! -e "$HOME/.config/saat"
+
+          set +e
+          timeout --kill-after=5s 20s /usr/bin/saat > /tmp/pkg-smoke.log 2>&1
+          status=$?
+          set -e
+          case "$status" in
+            0|124|137|143) echo "healthy launch (exit $status)" ;;
+            *)
+              echo "::error::installed saat exited $status within the smoke-test window"
+              cat /tmp/pkg-smoke.log
+              exit 1
+              ;;
+          esac
+          if grep -iqE "could not load the qt platform plugin|Traceback \(most recent call last\)" /tmp/pkg-smoke.log; then
+            echo "::error::smoke test log contains a known failure signature"
+            cat /tmp/pkg-smoke.log
+            exit 1
+          fi
+
+          test -d "$HOME/.local/share/saat"
+          test -d "$HOME/.config/saat"
+          echo "installed mode confirmed: data resolved to ~/.local/share/saat"
+
+      - name: A collection survives pacman -Rns
+        run: |
+          set -euo pipefail
+          watch_dir="$HOME/.local/share/saat/watches/a-watch-the-user-entered"
+          mkdir -p "$watch_dir"
+          printf 'brand = "Stub"\nmodel = "Purge Guard"\n' > "$watch_dir/watch.toml"
+          printf 'stub = true\n' > "$HOME/.config/saat/config.toml"
+          sha_before=$(sha256sum "$watch_dir/watch.toml" | cut -d' ' -f1)
+
+          pacman -Rns --noconfirm saat
+          test ! -e /usr/bin/saat
+          test ! -e /usr/lib/saat
+          test ! -e /usr/share/applications/saat.desktop
+
+          test -f "$watch_dir/watch.toml" || {
+            echo "::error::pacman -Rns deleted the user's collection"
+            exit 1
+          }
+          test -f "$HOME/.config/saat/config.toml" || {
+            echo "::error::pacman -Rns deleted the user's configuration"
+            exit 1
+          }
+          [ "$(sha256sum "$watch_dir/watch.toml" | cut -d' ' -f1)" = "$sha_before" ] || {
+            echo "::error::pacman -Rns altered the user's collection"
+            exit 1
+          }
+          echo "collection intact after pacman -Rns"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: saat-pkg-x86_64-${{ inputs.tag }}
+          path: dist/saat-*.pkg.tar.zst
+          if-no-files-found: error
+          compression-level: 0

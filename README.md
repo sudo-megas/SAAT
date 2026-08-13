@@ -46,7 +46,7 @@ Qt and Python, so it does not care what your system already has.
 - **Windows 10 and 11** — none at all.
 - **Linux** — glibc 2.35 or newer. That means Ubuntu 22.04+, Debian 12+, Fedora 36+,
   Mint 21+, and current Arch. Nothing else.
-- **Android 8.0 or newer** — none, and it declares **no permissions at all** (see 3.E).
+- **Android 8.0 or newer** — none, and it declares **no permissions at all** (see 3.F).
 
 **To build it yourself:**
 
@@ -93,7 +93,34 @@ Two things that trip people up, so they do not look like failures:
 [`docs/BUILDING.md`](docs/BUILDING.md) covers building the portable folder, the Windows
 installer and the `.deb` if you want the packages too.
 
-### 3.B Arch Linux and every other distribution
+### 3.B Arch Linux
+
+Download **`saat-2.1.1-1-x86_64.pkg.tar.zst`** from the release page and install it:
+
+```sh
+sudo pacman -U saat-2.1.1-1-x86_64.pkg.tar.zst
+```
+
+SAAT then appears in your application menu. Like the `.deb` below, it bundles its own Qt
+and Python rather than linking against Arch's own `pyside6` — see [3.C](#3c-every-other-linux-distribution)
+if you would rather not install anything at all.
+
+To remove it:
+
+```sh
+sudo pacman -Rns saat
+```
+
+**Removing it never touches your collection.** `~/.local/share/saat` and `~/.config/saat`
+are left exactly as they are — asserted automatically on every release build, not merely
+intended.
+
+**There is no AUR package.** This `.pkg.tar.zst` is a binary built once and attached to the
+GitHub release, not something `pacman -Syu` or an AUR helper will ever find on its own —
+getting the next version means downloading it by hand again, the same as every other
+platform's download on this page.
+
+### 3.C Every other Linux distribution
 
 Download **`SAAT-v2.1.1-linux-x86_64.tar.gz`**, extract it, run it:
 
@@ -104,15 +131,13 @@ tar -xzf SAAT-v2.1.1-linux-x86_64.tar.gz
 
 That folder is self-contained and **fully portable** — copy it to a USB stick and your
 collection travels inside it, because in this mode SAAT keeps everything *beside the
-executable* rather than in your home folder.
+executable* rather than in your home folder. This is also the way to run SAAT on Arch
+without installing a package at all.
 
 For a normal system-wide install with a menu entry, there is an
 [`install.sh`](install.sh) in the repository.
 
-**There is no AUR package.** Not yet, and possibly not ever — a command you could paste
-that would simply fail is worse than saying so. The tarball above is the Arch story.
-
-### 3.C Debian, Ubuntu, Mint and derivatives
+### 3.D Debian, Ubuntu, Mint and derivatives
 
 Download **`saat_2.1.1-1_amd64.deb`** and install it:
 
@@ -133,7 +158,7 @@ sudo apt remove saat        # or: sudo apt purge saat
 exactly as they are, purge included — asserted automatically on every release build, not
 merely intended.
 
-### 3.D Windows 10 and 11
+### 3.E Windows 10 and 11
 
 1. Download **`SAAT-v2.1.1-windows-x64-setup.exe`** and run it.
 2. **Windows will show "Windows protected your PC".** This is expected. Click
@@ -148,7 +173,7 @@ merely intended.
 There is also a portable **`.zip`** if you would rather not install anything — extract it
 and run `SAAT.exe`. In that mode your collection lives inside the extracted folder.
 
-### 3.E Android 8.0 and newer
+### 3.F Android 8.0 and newer
 
 Download **`saat-android-1.1.apk`** from the [Android release page][rel-android].
 
