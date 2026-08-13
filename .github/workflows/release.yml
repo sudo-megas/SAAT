@@ -387,6 +387,15 @@ jobs:
       # git and python are the only two base-devel lacks that this job
       # needs -- checkout needs git, stage-tree.sh's version lookup and
       # audit-bundle.py both need python3.
+      # The archlinux Docker image ships a pacman.conf with NoExtract rules
+      # (to keep the image small) that skip installing man pages -- pacman
+      # still records the file as owned by the package, it just never
+      # writes it to disk. That's a property of this container image, not
+      # of the package: strip it so this environment behaves like the real
+      # installs the verification steps below are meant to validate.
+      - name: Allow man pages to actually extract
+        run: sed -i '/^NoExtract/d' /etc/pacman.conf
+
       - name: Install git and Python
         run: pacman -Syu --noconfirm --needed git python
 
