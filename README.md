@@ -6,18 +6,22 @@
 <p align="center"><strong>Watch Collection / Saat Koleksiyonu</strong></p>
 
 <p align="center">
-  <img alt="Desktop version" src="https://img.shields.io/badge/desktop-v2.1.1-C9A227?style=for-the-badge">
-  <img alt="Android version" src="https://img.shields.io/badge/android-v1.1-C9A227?style=for-the-badge">
-  <img alt="Licence"         src="https://img.shields.io/badge/licence-GPL--3.0--or--later-6E7B8B?style=for-the-badge">
-</p>
-
-<p align="center">
   <img alt="Arch Linux"        src="https://img.shields.io/badge/Arch Linux-78.2%20MB-1793D1?style=for-the-badge&logo=linux&logoColor=white">
   <img alt="Debian package"    src="https://img.shields.io/badge/Debian-64.4%20MB-A80030?style=for-the-badge&logo=debian&logoColor=white">
   <img alt="Windows installer" src="https://img.shields.io/badge/Windows-37.2%20MB-0078D6?style=for-the-badge&logo=windows&logoColor=white">
   <img alt="Android APK"       src="https://img.shields.io/badge/Android-9.9%20MB-3DDC84?style=for-the-badge&logo=android&logoColor=white">
  
 </p>
+
+
+
+<p align="center">
+  <img alt="Desktop version" src="https://img.shields.io/badge/desktop-v2.1.1-C9A227?style=for-the-badge">
+  <img alt="Android version" src="https://img.shields.io/badge/android-v1.1-C9A227?style=for-the-badge">
+  <img alt="Licence"         src="https://img.shields.io/badge/licence-GPL--3.0--or--later-6E7B8B?style=for-the-badge">
+</p>
+
+
 
 
 
